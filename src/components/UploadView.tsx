@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Sparkles, CheckCircle2, TrendingUp } from 'lucide-react';
 import { UploadZone } from './upload/UploadZone';
 import { AnalysisProgress } from './upload/AnalysisProgress';
@@ -12,6 +12,7 @@ interface UploadViewProps {
 export function UploadView({ onAnalysisComplete }: UploadViewProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +41,27 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
     }
   };
 
+  useEffect(() => {
+    let interval: number;
+
+    if (isAnalyzing) {
+      setAnalysisProgress(0);
+      interval = setInterval(() => {
+        setAnalysisProgress(prev => {
+          if (prev >= 95) return prev;
+          const increment = Math.random() * 10 + 5;
+          return Math.min(prev + increment, 95);
+        });
+      }, 500);
+    } else {
+      setAnalysisProgress(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isAnalyzing]);
+
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
@@ -47,11 +69,15 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
 
     try {
       const { analysisId } = await analyzeDeck(selectedFile);
-      onAnalysisComplete({ analysisId });
+      setAnalysisProgress(100);
+      setTimeout(() => {
+        onAnalysisComplete({ analysisId });
+      }, 500);
     } catch (error) {
       console.error('Analysis failed:', error);
       alert('Failed to analyze deck. Please try again.');
       setIsAnalyzing(false);
+      setAnalysisProgress(0);
     }
   };
 
@@ -217,6 +243,7 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
         isDragging={isDragging}
         selectedFile={selectedFile}
         isAnalyzing={isAnalyzing}
+        analysisProgress={analysisProgress}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

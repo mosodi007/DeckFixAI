@@ -1,11 +1,13 @@
-import { Upload, FileText, CheckCircle2, Sparkles } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { Button } from '../ui/Button';
+import { ProgressBar } from '../ui/ProgressBar';
 
 interface UploadZoneProps {
   isDragging: boolean;
   selectedFile: File | null;
   isAnalyzing: boolean;
+  analysisProgress: number;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
@@ -19,6 +21,7 @@ export function UploadZone({
   isDragging,
   selectedFile,
   isAnalyzing,
+  analysisProgress,
   onDragOver,
   onDragLeave,
   onDrop,
@@ -53,13 +56,31 @@ export function UploadZone({
       {selectedFile ? (
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/60 backdrop-blur-md rounded-full mb-4 border border-green-200">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+            {isAnalyzing ? (
+              <Loader2 className="w-8 h-8 text-slate-700 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            )}
           </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">File Ready for Analysis</h3>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+            {isAnalyzing ? 'Analyzing Your Pitch Deck...' : 'File Ready for Analysis'}
+          </h3>
           <p className="text-slate-600 mb-1">{selectedFile.name}</p>
           <p className="text-sm text-slate-500 mb-6">
             {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
           </p>
+
+          {isAnalyzing && (
+            <div className="mb-6 max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-slate-700">Analyzing</span>
+                <span className="text-sm font-semibold text-slate-900">{Math.round(analysisProgress)}%</span>
+              </div>
+              <ProgressBar value={analysisProgress} max={100} height="md" />
+              <p className="text-xs text-slate-500 mt-2">This usually takes 30-60 seconds</p>
+            </div>
+          )}
+
           <div className="flex gap-3 justify-center">
             <Button
               onClick={onAnalyze}

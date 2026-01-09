@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SummarySection } from './analysis/SummarySection';
 import { GeneralReviewSection } from './analysis/GeneralReviewSection';
 import { KeyMetricsSection } from './analysis/KeyMetricsSection';
@@ -35,6 +35,8 @@ const sections = [
 
 export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: AnalysisViewProps) {
   const [activeSection, setActiveSection] = useState('summary');
+  const navRef = useRef<HTMLElement>(null);
+  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -56,6 +58,26 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
     return () => observer.disconnect();
   }, []);
 
+  // Auto-scroll navigation menu when active section changes
+  useEffect(() => {
+    const activeButton = buttonRefs.current[activeSection];
+    if (activeButton && navRef.current) {
+      const nav = navRef.current;
+      const buttonLeft = activeButton.offsetLeft;
+      const buttonWidth = activeButton.offsetWidth;
+      const navWidth = nav.offsetWidth;
+      const navScrollLeft = nav.scrollLeft;
+
+      // Calculate the center position
+      const targetScroll = buttonLeft - navWidth / 2 + buttonWidth / 2;
+
+      nav.scrollTo({
+        left: targetScroll,
+        behavior: 'smooth',
+      });
+    }
+  }, [activeSection]);
+
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -72,10 +94,11 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
     <div className="max-w-7xl mx-auto px-4 pb-8 sm:px-6 lg:px-8">
       {/* Navigation Menu */}
       <div className="sticky top-16 z-40 bg-white border-b border-slate-200 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-8">
-        <nav className="flex gap-1 overflow-x-auto py-3 scrollbar-hide">
+        <nav ref={navRef} className="flex gap-1 overflow-x-auto py-3 scrollbar-hide">
           {sections.map((section) => (
             <button
               key={section.id}
+              ref={(el) => (buttonRefs.current[section.id] = el)}
               onClick={() => scrollToSection(section.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                 activeSection === section.id

@@ -72,6 +72,7 @@ export function AnalysisView({ data }: AnalysisViewProps) {
         overallScore={data.overallScore}
         investmentGrade={data.investmentGrade}
         fundingOdds={data.fundingOdds}
+        keyMetrics={data.keyMetrics}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

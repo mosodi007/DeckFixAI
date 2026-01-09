@@ -51,6 +51,17 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
         overallScore: 7.8,
         investmentGrade: 'B+',
         fundingOdds: 'High',
+        keyMetrics: {
+          industry: 'Fintech',
+          servedMarket: 'Nigeria',
+          marketSize: {
+            tam: '$5B',
+            sam: '$3B',
+            som: '$1B'
+          },
+          traction: '$3M ARR, 2 Partnerships',
+          teamSize: 3
+        },
         metrics: {
           tractionScore: 8.2,
           disruptionScore: 7.5,

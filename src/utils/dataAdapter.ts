@@ -65,7 +65,8 @@ function getInvestmentGrade(score: number): string {
 }
 
 function getFundingOdds(score: number): string {
-  if (score >= 80) return 'High';
-  if (score >= 60) return 'Medium';
-  return 'Low';
+  if (score >= 85) return 'Very High';
+  if (score >= 70) return 'High';
+  if (score >= 55) return 'Low';
+  return 'Very Low';
 }

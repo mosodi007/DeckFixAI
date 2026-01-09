@@ -419,7 +419,7 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
               content: userMessageContent
             }
           ],
-          max_tokens: 6000,
+          max_tokens: 10000,
           temperature: 0.3,
         }),
         signal: controller.signal,
@@ -456,27 +456,96 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     }
 
     const openaiResult = await openaiResponse.json();
-    
+
     if (!openaiResult.choices || !openaiResult.choices[0]) {
       console.error('Unexpected OpenAI response:', openaiResult);
       throw new Error('Unexpected response from OpenAI');
     }
 
-    const content = openaiResult.choices[0].message.content;
-    console.log('OpenAI response received, parsing...');
-    console.log('Response preview:', content.substring(0, 500));
+    const finishReason = openaiResult.choices[0].finish_reason;
+    console.log('OpenAI finish reason:', finishReason);
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('Could not parse JSON from response:', content);
-      throw new Error('Could not parse analysis from OpenAI response');
+    if (finishReason === 'length') {
+      console.warn('WARNING: OpenAI response was truncated due to token limit. Response may be incomplete.');
     }
 
-    const analysis = JSON.parse(jsonMatch[0]);
-    console.log('Analysis parsed successfully');
-    console.log('Overall score:', analysis.overallScore);
-    console.log('Metrics:', analysis.metrics);
-    console.log('Key Metrics:', analysis.keyMetrics);
+    const content = openaiResult.choices[0].message.content;
+    console.log('OpenAI response received, parsing...');
+    console.log('Response length:', content.length, 'characters');
+    console.log('Response preview:', content.substring(0, 500));
+    console.log('Response ending:', content.substring(content.length - 500));
+
+    let jsonString = content;
+
+    if (content.includes('```json')) {
+      const jsonBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonBlockMatch) {
+        jsonString = jsonBlockMatch[1];
+        console.log('Extracted JSON from markdown code block');
+      }
+    } else if (content.includes('```')) {
+      const codeBlockMatch = content.match(/```\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        jsonString = codeBlockMatch[1];
+        console.log('Extracted JSON from generic code block');
+      }
+    }
+
+    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('Could not find JSON in response. Full content length:', content.length);
+      console.error('Content sample (first 2000 chars):', content.substring(0, 2000));
+      console.error('Content sample (last 2000 chars):', content.substring(Math.max(0, content.length - 2000)));
+      throw new Error('Could not parse analysis from OpenAI response. The response may be incomplete or in an unexpected format.');
+    }
+
+    let analysis;
+    try {
+      analysis = JSON.parse(jsonMatch[0]);
+      console.log('Analysis parsed successfully');
+      console.log('Overall score:', analysis.overallScore);
+      console.log('Metrics:', analysis.metrics);
+      console.log('Key Metrics:', analysis.keyMetrics);
+    } catch (parseError: any) {
+      console.error('JSON parse error:', parseError.message);
+      console.error('JSON length:', jsonMatch[0].length);
+      console.error('JSON start (500 chars):', jsonMatch[0].substring(0, 500));
+      console.error('JSON end (500 chars):', jsonMatch[0].substring(Math.max(0, jsonMatch[0].length - 500)));
+
+      if (finishReason === 'length') {
+        let fixedJson = jsonMatch[0].trim();
+
+        const openBraces = (fixedJson.match(/\{/g) || []).length;
+        const closeBraces = (fixedJson.match(/\}/g) || []).length;
+        const openBrackets = (fixedJson.match(/\[/g) || []).length;
+        const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+
+        console.log('Attempting to fix truncated JSON...');
+        console.log('Open/Close braces:', openBraces, '/', closeBraces);
+        console.log('Open/Close brackets:', openBrackets, '/', closeBrackets);
+
+        if (fixedJson.endsWith(',')) {
+          fixedJson = fixedJson.slice(0, -1);
+        }
+
+        for (let i = 0; i < (openBrackets - closeBrackets); i++) {
+          fixedJson += ']';
+        }
+        for (let i = 0; i < (openBraces - closeBraces); i++) {
+          fixedJson += '}';
+        }
+
+        try {
+          analysis = JSON.parse(fixedJson);
+          console.log('Successfully fixed and parsed truncated JSON');
+        } catch (fixError) {
+          console.error('Failed to fix JSON:', fixError);
+          throw new Error(`Failed to parse JSON (response was truncated): ${parseError.message}`);
+        }
+      } else {
+        throw new Error(`Failed to parse JSON: ${parseError.message}`);
+      }
+    }
 
     const analysisData: any = {
       file_name: file.name,

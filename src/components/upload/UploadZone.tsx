@@ -23,7 +23,7 @@ const funnyMessages = [
   "Please wait while DeckFix AI asks, what would Peter Thiel hate about this?...",
   "Please wait while DeckFix AI looks for the mandatory hockey stick that defies gravity...",
     "Please wait while DeckFix detect if your market research goes beyond 'everyone will love this.'...",
-  "Please wait while DeckFix AI checks if your traction is more than 2 of your family members..."
+  "Please wait while DeckFix AI checks if your traction is more than 2 of your family members...",
   "Please wait while DeckFix AI verifies your 'unfair advantage' is actually unfair...",
   "Please wait while DeckFix AI inspects your moat to see if it holds water or hope....",
   "Please wait while DeckFix AI checks if 'synergy' appears more than twice...",

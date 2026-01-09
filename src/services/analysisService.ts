@@ -27,6 +27,18 @@ export interface AnalysisData {
     strengths: string[];
     weaknesses: string[];
   };
+  keyMetrics: {
+    companyName: string;
+    industry: string;
+    currentRevenue: string;
+    fundingSought: string;
+    growthRate: string;
+    teamSize: number;
+    marketSize: string;
+    valuation: string;
+    businessModel: string;
+    customerCount: string;
+  };
   issues: Array<{
     id: string;
     pageNumber: number | null;
@@ -122,6 +134,14 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
 
   if (missingError) throw missingError;
 
+  const { data: keyMetrics, error: keyMetricsError } = await supabase
+    .from('key_business_metrics')
+    .select('*')
+    .eq('analysis_id', analysisId)
+    .maybeSingle();
+
+  if (keyMetricsError) throw keyMetricsError;
+
   return {
     id: analysis.id,
     fileName: analysis.file_name,
@@ -143,6 +163,18 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       structureScore: metrics?.structure_score || 0,
       strengths: metrics?.strengths || [],
       weaknesses: metrics?.weaknesses || [],
+    },
+    keyMetrics: {
+      companyName: keyMetrics?.company_name || 'Not specified',
+      industry: keyMetrics?.industry || 'Not specified',
+      currentRevenue: keyMetrics?.current_revenue || 'Not specified',
+      fundingSought: keyMetrics?.funding_sought || 'Not specified',
+      growthRate: keyMetrics?.growth_rate || 'Not specified',
+      teamSize: keyMetrics?.team_size || 0,
+      marketSize: keyMetrics?.market_size || 'Not specified',
+      valuation: keyMetrics?.valuation || 'Not specified',
+      businessModel: keyMetrics?.business_model || 'Not specified',
+      customerCount: keyMetrics?.customer_count || 'Not specified',
     },
     issues: issues?.map((i: any) => ({
       id: i.id,

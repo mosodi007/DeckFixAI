@@ -8,13 +8,16 @@ export function adaptAnalysisData(data: AnalysisData) {
     investmentGrade: getInvestmentGrade(data.overallScore),
     fundingOdds: getFundingOdds(data.overallScore),
     keyMetrics: {
-      company: 'Your Company',
-      industry: 'Tech',
-      currentRevenue: 'N/A',
-      fundingSought: 'N/A',
-      growthRate: 'N/A',
-      teamSize: 0,
-      marketSize: 'N/A'
+      company: data.keyMetrics.companyName,
+      industry: data.keyMetrics.industry,
+      currentRevenue: data.keyMetrics.currentRevenue,
+      fundingSought: data.keyMetrics.fundingSought,
+      growthRate: data.keyMetrics.growthRate,
+      teamSize: data.keyMetrics.teamSize,
+      marketSize: data.keyMetrics.marketSize,
+      valuation: data.keyMetrics.valuation,
+      businessModel: data.keyMetrics.businessModel,
+      customerCount: data.keyMetrics.customerCount
     },
     metrics: {
       tractionScore: data.metrics.contentScore / 10,

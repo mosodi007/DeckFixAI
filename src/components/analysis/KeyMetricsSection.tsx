@@ -1,4 +1,4 @@
-import { Building2, Briefcase, DollarSign, Target, TrendingUp, Users, Globe } from 'lucide-react';
+import { Building2, Briefcase, DollarSign, Target, TrendingUp, Users, Globe, BadgeDollarSign, Sparkles, UsersRound } from 'lucide-react';
 
 interface KeyMetricsSectionProps {
   company: string;
@@ -8,6 +8,9 @@ interface KeyMetricsSectionProps {
   growthRate: string;
   teamSize: number;
   marketSize: string;
+  valuation?: string;
+  businessModel?: string;
+  customerCount?: string;
 }
 
 interface MetricItemProps {
@@ -46,7 +49,32 @@ export function KeyMetricsSection({
   growthRate,
   teamSize,
   marketSize,
+  valuation,
+  businessModel,
+  customerCount,
 }: KeyMetricsSectionProps) {
+  const metrics = [
+    { icon: Building2, label: "Company", value: company },
+    { icon: Briefcase, label: "Industry", value: industry },
+    { icon: DollarSign, label: "Current Revenue", value: currentRevenue },
+    { icon: Target, label: "Funding Sought", value: fundingSought },
+    { icon: TrendingUp, label: "Growth Rate", value: growthRate },
+    { icon: Users, label: "Team Size", value: teamSize > 0 ? `${teamSize} Members` : 'Not specified' },
+    { icon: Globe, label: "Market Size", value: marketSize },
+  ];
+
+  if (valuation && valuation !== 'Not specified') {
+    metrics.push({ icon: BadgeDollarSign, label: "Valuation", value: valuation });
+  }
+
+  if (businessModel && businessModel !== 'Not specified') {
+    metrics.push({ icon: Sparkles, label: "Business Model", value: businessModel });
+  }
+
+  if (customerCount && customerCount !== 'Not specified') {
+    metrics.push({ icon: UsersRound, label: "Customers", value: customerCount });
+  }
+
   return (
     <div className="relative mb-8">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-50/30 rounded-xl blur-2xl" />
@@ -59,13 +87,14 @@ export function KeyMetricsSection({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          <MetricItem icon={Building2} label="Company" value={company} />
-          <MetricItem icon={Briefcase} label="Industry" value={industry} />
-          <MetricItem icon={DollarSign} label="Current Revenue" value={currentRevenue} />
-          <MetricItem icon={Target} label="Funding Sought" value={fundingSought} />
-          <MetricItem icon={TrendingUp} label="Growth Rate" value={growthRate} />
-          <MetricItem icon={Users} label="Team Size" value={`${teamSize} Members`} />
-          <MetricItem icon={Globe} label="Market Size" value={marketSize} />
+          {metrics.map((metric, index) => (
+            <MetricItem
+              key={index}
+              icon={metric.icon}
+              label={metric.label}
+              value={metric.value}
+            />
+          ))}
         </div>
       </div>
     </div>

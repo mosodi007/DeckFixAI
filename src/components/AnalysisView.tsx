@@ -88,6 +88,9 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         growthRate={data.keyMetrics.growthRate}
         teamSize={data.keyMetrics.teamSize}
         marketSize={data.keyMetrics.marketSize}
+        valuation={data.keyMetrics.valuation}
+        businessModel={data.keyMetrics.businessModel}
+        customerCount={data.keyMetrics.customerCount}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

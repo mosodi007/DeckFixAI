@@ -156,6 +156,19 @@ List critical missing content:
 - description: why it's needed
 - suggestedContent: what should be included
 
+### EXTRACT KEY BUSINESS METRICS:
+Extract the following business metrics from the deck content. If a metric is not explicitly stated, write "Not specified":
+- companyName: Company name (string)
+- industry: Industry/sector (string)
+- currentRevenue: Current revenue/ARR (string with units, e.g., "$2M ARR", "Not specified")
+- fundingSought: Amount of funding sought (string with units, e.g., "$5M Series A", "Not specified")
+- growthRate: Growth rate (string with %, e.g., "150% YoY", "Not specified")
+- teamSize: Number of team members (number, use 0 if not specified)
+- marketSize: Total addressable market (string with units, e.g., "$50B TAM", "Not specified")
+- valuation: Current or pre-money valuation (string, e.g., "$15M pre-money", "Not specified")
+- businessModel: Revenue/business model (string, e.g., "SaaS subscription", "Not specified")
+- customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
+
 ## REQUIRED JSON FORMAT:
 
 {
@@ -171,6 +184,18 @@ List critical missing content:
     "designScore": <0-100>,
     "contentScore": <0-100>,
     "structureScore": <0-100>
+  },
+  "keyMetrics": {
+    "companyName": "<string>",
+    "industry": "<string>",
+    "currentRevenue": "<string>",
+    "fundingSought": "<string>",
+    "growthRate": "<string>",
+    "teamSize": <number>,
+    "marketSize": "<string>",
+    "valuation": "<string>",
+    "businessModel": "<string>",
+    "customerCount": "<string>"
   },
   "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
   "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
@@ -247,6 +272,7 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     console.log('Analysis parsed successfully');
     console.log('Overall score:', analysis.overallScore);
     console.log('Metrics:', analysis.metrics);
+    console.log('Key Metrics:', analysis.keyMetrics);
 
     const { data: analysisRecord, error: analysisError } = await supabase
       .from('analyses')
@@ -290,6 +316,23 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
         design_score: analysis.metrics.designScore,
         content_score: analysis.metrics.contentScore,
         structure_score: analysis.metrics.structureScore,
+      });
+    }
+
+    if (analysis.keyMetrics) {
+      console.log('Inserting key business metrics:', analysis.keyMetrics);
+      await supabase.from('key_business_metrics').insert({
+        analysis_id: analysisId,
+        company_name: analysis.keyMetrics.companyName || 'Not specified',
+        industry: analysis.keyMetrics.industry || 'Not specified',
+        current_revenue: analysis.keyMetrics.currentRevenue || 'Not specified',
+        funding_sought: analysis.keyMetrics.fundingSought || 'Not specified',
+        growth_rate: analysis.keyMetrics.growthRate || 'Not specified',
+        team_size: analysis.keyMetrics.teamSize || 0,
+        market_size: analysis.keyMetrics.marketSize || 'Not specified',
+        valuation: analysis.keyMetrics.valuation || 'Not specified',
+        business_model: analysis.keyMetrics.businessModel || 'Not specified',
+        customer_count: analysis.keyMetrics.customerCount || 'Not specified',
       });
     }
 

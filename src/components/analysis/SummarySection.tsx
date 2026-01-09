@@ -1,4 +1,4 @@
-import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText } from 'lucide-react';
+import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText, FileStack, AlignLeft, Sparkles } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
@@ -10,11 +10,14 @@ interface SummarySectionProps {
   investmentGrade: string;
   fundingOdds: 'Very High' | 'High' | 'Low' | 'Very Low';
   businessSummary: string;
+  totalPages: number;
+  wordDensity: string;
+  disruptionSignal: number;
   onNewAnalysis: () => void;
   onOpenImprovementFlow: () => void;
 }
 
-export function SummarySection({ fileName, companyName, overallScore, investmentGrade, fundingOdds, businessSummary, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
+export function SummarySection({ fileName, companyName, overallScore, investmentGrade, fundingOdds, businessSummary, totalPages, wordDensity, disruptionSignal, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
   const getGradeColor = (grade: string) => {
     if (grade.startsWith('A')) return 'text-green-600';
     if (grade.startsWith('B')) return 'text-blue-600';
@@ -26,6 +29,20 @@ export function SummarySection({ fileName, companyName, overallScore, investment
     if (odds === 'Very High') return 'text-green-600';
     if (odds === 'High') return 'text-blue-600';
     if (odds === 'Low') return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getWordDensityColor = (density: string) => {
+    if (density === 'Low') return 'text-green-600';
+    if (density === 'Medium') return 'text-blue-600';
+    if (density === 'High') return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getDisruptionColor = (score: number) => {
+    if (score >= 8) return 'text-green-600';
+    if (score >= 6) return 'text-blue-600';
+    if (score >= 3) return 'text-orange-600';
     return 'text-red-600';
   };
 
@@ -61,6 +78,28 @@ export function SummarySection({ fileName, companyName, overallScore, investment
           value={fundingOdds}
           icon={Zap}
           valueClassName={getFundingOddsColor(fundingOdds)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <StatCard
+          label="Page Count"
+          value={totalPages}
+          suffix=" pages"
+          icon={FileStack}
+        />
+        <StatCard
+          label="Word Density"
+          value={wordDensity}
+          icon={AlignLeft}
+          valueClassName={getWordDensityColor(wordDensity)}
+        />
+        <StatCard
+          label="Disruption Signal"
+          value={disruptionSignal}
+          suffix="/10"
+          icon={Sparkles}
+          valueClassName={getDisruptionColor(disruptionSignal)}
         />
       </div>
 

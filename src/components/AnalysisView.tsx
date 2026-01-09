@@ -28,6 +28,9 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         investmentGrade={data.investmentGrade}
         fundingOdds={data.fundingOdds}
         businessSummary={data.businessSummary}
+        totalPages={data.totalPages}
+        wordDensity={data.wordDensity}
+        disruptionSignal={data.disruptionSignal}
         onNewAnalysis={onNewAnalysis}
         onOpenImprovementFlow={onOpenImprovementFlow}
       />

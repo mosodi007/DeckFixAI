@@ -10,6 +10,9 @@ export function adaptAnalysisData(data: AnalysisData) {
     investmentReady: data.investmentReady,
     fundingStage: data.fundingStage,
     businessSummary: data.summary,
+    totalPages: data.totalPages,
+    wordDensity: data.wordDensity,
+    disruptionSignal: data.disruptionSignal / 10,
     keyMetrics: {
       companyName: data.keyMetrics.companyName,
       industry: data.keyMetrics.industry,

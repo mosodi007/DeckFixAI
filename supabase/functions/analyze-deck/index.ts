@@ -173,6 +173,11 @@ Extract the following business metrics from the deck content. If a metric is not
 - businessModel: Revenue/business model (string, e.g., "SaaS subscription", "Not specified")
 - customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
 
+### ASSESS DECK QUALITY METRICS:
+Analyze these additional quality metrics:
+- wordDensity: Assessment of text density per slide. Return one of: "Low" (minimal text, mostly visuals), "Medium" (balanced text and visuals), "High" (text-heavy but readable), "Very High" (overwhelming text, slides too busy)
+- disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting
+
 ### BUSINESS SUMMARY:
 Write a concise summary (100-150 words) covering:
 - Problem/solution
@@ -249,6 +254,10 @@ Write a concise summary (100-150 words) covering:
     "valuation": "<string>",
     "businessModel": "<string>",
     "customerCount": "<string>"
+  },
+  "deckQualityMetrics": {
+    "wordDensity": "Low|Medium|High|Very High",
+    "disruptionSignal": <0-100>
   },
   "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
   "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
@@ -428,6 +437,8 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
       summary: analysis.summary,
       funding_stage: analysis.stageAssessment?.detectedStage || null,
       investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
+      word_density: analysis.deckQualityMetrics?.wordDensity || 'Not analyzed',
+      disruption_signal: analysis.deckQualityMetrics?.disruptionSignal || 0,
     };
 
     if (providedAnalysisId) {

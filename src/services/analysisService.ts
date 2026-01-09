@@ -15,6 +15,8 @@ export interface AnalysisData {
   createdAt: string;
   fundingStage: string | null;
   investmentReady: boolean;
+  wordDensity: string;
+  disruptionSignal: number;
   pages: Array<{
     pageNumber: number;
     title: string;
@@ -243,6 +245,8 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     createdAt: analysis.created_at,
     fundingStage: analysis.funding_stage,
     investmentReady: analysis.investment_ready || false,
+    wordDensity: analysis.word_density || 'Not analyzed',
+    disruptionSignal: analysis.disruption_signal || 0,
     pages: pages?.map((p: any) => ({
       pageNumber: p.page_number,
       title: p.title,

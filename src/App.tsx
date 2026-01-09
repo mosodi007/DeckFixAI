@@ -1,14 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
 import { ImprovementFlowView } from './components/ImprovementFlowView';
-import { getAnalysis } from './services/analysisService';
+import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
 import { adaptAnalysisData } from './utils/dataAdapter';
 
 function App() {
   const [view, setView] = useState<'upload' | 'analysis' | 'improvement'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadPersistedAnalysis();
+  }, []);
+
+  const loadPersistedAnalysis = async () => {
+    setIsLoading(true);
+    try {
+      const storedAnalysisId = localStorage.getItem('currentAnalysisId');
+
+      let analysis;
+      if (storedAnalysisId) {
+        try {
+          analysis = await getAnalysis(storedAnalysisId);
+        } catch (error) {
+          console.error('Failed to load stored analysis, loading most recent:', error);
+          analysis = await getMostRecentAnalysis();
+        }
+      } else {
+        analysis = await getMostRecentAnalysis();
+      }
+
+      if (analysis) {
+        const adaptedData = adaptAnalysisData(analysis);
+        setAnalysisData(adaptedData);
+        setView('analysis');
+        localStorage.setItem('currentAnalysisId', analysis.id);
+      }
+    } catch (error) {
+      console.error('Failed to load analysis:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAnalysisComplete = async (data: any) => {
     setIsLoading(true);
@@ -17,6 +51,7 @@ function App() {
       const adaptedData = adaptAnalysisData(analysis);
       setAnalysisData(adaptedData);
       setView('analysis');
+      localStorage.setItem('currentAnalysisId', data.analysisId);
     } catch (error) {
       console.error('Failed to load analysis:', error);
       alert('Failed to load analysis. Please try again.');

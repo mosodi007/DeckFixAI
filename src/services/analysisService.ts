@@ -95,6 +95,20 @@ export async function analyzeDeck(file: File): Promise<{ analysisId: string }> {
   return { analysisId: result.analysisId };
 }
 
+export async function getMostRecentAnalysis(): Promise<AnalysisData | null> {
+  const { data: analysis, error: analysisError } = await supabase
+    .from('analyses')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (analysisError) throw analysisError;
+  if (!analysis) return null;
+
+  return getAnalysis(analysis.id);
+}
+
 export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
   const { data: analysis, error: analysisError } = await supabase
     .from('analyses')

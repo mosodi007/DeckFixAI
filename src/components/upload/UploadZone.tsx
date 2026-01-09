@@ -58,7 +58,7 @@ export function UploadZone({
         setCurrentMessageIndex((prev) => (prev + 1) % funnyMessages.length);
         setFadeIn(true);
       }, 300);
-    }, 3500);
+    }, 6000);
 
     return () => clearInterval(messageInterval);
   }, [isAnalyzing]);

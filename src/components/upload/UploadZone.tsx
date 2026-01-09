@@ -18,18 +18,18 @@ interface UploadZoneProps {
 }
 
 const funnyMessages = [
-  "Please wait while our AI calculates your TAM, SAM, and 'trust me bro' market...",
-  "Please wait while our AI wonders whether you should pivot to Web3 just in case...",
-  "Please wait while our AI ensures your CTO is a 10x developer...",
-  "Please wait while our AI checks if your market research goes beyond 'everyone will love this.'...",
-  "Please wait while our AI checks if your traction is more than just your mom and best friend...",
-  "Please wait while our AI runs your deck through the Peter Thiel contrarian test...",
-  "Please wait while our AI checks if you've included the hockey stick graph...",
+  "Please wait while our AI pretends to understand your TAM and nods confidently...",
+  "Please wait while our AI asks itself if this should secretly be a Web3 startup..",
+  "Please wait while our AI searches for proof your market is bigger than your imagination...",
+  "Please wait while our AI confirms your traction includes humans you are not related to...",
+  "Please wait while our AI asks, what would Peter Thiel hate about this?...",
+  "Please wait while our AI looks for the mandatory hockey stick that defies gravity...",
+  "Please wait while our AI counts buzzwords and judges you silently...",
   "Please wait while our AI verifies your 'unfair advantage' is actually unfair...",
-  "Please wait while our AI counts how many buzzwords per slide...",
+  "Please wait while our AI inspects your moat to see if it holds water or hope....",
   "Please wait while our AI checks if 'synergy' appears more than twice...",
   "Please wait while our AI determines if your moat has any water in it...",
-  "Please wait while our AI looks for the 'Uber for X' comparison...",
+  "Please wait while our AI looks for the “Uber for something” slide you swore you removed...",
 ];
 
 export function UploadZone({

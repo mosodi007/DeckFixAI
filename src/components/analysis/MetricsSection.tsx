@@ -15,7 +15,7 @@ interface MetricsSectionProps {
 
 export function MetricsSection({ metrics, onMetricClick }: MetricsSectionProps) {
   return (
-    <GlassCard className="shadow-lg p-6">
+    <GlassCard className="shadow-sm p-4">
       <h3 className="text-xl font-bold text-slate-900 mb-6">Pitch Deck Score</h3>
       <div className="grid grid-cols-2 gap-4">
         <MetricCard

@@ -102,11 +102,12 @@ export async function analyzeDeck(
   const formData = new FormData();
   formData.append('file', file);
   formData.append('analysisId', analysisId);
-  formData.append('imageUrls', JSON.stringify(imageUrls));
+  // Don't send images during initial analysis - only text analysis for speed and reliability
+  // Images will be used later for detailed improvement suggestions
 
   console.log('Uploading file:', file.name, 'Size:', file.size);
   console.log('Analysis ID:', analysisId);
-  console.log('Image URLs:', imageUrls.length);
+  console.log('Image URLs stored:', imageUrls.length, '(not sent to AI during initial analysis)');
 
   const response = await fetch(
     `${supabaseUrl}/functions/v1/analyze-deck`,

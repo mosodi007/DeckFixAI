@@ -43,20 +43,9 @@ Deno.serve(async (req: Request) => {
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const providedAnalysisId = formData.get('analysisId') as string;
-    const imageUrlsJson = formData.get('imageUrls') as string;
 
     if (!file) {
       throw new Error('No file provided');
-    }
-
-    let imageUrls: string[] = [];
-    if (imageUrlsJson) {
-      try {
-        imageUrls = JSON.parse(imageUrlsJson);
-        console.log('Received', imageUrls.length, 'image URLs');
-      } catch (e) {
-        console.error('Failed to parse imageUrls:', e);
-      }
     }
 
     console.log('Processing file:', file.name, 'Size:', file.size);
@@ -82,13 +71,10 @@ Deno.serve(async (req: Request) => {
 
     const maxChars = 25000;
     const textToAnalyze = text.substring(0, maxChars);
-    console.log('Preparing OpenAI request...');
+    console.log('Preparing OpenAI request (text-only analysis)...');
     console.log('Text length to send:', textToAnalyze.length, 'chars');
-    console.log('Images available:', imageUrls.length);
 
-    const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be direct and honest.
-
-${imageUrls.length > 0 ? `You have ${pageCount} slide images provided in order.` : ''}
+    const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck based on the text content. Be direct and honest.
 
 ## DECK CONTENT:
 ${textToAnalyze}
@@ -280,23 +266,8 @@ Write a concise summary (100-150 words) covering:
 
 CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }. If the response is getting too long, prioritize completing the JSON structure over adding more detail.`;
 
-    const userMessageContent: any[] = [{ type: 'text', text: prompt }];
-
-    if (imageUrls.length > 0) {
-      const maxImages = Math.min(12, imageUrls.length, pageCount);
-      console.log(`Adding ${maxImages} slide images (out of ${imageUrls.length}) to OpenAI request for vision analysis`);
-      for (let i = 0; i < maxImages; i++) {
-        userMessageContent.push({
-          type: 'image_url',
-          image_url: {
-            url: imageUrls[i],
-            detail: 'low'
-          }
-        });
-      }
-    }
-
-    console.log('Calling OpenAI API with timeout handling...');
+    // Text-only analysis for initial upload (fast and reliable)
+    console.log('Calling OpenAI API for text-based analysis...');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000);
@@ -314,11 +285,11 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
           messages: [
             {
               role: 'system',
-              content: 'You are an expert pitch deck analyst and venture capital advisor with 15+ years of experience. You provide thorough, accurate, and actionable feedback. You are detail-oriented and base your analysis strictly on the actual content provided.'
+              content: 'You are an expert pitch deck analyst and venture capital advisor with 15+ years of experience. You provide thorough, accurate, and actionable feedback. You are detail-oriented and base your analysis strictly on the actual text content provided.'
             },
             {
               role: 'user',
-              content: userMessageContent
+              content: prompt
             }
           ],
           max_tokens: 10000,
@@ -477,22 +448,30 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
     const analysisId = analysisRecord.id;
     console.log('Analysis created with ID:', analysisId);
 
+    // Construct image URLs from Supabase storage (images were uploaded separately)
+    const { data: { publicUrl: storageBaseUrl } } = supabase.storage
+      .from('slide-images')
+      .getPublicUrl('dummy');
+    const baseUrl = storageBaseUrl.replace('/dummy', '');
+
     if (analysis.pages && analysis.pages.length > 0) {
-      const pagesData = analysis.pages.map((page: any) => ({
-        analysis_id: analysisId,
-        page_number: page.pageNumber,
-        title: page.title,
-        score: page.score,
-        content: page.content || null,
-        feedback: page.feedback || null,
-        recommendations: page.recommendations || [],
-        ideal_version: page.idealVersion || null,
-        image_url: imageUrls[page.pageNumber - 1] || null,
-        thumbnail_url: imageUrls[page.pageNumber - 1] || null,
-      }));
-      console.log(`Inserting ${pagesData.length} pages with detailed feedback`);
+      const pagesData = analysis.pages.map((page: any) => {
+        const imageUrl = `${baseUrl}/${analysisId}/page_${page.pageNumber}.jpg`;
+        return {
+          analysis_id: analysisId,
+          page_number: page.pageNumber,
+          title: page.title,
+          score: page.score,
+          content: page.content || null,
+          feedback: page.feedback || null,
+          recommendations: page.recommendations || [],
+          ideal_version: page.idealVersion || null,
+          image_url: imageUrl,
+          thumbnail_url: imageUrl,
+        };
+      });
+      console.log(`Inserting ${pagesData.length} pages with detailed feedback and image URLs`);
       console.log('Page numbers:', analysis.pages.map((p: any) => p.pageNumber));
-      console.log('Available image URLs:', imageUrls.length);
       await supabase.from('analysis_pages').insert(pagesData);
     }
 

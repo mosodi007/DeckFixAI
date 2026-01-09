@@ -67,8 +67,128 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
     }
 
+    const maxChars = 25000;
+    const textToAnalyze = text.substring(0, maxChars);
     console.log('Preparing OpenAI request...');
-    console.log('Text length to send:', text.substring(0, 12000).length, 'chars');
+    console.log('Text length to send:', textToAnalyze.length, 'chars');
+
+    const prompt = `You are an expert pitch deck analyst and venture capital advisor. Analyze this ${pageCount}-page pitch deck thoroughly.
+
+## DECK CONTENT:
+${textToAnalyze}
+
+## ANALYSIS INSTRUCTIONS:
+
+Provide a comprehensive analysis in strict JSON format. Be accurate and specific based on the actual content.
+
+### SCORING CRITERIA (0-100 scale):
+
+**Clarity Score (0-100):**
+- 90-100: Crystal clear messaging, perfect flow, instantly understandable
+- 70-89: Clear with minor ambiguities, good logical flow
+- 50-69: Somewhat clear but requires effort to understand, inconsistent flow
+- 30-49: Confusing messaging, poor flow, hard to follow
+- 0-29: Very unclear, incoherent, or missing critical information
+
+Evaluate: Message clarity, logical flow, coherence, ease of understanding, consistency
+
+**Design Score (0-100):**
+- 90-100: Professional, visually stunning, excellent hierarchy, consistent branding
+- 70-89: Good design with minor inconsistencies, professional appearance
+- 50-69: Adequate design but lacks polish, some inconsistencies
+- 30-49: Poor design choices, inconsistent, unprofessional
+- 0-29: Very poor design, no visual hierarchy, hard to read
+
+Evaluate: Visual appeal, consistency, hierarchy, readability, professional quality
+
+**Content Score (0-100):**
+- 90-100: Comprehensive, compelling story, excellent data, all key points covered
+- 70-89: Strong content with minor gaps, good supporting data
+- 50-69: Adequate content but missing important elements
+- 30-49: Weak content, significant gaps, insufficient data
+- 0-29: Poor content, major gaps, lacks substance
+
+Evaluate: Completeness, data quality, storytelling, evidence, key information presence
+
+**Structure Score (0-100):**
+- 90-100: Perfect slide order, optimal pacing, excellent narrative arc
+- 70-89: Good structure with minor ordering issues
+- 50-69: Acceptable structure but could be reorganized
+- 30-49: Poor structure, illogical flow, missing key sections
+- 0-29: Very poor structure, random order, critical sections missing
+
+Evaluate: Slide order, narrative flow, section organization, pacing, completeness
+
+### OVERALL SCORE:
+Calculate as weighted average:
+- Content: 35%
+- Clarity: 25%
+- Structure: 25%
+- Design: 15%
+
+Be critical but fair. Most real pitch decks score 60-75.
+
+### PAGE ANALYSIS:
+For EACH page in the deck (1 to ${pageCount}), provide:
+- pageNumber: actual page number
+- title: page heading or inferred topic
+- score: individual page quality (0-100)
+- content: brief summary of page content
+
+### IDENTIFY ISSUES:
+List specific problems found:
+- pageNumber: which page has the issue (or null if deck-wide)
+- priority: "high", "medium", or "low"
+- title: brief issue name
+- description: detailed explanation
+
+### SUGGEST IMPROVEMENTS:
+Provide actionable recommendations:
+- pageNumber: which page to improve (or null if deck-wide)
+- priority: "high", "medium", or "low"
+- title: brief improvement name
+- description: specific action to take
+
+### IDENTIFY MISSING SLIDES:
+List critical missing content:
+- priority: "high", "medium", or "low"
+- title: slide name
+- description: why it's needed
+- suggestedContent: what should be included
+
+## REQUIRED JSON FORMAT:
+
+{
+  "overallScore": <number 0-100>,
+  "totalPages": ${pageCount},
+  "summary": "<3-4 sentence executive summary>",
+  "pages": [
+    {"pageNumber": 1, "title": "<title>", "score": <0-100>, "content": "<brief summary>"},
+    ...
+  ],
+  "metrics": {
+    "clarityScore": <0-100>,
+    "designScore": <0-100>,
+    "contentScore": <0-100>,
+    "structureScore": <0-100>
+  },
+  "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
+  "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
+  "issues": [
+    {"pageNumber": <number or null>, "priority": "high/medium/low", "title": "<title>", "description": "<details>"},
+    ...
+  ],
+  "improvements": [
+    {"pageNumber": <number or null>, "priority": "high/medium/low", "title": "<title>", "description": "<details>"},
+    ...
+  ],
+  "missingSlides": [
+    {"priority": "high/medium/low", "title": "<slide name>", "description": "<why needed>", "suggestedContent": "<what to include>"},
+    ...
+  ]
+}
+
+Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -81,15 +201,15 @@ Deno.serve(async (req: Request) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert pitch deck analyst and venture capital advisor. Analyze pitch decks thoroughly and provide detailed, actionable feedback.'
+            content: 'You are an expert pitch deck analyst and venture capital advisor with 15+ years of experience. You provide thorough, accurate, and actionable feedback. You are detail-oriented and base your analysis strictly on the actual content provided.'
           },
           {
             role: 'user',
-            content: `Analyze this pitch deck content comprehensively. The deck has ${pageCount} pages.\n\nContent:\n${text.substring(0, 12000)}\n\nProvide your analysis in strict JSON format with these exact fields:\n- overallScore (number 0-100)\n- totalPages (number)\n- summary (string)\n- pages (array with pageNumber, title, score, content)\n- metrics (object with clarityScore, designScore, contentScore, structureScore - all numbers 0-100)\n- strengths (array of strings)\n- weaknesses (array of strings)\n- issues (array with pageNumber, priority, title, description)\n- improvements (array with pageNumber, priority, title, description)\n- missingSlides (array with priority, title, description, suggestedContent)\n\nReturn ONLY valid JSON, no markdown formatting.`
+            content: prompt
           }
         ],
         max_tokens: 4096,
-        temperature: 0.7,
+        temperature: 0.3,
       }),
     });
 
@@ -115,6 +235,7 @@ Deno.serve(async (req: Request) => {
 
     const content = openaiResult.choices[0].message.content;
     console.log('OpenAI response received, parsing...');
+    console.log('Response preview:', content.substring(0, 500));
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -123,7 +244,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const analysis = JSON.parse(jsonMatch[0]);
-    console.log('Creating analysis record...');
+    console.log('Analysis parsed successfully');
+    console.log('Overall score:', analysis.overallScore);
+    console.log('Metrics:', analysis.metrics);
 
     const { data: analysisRecord, error: analysisError } = await supabase
       .from('analyses')
@@ -146,18 +269,19 @@ Deno.serve(async (req: Request) => {
     console.log('Analysis created with ID:', analysisId);
 
     if (analysis.pages && analysis.pages.length > 0) {
-      await supabase.from('analysis_pages').insert(
-        analysis.pages.map((page: any) => ({
-          analysis_id: analysisId,
-          page_number: page.pageNumber,
-          title: page.title,
-          score: page.score,
-          content: page.content || null,
-        }))
-      );
+      const pagesData = analysis.pages.map((page: any) => ({
+        analysis_id: analysisId,
+        page_number: page.pageNumber,
+        title: page.title,
+        score: page.score,
+        content: page.content || null,
+      }));
+      console.log(`Inserting ${pagesData.length} pages`);
+      await supabase.from('analysis_pages').insert(pagesData);
     }
 
     if (analysis.metrics) {
+      console.log('Inserting metrics:', analysis.metrics);
       await supabase.from('analysis_metrics').insert({
         analysis_id: analysisId,
         strengths: analysis.strengths || [],
@@ -170,6 +294,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (analysis.issues && analysis.issues.length > 0) {
+      console.log(`Inserting ${analysis.issues.length} issues`);
       await supabase.from('analysis_issues').insert(
         analysis.issues.map((issue: any) => ({
           analysis_id: analysisId,
@@ -183,6 +308,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (analysis.improvements && analysis.improvements.length > 0) {
+      console.log(`Inserting ${analysis.improvements.length} improvements`);
       await supabase.from('analysis_issues').insert(
         analysis.improvements.map((improvement: any) => ({
           analysis_id: analysisId,
@@ -196,6 +322,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (analysis.missingSlides && analysis.missingSlides.length > 0) {
+      console.log(`Inserting ${analysis.missingSlides.length} missing slides`);
       await supabase.from('missing_slides').insert(
         analysis.missingSlides.map((slide: any) => ({
           analysis_id: analysisId,

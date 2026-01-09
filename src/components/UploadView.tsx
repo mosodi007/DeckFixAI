@@ -50,7 +50,7 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
         uploadDate: new Date().toISOString(),
         overallScore: 7.8,
         investmentGrade: 'B+',
-        fundingOdds: 68,
+        fundingOdds: 'High',
         metrics: {
           tractionScore: 8.2,
           disruptionScore: 7.5,

@@ -7,7 +7,7 @@ interface SummarySectionProps {
   fileName: string;
   overallScore: number;
   investmentGrade: string;
-  fundingOdds: number;
+  fundingOdds: 'Very High' | 'High' | 'Low' | 'Very Low';
 }
 
 export function SummarySection({ fileName, overallScore, investmentGrade, fundingOdds }: SummarySectionProps) {
@@ -16,6 +16,13 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
     if (grade.startsWith('B')) return 'text-blue-600';
     if (grade.startsWith('C')) return 'text-yellow-600';
     return 'text-orange-600';
+  };
+
+  const getFundingOddsColor = (odds: string) => {
+    if (odds === 'Very High') return 'text-green-600';
+    if (odds === 'High') return 'text-blue-600';
+    if (odds === 'Low') return 'text-orange-600';
+    return 'text-red-600';
   };
 
   return (
@@ -45,8 +52,9 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
         />
         <StatCard
           label="Funding Odds"
-          value={`${fundingOdds}%`}
+          value={fundingOdds}
           icon={Zap}
+          valueClassName={getFundingOddsColor(fundingOdds)}
         />
       </div>
 

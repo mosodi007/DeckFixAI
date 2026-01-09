@@ -17,6 +17,9 @@ export interface AnalysisData {
   investmentReady: boolean;
   wordDensity: string;
   disruptionSignal: number;
+  overallScoreFeedback: string | null;
+  investmentGradeFeedback: string | null;
+  fundingOddsFeedback: string | null;
   wordDensityFeedback: string | null;
   disruptionSignalFeedback: string | null;
   pageCountFeedback: string | null;
@@ -250,6 +253,9 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     investmentReady: analysis.investment_ready || false,
     wordDensity: analysis.word_density || 'Not analyzed',
     disruptionSignal: analysis.disruption_signal || 0,
+    overallScoreFeedback: analysis.overall_score_feedback || null,
+    investmentGradeFeedback: analysis.investment_grade_feedback || null,
+    fundingOddsFeedback: analysis.funding_odds_feedback || null,
     wordDensityFeedback: analysis.word_density_feedback || null,
     disruptionSignalFeedback: analysis.disruption_signal_feedback || null,
     pageCountFeedback: analysis.page_count_feedback || null,

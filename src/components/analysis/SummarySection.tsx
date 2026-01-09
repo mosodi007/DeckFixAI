@@ -15,6 +15,9 @@ interface SummarySectionProps {
   totalPages: number;
   wordDensity: string;
   disruptionSignal: number;
+  overallScoreFeedback: string | null;
+  investmentGradeFeedback: string | null;
+  fundingOddsFeedback: string | null;
   wordDensityFeedback: string | null;
   disruptionSignalFeedback: string | null;
   pageCountFeedback: string | null;
@@ -32,6 +35,9 @@ export function SummarySection({
   totalPages,
   wordDensity,
   disruptionSignal,
+  overallScoreFeedback,
+  investmentGradeFeedback,
+  fundingOddsFeedback,
   wordDensityFeedback,
   disruptionSignalFeedback,
   pageCountFeedback,
@@ -108,18 +114,21 @@ export function SummarySection({
           value={overallScore}
           suffix="/10"
           icon={TrendingUp}
+          onClick={() => openModal('Overall Score', `${overallScore}/10`, overallScoreFeedback, TrendingUp)}
         />
         <StatCard
           label="Investment Grade"
           value={investmentGrade}
           icon={Target}
           valueClassName={getGradeColor(investmentGrade)}
+          onClick={() => openModal('Investment Grade', investmentGrade, investmentGradeFeedback, Target)}
         />
         <StatCard
           label="Funding Odds"
           value={fundingOdds}
           icon={Zap}
           valueClassName={getFundingOddsColor(fundingOdds)}
+          onClick={() => openModal('Funding Odds', fundingOdds, fundingOddsFeedback, Zap)}
         />
       </div>
 

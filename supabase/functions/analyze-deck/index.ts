@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
       text = result.text;
       pageCount = result.pageCount;
       console.log(`✓ PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
-      console.log('First 200 chars:', text.substring(0, 200));
+      console.log('Extracted pages:', result.pages.map(p => `Page ${p.pageNumber}: ${p.text.substring(0, 50)}...`));
     } catch (pdfError) {
       console.error('PDF extraction failed:', pdfError);
       throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
@@ -88,6 +88,8 @@ Deno.serve(async (req: Request) => {
     const prompt = `You are a seasoned venture capital partner with 20+ years of experience evaluating pitch decks. You've seen thousands of decks and funded 100+ companies. You are brutally honest and focus on what actually matters for funding decisions. Analyze this ${pageCount}-page pitch deck with the critical eye of someone who writes checks.
 
 ## DECK CONTENT:
+The content below is separated by page markers "--- PAGE X ---" and "--- END PAGE X ---". Use these markers to accurately identify which content belongs to each page number.
+
 ${textToAnalyze}
 
 ## ANALYSIS INSTRUCTIONS:
@@ -213,8 +215,8 @@ Be harsh. Average real decks should score 50-65. Only truly excellent, investor-
 
 ### PAGE ANALYSIS:
 For EACH page in the deck (1 to ${pageCount}), provide:
-- pageNumber: actual page number
-- title: page heading or inferred topic
+- pageNumber: actual page number (use the number from the PAGE markers)
+- title: Extract the actual slide title/heading from the page content. Look for the main heading or prominent text that identifies the slide topic (e.g., "Cover", "Problem Statement", "Solution", "Market Opportunity", "Team", etc.)
 - score: individual page quality (0-100)
 - content: brief summary of page content
 

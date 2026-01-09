@@ -8,9 +8,10 @@ import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 interface ImprovementFlowViewProps {
   data: any;
   onBack: () => void;
+  isAnalyzing?: boolean;
 }
 
-export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) {
+export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: ImprovementFlowViewProps) {
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
   const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
@@ -97,6 +98,27 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+      {isAnalyzing && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4">
+            <div className="text-center">
+              <div className="relative w-20 h-20 mx-auto mb-6">
+                <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                Analyzing Your Slides
+              </h3>
+              <p className="text-slate-600 mb-2">
+                Using OpenAI Vision to provide in-depth analysis and recommendations for each slide...
+              </p>
+              <p className="text-sm text-slate-500">
+                This may take a minute
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-[1800px] mx-auto px-6 py-8">
         <button
           onClick={onBack}

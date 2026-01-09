@@ -3,12 +3,14 @@ import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
 import { ImprovementFlowView } from './components/ImprovementFlowView';
 import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
+import { analyzeSlides } from './services/slideAnalysisService';
 import { adaptAnalysisData } from './utils/dataAdapter';
 
 function App() {
   const [view, setView] = useState<'upload' | 'analysis' | 'improvement'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
 
   useEffect(() => {
     loadPersistedAnalysis();
@@ -65,8 +67,27 @@ function App() {
     setAnalysisData(null);
   };
 
-  const handleOpenImprovementFlow = () => {
+  const handleOpenImprovementFlow = async () => {
+    if (!analysisData?.id) return;
+
+    setIsAnalyzingSlides(true);
     setView('improvement');
+
+    try {
+      console.log('Starting in-depth slide analysis with OpenAI...');
+      await analyzeSlides(analysisData.id);
+
+      console.log('Reloading analysis data with enhanced feedback...');
+      const updatedAnalysis = await getAnalysis(analysisData.id);
+      const adaptedData = adaptAnalysisData(updatedAnalysis);
+      setAnalysisData(adaptedData);
+
+      console.log('Slide analysis complete!');
+    } catch (error) {
+      console.error('Failed to analyze slides:', error);
+    } finally {
+      setIsAnalyzingSlides(false);
+    }
   };
 
   const handleBackToAnalysis = () => {
@@ -127,6 +148,7 @@ function App() {
           <ImprovementFlowView
             data={analysisData}
             onBack={handleBackToAnalysis}
+            isAnalyzing={isAnalyzingSlides}
           />
         )}
       </main>

@@ -7,6 +7,7 @@ export function adaptAnalysisData(data: AnalysisData) {
     overallScore: data.overallScore / 10,
     investmentGrade: getInvestmentGrade(data.overallScore),
     fundingOdds: getFundingOdds(data.overallScore),
+    businessSummary: data.summary,
     keyMetrics: {
       company: data.keyMetrics.companyName,
       industry: data.keyMetrics.industry,

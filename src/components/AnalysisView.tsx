@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MetricModal } from './MetricModal';
 import { SummarySection } from './analysis/SummarySection';
 import { KeyMetricsSection } from './analysis/KeyMetricsSection';
+import { BusinessSummarySection } from './analysis/BusinessSummarySection';
 import { MetricsSection } from './analysis/MetricsSection';
 import { ScoreDistributionSection } from './analysis/ScoreDistributionSection';
 import { StrengthsSection } from './analysis/StrengthsSection';
@@ -92,6 +93,8 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         businessModel={data.keyMetrics.businessModel}
         customerCount={data.keyMetrics.customerCount}
       />
+
+      <BusinessSummarySection summary={data.businessSummary} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <MetricsSection

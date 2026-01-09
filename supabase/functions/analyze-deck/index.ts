@@ -169,12 +169,22 @@ Extract the following business metrics from the deck content. If a metric is not
 - businessModel: Revenue/business model (string, e.g., "SaaS subscription", "Not specified")
 - customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
 
+### BUSINESS SUMMARY:
+Write a comprehensive business summary (150-200 words) that provides an executive overview from an investor's perspective. Include:
+- The core problem and solution
+- Key traction metrics and concerns
+- Team assessment (note if missing)
+- Investment readiness and critical gaps
+- Actionable recommendations for the founder
+
+Be honest and critical. Address red flags directly. This should read like VC partner notes.
+
 ## REQUIRED JSON FORMAT:
 
 {
   "overallScore": <number 0-100>,
   "totalPages": ${pageCount},
-  "summary": "<3-4 sentence executive summary>",
+  "summary": "<comprehensive business summary paragraph, 150-200 words>",
   "pages": [
     {"pageNumber": 1, "title": "<title>", "score": <0-100>, "content": "<brief summary>"},
     ...

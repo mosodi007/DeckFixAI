@@ -48,6 +48,8 @@ export async function analyzeDeck(file: File): Promise<{ analysisId: string }> {
   const formData = new FormData();
   formData.append('file', file);
 
+  console.log('Uploading file:', file.name, 'Size:', file.size);
+
   const response = await fetch(
     `${supabaseUrl}/functions/v1/analyze-deck`,
     {
@@ -59,12 +61,24 @@ export async function analyzeDeck(file: File): Promise<{ analysisId: string }> {
     }
   );
 
+  console.log('Response status:', response.status);
+
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to analyze deck');
+    let errorMessage = 'Failed to analyze deck';
+    try {
+      const error = await response.json();
+      errorMessage = error.error || errorMessage;
+      console.error('Error from API:', error);
+    } catch (e) {
+      const text = await response.text();
+      console.error('Error response text:', text);
+      errorMessage = text || errorMessage;
+    }
+    throw new Error(errorMessage);
   }
 
   const result = await response.json();
+  console.log('Analysis result:', result);
   return { analysisId: result.analysisId };
 }
 

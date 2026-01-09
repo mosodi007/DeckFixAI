@@ -23,9 +23,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration missing');
+    }
+
+    if (!openaiKey) {
+      console.error('OPENAI_API_KEY environment variable is not set');
+      throw new Error('OpenAI API key is not configured. Please add OPENAI_API_KEY to Edge Function secrets.');
+    }
+
+    console.log('Environment check passed');
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -39,9 +50,16 @@ Deno.serve(async (req: Request) => {
     console.log('Processing file:', file.name, 'Size:', file.size);
 
     const arrayBuffer = await file.arrayBuffer();
+    console.log('File loaded into memory, extracting text...');
+    
     const { text, pageCount } = await extractTextFromPDF(arrayBuffer);
 
     console.log(`Extracted ${text.length} characters from ${pageCount} pages`);
+
+    if (text.length < 50) {
+      throw new Error('Could not extract text from PDF. The file may be image-based or corrupted.');
+    }
+
     console.log('Calling OpenAI for analysis...');
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -55,52 +73,11 @@ Deno.serve(async (req: Request) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert pitch deck analyst and venture capital advisor. Analyze pitch decks thoroughly and provide detailed, actionable feedback. Focus on:
-
-1. Overall Structure & Flow
-2. Content Quality & Completeness
-3. Message Clarity
-4. Investment Readiness
-5. Missing Critical Elements
-
-Provide scores from 0-100 and specific, constructive feedback.`
+            content: 'You are an expert pitch deck analyst and venture capital advisor. Analyze pitch decks thoroughly and provide detailed, actionable feedback.'
           },
           {
             role: 'user',
-            content: `Analyze this pitch deck content comprehensively. The deck has ${pageCount} pages.
-
-Content:
-${text.substring(0, 15000)}
-
-Provide your analysis in the following JSON format:
-
-{
-  "overallScore": <number 0-100>,
-  "totalPages": ${pageCount},
-  "summary": "<executive summary of the pitch deck and overall assessment>",
-  "pages": [
-    {"pageNumber": <number>, "title": "<inferred slide title>", "score": <0-100>, "content": "<brief assessment>"}
-  ],
-  "metrics": {
-    "clarityScore": <0-100>,
-    "designScore": <0-100>,
-    "contentScore": <0-100>,
-    "structureScore": <0-100>
-  },
-  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "weaknesses": ["<weakness 1>", "<weakness 2>", "<weakness 3>"],
-  "issues": [
-    {"priority": "High|Medium|Low", "title": "<issue title>", "description": "<detailed description>", "pageNumber": <number or null>}
-  ],
-  "improvements": [
-    {"priority": "High|Medium|Low", "title": "<improvement title>", "description": "<expected impact>", "pageNumber": <number or null>}
-  ],
-  "missingSlides": [
-    {"priority": "High|Medium|Low", "title": "<slide name>", "description": "<why needed>", "suggestedContent": "<what to include>"}
-  ]
-}
-
-Be specific and actionable in your feedback. Provide at least 3 strengths, 3 weaknesses, 5 issues, 5 improvements, and 3 missing slides.`
+            content: `Analyze this pitch deck content comprehensively. The deck has ${pageCount} pages.\n\nContent:\n${text.substring(0, 15000)}\n\nProvide your analysis in JSON format with: overallScore, totalPages, summary, pages array, metrics object (clarityScore, designScore, contentScore, structureScore), strengths array, weaknesses array, issues array, improvements array, and missingSlides array.`
           }
         ],
         max_tokens: 4096,
@@ -110,23 +87,27 @@ Be specific and actionable in your feedback. Provide at least 3 strengths, 3 wea
 
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${openaiResponse.status} - ${errorData}`);
+      console.error('OpenAI API error:', openaiResponse.status, errorData);
+      throw new Error(`OpenAI API error: ${openaiResponse.status}. Check if your API key is valid.`);
     }
 
     const openaiResult = await openaiResponse.json();
-    const content = openaiResult.choices[0].message.content;
     
-    console.log('OpenAI response received');
+    if (!openaiResult.choices || !openaiResult.choices[0]) {
+      console.error('Unexpected OpenAI response:', openaiResult);
+      throw new Error('Unexpected response from OpenAI');
+    }
+
+    const content = openaiResult.choices[0].message.content;
+    console.log('OpenAI response received, parsing...');
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error('Could not parse JSON from response:', content);
-      throw new Error('Could not parse JSON from OpenAI response');
+      throw new Error('Could not parse analysis from OpenAI response');
     }
 
     const analysis = JSON.parse(jsonMatch[0]);
-
     console.log('Creating analysis record...');
 
     const { data: analysisRecord, error: analysisError } = await supabase
@@ -143,106 +124,72 @@ Be specific and actionable in your feedback. Provide at least 3 strengths, 3 wea
 
     if (analysisError) {
       console.error('Error creating analysis:', analysisError);
-      throw analysisError;
+      throw new Error(`Database error: ${analysisError.message}`);
     }
 
     const analysisId = analysisRecord.id;
+    console.log('Analysis created with ID:', analysisId);
 
-    console.log('Inserting pages...');
     if (analysis.pages && analysis.pages.length > 0) {
-      const { error: pagesError } = await supabase
-        .from('analysis_pages')
-        .insert(
-          analysis.pages.map((page: any) => ({
-            analysis_id: analysisId,
-            page_number: page.pageNumber,
-            title: page.title,
-            score: page.score,
-            content: page.content || null,
-          }))
-        );
-
-      if (pagesError) {
-        console.error('Error inserting pages:', pagesError);
-      }
-    }
-
-    console.log('Inserting metrics...');
-    if (analysis.metrics) {
-      const { error: metricsError } = await supabase
-        .from('analysis_metrics')
-        .insert({
+      await supabase.from('analysis_pages').insert(
+        analysis.pages.map((page: any) => ({
           analysis_id: analysisId,
-          strengths: analysis.strengths || [],
-          weaknesses: analysis.weaknesses || [],
-          clarity_score: analysis.metrics.clarityScore,
-          design_score: analysis.metrics.designScore,
-          content_score: analysis.metrics.contentScore,
-          structure_score: analysis.metrics.structureScore,
-        });
-
-      if (metricsError) {
-        console.error('Error inserting metrics:', metricsError);
-      }
+          page_number: page.pageNumber,
+          title: page.title,
+          score: page.score,
+          content: page.content || null,
+        }))
+      );
     }
 
-    console.log('Inserting issues...');
+    if (analysis.metrics) {
+      await supabase.from('analysis_metrics').insert({
+        analysis_id: analysisId,
+        strengths: analysis.strengths || [],
+        weaknesses: analysis.weaknesses || [],
+        clarity_score: analysis.metrics.clarityScore,
+        design_score: analysis.metrics.designScore,
+        content_score: analysis.metrics.contentScore,
+        structure_score: analysis.metrics.structureScore,
+      });
+    }
+
     if (analysis.issues && analysis.issues.length > 0) {
-      const { error: issuesError } = await supabase
-        .from('analysis_issues')
-        .insert(
-          analysis.issues.map((issue: any) => ({
-            analysis_id: analysisId,
-            page_number: issue.pageNumber || null,
-            priority: issue.priority,
-            title: issue.title,
-            description: issue.description,
-            type: 'issue',
-          }))
-        );
-
-      if (issuesError) {
-        console.error('Error inserting issues:', issuesError);
-      }
+      await supabase.from('analysis_issues').insert(
+        analysis.issues.map((issue: any) => ({
+          analysis_id: analysisId,
+          page_number: issue.pageNumber || null,
+          priority: issue.priority,
+          title: issue.title,
+          description: issue.description,
+          type: 'issue',
+        }))
+      );
     }
 
-    console.log('Inserting improvements...');
     if (analysis.improvements && analysis.improvements.length > 0) {
-      const { error: improvementsError } = await supabase
-        .from('analysis_issues')
-        .insert(
-          analysis.improvements.map((improvement: any) => ({
-            analysis_id: analysisId,
-            page_number: improvement.pageNumber || null,
-            priority: improvement.priority,
-            title: improvement.title,
-            description: improvement.description,
-            type: 'improvement',
-          }))
-        );
-
-      if (improvementsError) {
-        console.error('Error inserting improvements:', improvementsError);
-      }
+      await supabase.from('analysis_issues').insert(
+        analysis.improvements.map((improvement: any) => ({
+          analysis_id: analysisId,
+          page_number: improvement.pageNumber || null,
+          priority: improvement.priority,
+          title: improvement.title,
+          description: improvement.description,
+          type: 'improvement',
+        }))
+      );
     }
 
-    console.log('Inserting missing slides...');
     if (analysis.missingSlides && analysis.missingSlides.length > 0) {
-      const { error: missingError } = await supabase
-        .from('missing_slides')
-        .insert(
-          analysis.missingSlides.map((slide: any) => ({
-            analysis_id: analysisId,
-            priority: slide.priority,
-            title: slide.title,
-            description: slide.description,
-            suggested_content: slide.suggestedContent,
-          }))
-        );
-
-      if (missingError) {
-        console.error('Error inserting missing slides:', missingError);
-      }
+      await supabase.from('missing_slides').insert(
+        analysis.missingSlides.map((slide: any) => ({
+          analysis_id: analysisId,
+          priority: slide.priority,
+          title: slide.title,
+          description: slide.description,
+          suggested_content: slide.suggestedContent,
+        }))
+      );
     }
 
     console.log('Analysis complete:', analysisId);

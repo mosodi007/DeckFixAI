@@ -61,15 +61,13 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
       </div>
 
       <div className="flex gap-3">
-        <Button variant="secondary" icon={FileUp} className="flex-1" onClick={onNewAnalysis}>
-          Analyze New Deck
-        </Button>
         <Button variant="primary" icon={Wand2} className="flex-1" onClick={onOpenImprovementFlow}>
           Improve & Fix Issues
         </Button>
-        <Button variant="secondary" icon={Layout} className="flex-1">
-          Explore Templates
+        <Button variant="secondary" icon={FileUp} className="flex-1" onClick={onNewAnalysis}>
+          Analyze New Deck
         </Button>
+        
       </div>
     </GlassCard>
   );

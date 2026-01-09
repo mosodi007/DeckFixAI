@@ -86,18 +86,15 @@ Deno.serve(async (req: Request) => {
     console.log('Text length to send:', textToAnalyze.length, 'chars');
     console.log('Images available:', imageUrls.length);
 
-    const prompt = `You are a seasoned venture capital partner with 20+ years of experience evaluating pitch decks. You've seen thousands of decks and funded 100+ companies. You are brutally honest and focus on what actually matters for funding decisions. Analyze this ${pageCount}-page pitch deck with the critical eye of someone who writes checks.
+    const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be direct and honest.
 
-IMPORTANT: You have access to both the extracted text AND ${imageUrls.length > 0 ? `visual screenshots of all ${pageCount} slides` : 'the text content'}. ${imageUrls.length > 0 ? 'The slides are provided as images in sequential order (Slide 1, Slide 2, Slide 3, etc.). Use these visual screenshots to accurately extract slide titles from the headings you can SEE on each slide.' : ''}
+${imageUrls.length > 0 ? `You have ${pageCount} slide images provided in order.` : ''}
 
 ## DECK CONTENT:
-The content below is separated by page markers "--- PAGE X ---" and "--- END PAGE X ---". Use these markers to accurately identify which content belongs to each page number.
-
 ${textToAnalyze}
 
-## ANALYSIS INSTRUCTIONS:
-
-Provide a comprehensive, brutally honest analysis in strict JSON format. Be specific and direct about weaknesses and red flags.
+## INSTRUCTIONS:
+Provide analysis in strict JSON format. Be concise and specific.
 
 ### STEP 1: DETECT FUNDING STAGE
 
@@ -109,97 +106,26 @@ Based on the content, determine the funding stage:
 
 Provide: detected_stage, stage_confidence (high/medium/low), stage_appropriateness_score (0-100)
 
-### STEP 2: INVESTMENT READINESS ASSESSMENT
+### STEP 2: INVESTMENT READINESS
 
-Evaluate five critical dimensions that VCs actually care about:
+Score 5 dimensions (0-100 each):
+- **Team**: Founder quality, experience, completeness
+- **Market**: TAM size, growth, accessibility
+- **Product**: Solution strength, differentiation, moat
+- **Traction**: Revenue, users, partnerships, metrics
+- **Financials**: Projections quality, burn rate, use of funds
 
-**Team Score (0-100):**
-VCs invest in teams first. Assess:
-- Founder backgrounds and domain expertise
-- Track record of execution
-- Completeness of founding team (technical + business)
-- Advisory board quality
-- Team slide presence and credibility signals
-- Skin in the game / commitment level
+**Readiness Score** = average of 5 scores
+**is_investment_ready** = true if score >= 70 AND no deal-breakers
 
-**Market Opportunity Score (0-100):**
-Is the market big enough and accessible?
-- TAM/SAM/SOM clarity and credibility
-- Market growth rate and tailwinds
-- Timing - why now?
-- Market positioning vs. competitors
-- Realistic entry strategy
-- Evidence of market demand
+### STEP 3: RED FLAGS
+List major concerns (category, severity, title, description, impact)
 
-**Product Score (0-100):**
-Does the solution actually solve a real problem?
-- Problem-solution fit clarity
-- Unique value proposition strength
-- Technical differentiation/moat
-- Product demo or screenshots
-- Scalability of solution
-- Proprietary advantages
+### STEP 4: DEAL-BREAKERS
+List critical issues that make deck uninvestable (title, description, recommendation)
 
-**Traction Score (0-100):**
-Show me the metrics that matter:
-- Revenue/ARR if applicable
-- User growth and engagement
-- Key partnerships or customers
-- Unit economics (CAC, LTV, margins)
-- Retention/churn data
-- Pipeline and conversion rates
-
-**Financials Score (0-100):**
-Are the projections realistic?
-- Financial model presence and quality
-- Burn rate and runway
-- Path to profitability
-- Use of funds clarity
-- Valuation reasonableness
-- Revenue assumptions credibility
-
-Calculate **Readiness Score** as average of these 5 scores.
-Set **is_investment_ready** = true only if readiness_score >= 70 AND no critical deal-breakers exist.
-
-### STEP 3: IDENTIFY RED FLAGS
-
-Be ruthlessly honest. Common red flags:
-- **Team**: Solo founder, no relevant experience, weak/missing team
-- **Financial**: Unrealistic projections, unclear use of funds, no mention of burn rate
-- **Market**: Small/declining market, no clear customer segment, "everyone is our customer"
-- **Product**: No clear differentiation, copycat product, no moat
-- **Competition**: Claims "no competition", underestimates incumbents
-- **Traction**: No metrics, vanity metrics only, no revenue path
-
-For each red flag provide:
-- category: 'financial' | 'team' | 'market' | 'product' | 'competition' | 'traction' | 'other'
-- severity: 'critical' | 'major' | 'moderate'
-- title: Brief name
-- description: What's wrong
-- impact: How this affects funding prospects
-
-### STEP 4: IDENTIFY DEAL-BREAKERS
-
-Be brutally direct. Deal-breakers are issues that make this deck uninvestable right now:
-- Missing financials entirely
-- No clear ask (how much money, what for)
-- Fundamentally flawed business model
-- No evidence of customer demand
-- Missing critical team members
-- Unrealistic market assumptions
-
-For each deal-breaker:
-- title: What's missing/wrong
-- description: Why this is a deal-breaker
-- recommendation: What must be fixed before approaching investors
-
-### STEP 5: STAGE-SPECIFIC FEEDBACK
-
-Based on detected stage, provide specific guidance:
-- What's expected at this stage that's missing
-- What's appropriate vs. premature for this stage
-- How to better position for this stage's investors
-- Red flags specific to this stage
+### STEP 5: STAGE FEEDBACK
+Brief guidance for detected funding stage
 
 ### STEP 6: STANDARD SCORING (for UI display)
 
@@ -217,25 +143,15 @@ Calculate **Overall Score** as weighted average:
 Be harsh. Average real decks should score 50-65. Only truly excellent, investor-ready decks score 80+.
 
 ### PAGE ANALYSIS:
-For EACH page in the deck (1 to ${pageCount}), provide BRUTAL, UNBIASED VC FEEDBACK:
+For EACH page in the deck (1 to ${pageCount}):
 
-- pageNumber: actual page number (use the number from the PAGE markers)
-- title: Extract the actual slide title/heading. Look at the visual slide screenshots provided and identify the main heading or title text that appears on the slide. Common titles include: "Cover", "Problem", "Solution", "Market Size", "Business Model", "Traction", "Team", "Financials", "Ask", etc. If no clear title is visible, create a descriptive title based on the content (e.g., "Financial Projections", "Customer Testimonials"). DO NOT leave titles blank or use generic "Slide X" placeholders.
-- score: individual page quality (0-100) - be harsh, only truly excellent slides score 85+
-- content: brief summary of page content
-- feedback: (NEW - CRITICAL) Provide 2-4 paragraphs of BRUTAL, DIRECT VC feedback for this specific slide. Write as if you're a partner in a Monday morning investment committee explaining why you passed. Include:
-  * What's wrong or weak about this slide (be specific, not generic)
-  * Why this matters to investors (impact on funding decision)
-  * What red flags or concerns this raises
-  * What's missing that VCs expect to see
-  * How this compares to top-tier decks you've funded
-  BE BRUTALLY HONEST. Don't sugarcoat. Use phrases like "This is a red flag because...", "This lacks credibility due to...", "No investor will believe...", "This raises serious concerns about..."
-- recommendations: Array of 2-4 SPECIFIC, ACTIONABLE fixes that would significantly boost this slide's score. Each recommendation should be a string with clear, implementable action. Format: "Add [specific thing] showing [specific metric/data] to demonstrate [specific outcome]". Examples:
-  * "Add a competitor comparison matrix showing your product's 3 key differentiators with quantified performance metrics (e.g., '10x faster processing', '50% lower cost')"
-  * "Include actual customer logos from Fortune 500 companies or recognizable brands to build credibility. At minimum, show '15+ enterprise customers including companies in [industry]'"
-  * "Replace vague market size with bottom-up TAM calculation: [target customer segment] × [number of potential customers] × [annual spend per customer] = [$X billion TAM]"
-  Each recommendation should be so specific that implementing it would directly address the feedback issues.
-- idealVersion: (NEW) Describe in 2-3 sentences what a PERFECT version of this slide would contain. Be specific about what data, visuals, messaging would make this slide score 95-100. Reference examples from successful decks you've seen.
+- pageNumber: actual page number
+- title: Slide title/heading (e.g., "Cover", "Problem", "Solution", "Market", "Team", "Financials")
+- score: 0-100 (be harsh, most slides score 40-70)
+- content: 1-2 sentence summary
+- feedback: 2-3 sentences of direct VC feedback on what's weak/missing
+- recommendations: Array of 2-3 specific actions to improve (keep brief)
+- idealVersion: 1 sentence describing what a perfect version would include
 
 ### IDENTIFY ISSUES:
 List specific problems found (diagnostic):
@@ -245,18 +161,11 @@ List specific problems found (diagnostic):
 - description: what's wrong and why it matters
 
 ### SUGGEST IMPROVEMENTS:
-CRITICAL: Provide at least 5-10 actionable improvement recommendations. These should be specific next steps the founder can take:
-- pageNumber: which page to improve (or null if deck-wide)
-- priority: "high", "medium", or "low" (prioritize high-impact changes)
-- title: action-oriented title (e.g., "Add financial projections", "Strengthen team credentials")
-- description: specific, actionable steps to take (e.g., "Include 3-year revenue forecast with key assumptions clearly stated")
-
-Focus improvements on:
-- What to add (missing content)
-- What to clarify (unclear messaging)
-- What to strengthen (weak areas)
-- What to quantify (add metrics/data)
-- What to restructure (reorder/reorganize)
+Provide 5-8 actionable improvements:
+- pageNumber: which page (or null if deck-wide)
+- priority: "high", "medium", or "low"
+- title: Brief action title
+- description: Specific action to take (1-2 sentences)
 
 ### IDENTIFY MISSING SLIDES:
 List critical missing content:
@@ -279,22 +188,18 @@ Extract the following business metrics from the deck content. If a metric is not
 - customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
 
 ### BUSINESS SUMMARY:
-Write a comprehensive business summary (150-200 words) that reads like VC partner notes after reviewing the deck. Include:
-- The core problem and solution
-- Key traction metrics and concerns
-- Team assessment (note if missing or weak)
-- Investment readiness verdict (be direct: "Not ready for investors" if applicable)
-- Critical gaps that must be addressed
-- Brutally honest bottom-line recommendation
-
-Don't sugarcoat issues. This is internal VC notes, not founder feedback.
+Write a concise summary (100-150 words) covering:
+- Problem/solution
+- Key metrics
+- Investment readiness verdict
+- Critical gaps
 
 ## REQUIRED JSON FORMAT:
 
 {
   "overallScore": <number 0-100>,
   "totalPages": ${pageCount},
-  "summary": "<comprehensive business summary, 150-200 words, brutally honest>",
+  "summary": "<100-150 word business summary>",
   "stageAssessment": {
     "detectedStage": "Pre-Seed|Seed|Series A|Series B+",
     "stageConfidence": "high|medium|low",
@@ -335,12 +240,11 @@ Don't sugarcoat issues. This is internal VC notes, not founder feedback.
       "pageNumber": 1,
       "title": "<title>",
       "score": <0-100>,
-      "content": "<brief summary>",
-      "feedback": "<2-4 paragraphs of brutal VC feedback>",
-      "recommendations": ["<specific action 1>", "<specific action 2>", "<specific action 3>"],
-      "idealVersion": "<description of perfect slide>"
-    },
-    ...
+      "content": "<1-2 sentences>",
+      "feedback": "<2-3 sentences>",
+      "recommendations": ["<action 1>", "<action 2>"],
+      "idealVersion": "<1 sentence>"
+    }
   ],
   "metrics": {
     "clarityScore": <0-100>,
@@ -367,16 +271,14 @@ Don't sugarcoat issues. This is internal VC notes, not founder feedback.
     ...
   ],
   "improvements": [
-    {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<action-oriented title>", "description": "<specific actionable steps>"},
-    ...at least 5-10 improvements required
+    {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<title>", "description": "<description>"}
   ],
   "missingSlides": [
-    {"priority": "high|medium|low", "title": "<slide name>", "description": "<why needed>", "suggestedContent": "<what to include>"},
-    ...
+    {"priority": "high|medium|low", "title": "<title>", "description": "<description>", "suggestedContent": "<content>"}
   ]
 }
 
-Return ONLY valid JSON, no markdown formatting or code blocks.`;
+CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }. If the response is getting too long, prioritize completing the JSON structure over adding more detail.`;
 
     const userMessageContent: any[] = [{ type: 'text', text: prompt }];
 

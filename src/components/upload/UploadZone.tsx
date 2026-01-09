@@ -18,18 +18,18 @@ interface UploadZoneProps {
 }
 
 const funnyMessages = [
-  "Please wait while our AI pretends to understand your TAM and nods confidently...",
-  "Please wait while our AI asks itself if this should secretly be a Web3 startup..",
-  "Please wait while our AI searches for proof your market is bigger than your imagination...",
-  "Please wait while our AI confirms your traction includes humans you are not related to...",
-  "Please wait while our AI asks, what would Peter Thiel hate about this?...",
-  "Please wait while our AI looks for the mandatory hockey stick that defies gravity...",
-  "Please wait while our AI counts buzzwords and judges you silently...",
-  "Please wait while our AI verifies your 'unfair advantage' is actually unfair...",
-  "Please wait while our AI inspects your moat to see if it holds water or hope....",
-  "Please wait while our AI checks if 'synergy' appears more than twice...",
-  "Please wait while our AI determines if your moat has any water in it...",
-  "Please wait while our AI looks for the “Uber for something” slide you swore you removed...",
+  "Please wait while DeckFix AI calculates your TAM, SAM, and 'trust me bro' market...",
+  "Please wait while DeckFix AI asks itself if this should secretly be a Web3 startup..",
+  "Please wait while DeckFix AI searches for proof your market is bigger than your imagination...",
+  "Please wait while DeckFix AI confirms your traction includes humans you are not related to...",
+  "Please wait while DeckFix AI asks, what would Peter Thiel hate about this?...",
+  "Please wait while DeckFix AI looks for the mandatory hockey stick that defies gravity...",
+  "Please wait while DeckFix AI counts buzzwords and judges you silently...",
+  "Please wait while DeckFix AI verifies your 'unfair advantage' is actually unfair...",
+  "Please wait while DeckFix AI inspects your moat to see if it holds water or hope....",
+  "Please wait while DeckFix AI checks if 'synergy' appears more than twice...",
+  "Please wait while DeckFix AI determines if your moat has any water in it...",
+  "Please wait while DeckFix AI looks for the “Uber for something” slide you swore you removed...",
 ];
 
 export function UploadZone({

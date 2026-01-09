@@ -13,6 +13,8 @@ export interface AnalysisData {
   totalPages: number;
   summary: string;
   createdAt: string;
+  fundingStage: string | null;
+  investmentReady: boolean;
   pages: Array<{
     pageNumber: number;
     title: string;
@@ -39,6 +41,37 @@ export interface AnalysisData {
     businessModel: string;
     customerCount: string;
   };
+  stageAssessment: {
+    detectedStage: string;
+    stageConfidence: string;
+    stageAppropriatenessScore: number;
+    stageFeedback: string;
+  } | null;
+  investmentReadiness: {
+    isInvestmentReady: boolean;
+    readinessScore: number;
+    readinessSummary: string;
+    criticalBlockers: string[];
+    teamScore: number;
+    marketOpportunityScore: number;
+    productScore: number;
+    tractionScore: number;
+    financialsScore: number;
+  } | null;
+  redFlags: Array<{
+    id: string;
+    category: string;
+    severity: string;
+    title: string;
+    description: string;
+    impact: string;
+  }>;
+  dealBreakers: Array<{
+    id: string;
+    title: string;
+    description: string;
+    recommendation: string;
+  }>;
   issues: Array<{
     id: string;
     pageNumber: number | null;
@@ -156,6 +189,36 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
 
   if (keyMetricsError) throw keyMetricsError;
 
+  const { data: stageAssessment, error: stageError } = await supabase
+    .from('analysis_stage_assessment')
+    .select('*')
+    .eq('analysis_id', analysisId)
+    .maybeSingle();
+
+  if (stageError) throw stageError;
+
+  const { data: investmentReadiness, error: readinessError } = await supabase
+    .from('analysis_investment_readiness')
+    .select('*')
+    .eq('analysis_id', analysisId)
+    .maybeSingle();
+
+  if (readinessError) throw readinessError;
+
+  const { data: redFlags, error: redFlagsError } = await supabase
+    .from('analysis_red_flags')
+    .select('*')
+    .eq('analysis_id', analysisId);
+
+  if (redFlagsError) throw redFlagsError;
+
+  const { data: dealBreakers, error: dealBreakersError } = await supabase
+    .from('analysis_deal_breakers')
+    .select('*')
+    .eq('analysis_id', analysisId);
+
+  if (dealBreakersError) throw dealBreakersError;
+
   return {
     id: analysis.id,
     fileName: analysis.file_name,
@@ -164,6 +227,8 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     totalPages: analysis.total_pages,
     summary: analysis.summary,
     createdAt: analysis.created_at,
+    fundingStage: analysis.funding_stage,
+    investmentReady: analysis.investment_ready || false,
     pages: pages?.map((p: any) => ({
       pageNumber: p.page_number,
       title: p.title,
@@ -190,6 +255,37 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       businessModel: keyMetrics?.business_model || 'Not specified',
       customerCount: keyMetrics?.customer_count || 'Not specified',
     },
+    stageAssessment: stageAssessment ? {
+      detectedStage: stageAssessment.detected_stage,
+      stageConfidence: stageAssessment.stage_confidence,
+      stageAppropriatenessScore: stageAssessment.stage_appropriateness_score,
+      stageFeedback: stageAssessment.stage_specific_feedback,
+    } : null,
+    investmentReadiness: investmentReadiness ? {
+      isInvestmentReady: investmentReadiness.is_investment_ready,
+      readinessScore: investmentReadiness.readiness_score,
+      readinessSummary: investmentReadiness.readiness_summary,
+      criticalBlockers: investmentReadiness.critical_blockers || [],
+      teamScore: investmentReadiness.team_score,
+      marketOpportunityScore: investmentReadiness.market_opportunity_score,
+      productScore: investmentReadiness.product_score,
+      tractionScore: investmentReadiness.traction_score,
+      financialsScore: investmentReadiness.financials_score,
+    } : null,
+    redFlags: redFlags?.map((f: any) => ({
+      id: f.id,
+      category: f.category,
+      severity: f.severity,
+      title: f.title,
+      description: f.description,
+      impact: f.impact,
+    })) || [],
+    dealBreakers: dealBreakers?.map((b: any) => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      recommendation: b.recommendation,
+    })) || [],
     issues: issues?.map((i: any) => ({
       id: i.id,
       pageNumber: i.page_number,

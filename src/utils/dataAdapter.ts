@@ -6,7 +6,9 @@ export function adaptAnalysisData(data: AnalysisData) {
     uploadDate: data.createdAt,
     overallScore: data.overallScore / 10,
     investmentGrade: getInvestmentGrade(data.overallScore),
-    fundingOdds: getFundingOdds(data.overallScore),
+    fundingOdds: getFundingOdds(data.investmentReadiness?.readinessScore || data.overallScore),
+    investmentReady: data.investmentReady,
+    fundingStage: data.fundingStage,
     businessSummary: data.summary,
     keyMetrics: {
       company: data.keyMetrics.companyName,
@@ -20,6 +22,37 @@ export function adaptAnalysisData(data: AnalysisData) {
       businessModel: data.keyMetrics.businessModel,
       customerCount: data.keyMetrics.customerCount
     },
+    stageAssessment: data.stageAssessment ? {
+      detectedStage: data.stageAssessment.detectedStage,
+      stageConfidence: data.stageAssessment.stageConfidence,
+      stageAppropriatenessScore: data.stageAssessment.stageAppropriatenessScore / 10,
+      stageFeedback: data.stageAssessment.stageFeedback
+    } : null,
+    investmentReadiness: data.investmentReadiness ? {
+      isInvestmentReady: data.investmentReadiness.isInvestmentReady,
+      readinessScore: data.investmentReadiness.readinessScore / 10,
+      readinessSummary: data.investmentReadiness.readinessSummary,
+      criticalBlockers: data.investmentReadiness.criticalBlockers,
+      scores: {
+        team: data.investmentReadiness.teamScore / 10,
+        marketOpportunity: data.investmentReadiness.marketOpportunityScore / 10,
+        product: data.investmentReadiness.productScore / 10,
+        traction: data.investmentReadiness.tractionScore / 10,
+        financials: data.investmentReadiness.financialsScore / 10
+      }
+    } : null,
+    redFlags: data.redFlags.map(f => ({
+      category: f.category,
+      severity: f.severity,
+      title: f.title,
+      description: f.description,
+      impact: f.impact
+    })),
+    dealBreakers: data.dealBreakers.map(b => ({
+      title: b.title,
+      description: b.description,
+      recommendation: b.recommendation
+    })),
     metrics: {
       contentScore: data.metrics.contentScore / 10,
       clarityScore: data.metrics.clarityScore / 10,

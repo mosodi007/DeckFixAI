@@ -1,5 +1,9 @@
 import { SummarySection } from './analysis/SummarySection';
 import { KeyMetricsSection } from './analysis/KeyMetricsSection';
+import { StageAssessmentSection } from './analysis/StageAssessmentSection';
+import { InvestmentReadinessSection } from './analysis/InvestmentReadinessSection';
+import { DealBreakersSection } from './analysis/DealBreakersSection';
+import { RedFlagsSection } from './analysis/RedFlagsSection';
 import { BusinessSummarySection } from './analysis/BusinessSummarySection';
 import { MetricsSection } from './analysis/MetricsSection';
 import { ScoreDistributionSection } from './analysis/ScoreDistributionSection';
@@ -38,6 +42,17 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         businessModel={data.keyMetrics.businessModel}
         customerCount={data.keyMetrics.customerCount}
       />
+
+      <StageAssessmentSection
+        stageAssessment={data.stageAssessment}
+        fundingStage={data.fundingStage}
+      />
+
+      <InvestmentReadinessSection investmentReadiness={data.investmentReadiness} />
+
+      <DealBreakersSection dealBreakers={data.dealBreakers || []} />
+
+      <RedFlagsSection redFlags={data.redFlags || []} />
 
       <BusinessSummarySection summary={data.businessSummary} />
 

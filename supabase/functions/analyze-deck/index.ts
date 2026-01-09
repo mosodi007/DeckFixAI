@@ -206,18 +206,25 @@ For EACH page in the deck (1 to ${pageCount}), provide:
 - content: brief summary of page content
 
 ### IDENTIFY ISSUES:
-List specific problems found:
+List specific problems found (diagnostic):
 - pageNumber: which page has the issue (or null if deck-wide)
 - priority: "high", "medium", or "low"
 - title: brief issue name
-- description: detailed explanation
+- description: what's wrong and why it matters
 
 ### SUGGEST IMPROVEMENTS:
-Provide actionable recommendations:
+CRITICAL: Provide at least 5-10 actionable improvement recommendations. These should be specific next steps the founder can take:
 - pageNumber: which page to improve (or null if deck-wide)
-- priority: "high", "medium", or "low"
-- title: brief improvement name
-- description: specific action to take
+- priority: "high", "medium", or "low" (prioritize high-impact changes)
+- title: action-oriented title (e.g., "Add financial projections", "Strengthen team credentials")
+- description: specific, actionable steps to take (e.g., "Include 3-year revenue forecast with key assumptions clearly stated")
+
+Focus improvements on:
+- What to add (missing content)
+- What to clarify (unclear messaging)
+- What to strengthen (weak areas)
+- What to quantify (add metrics/data)
+- What to restructure (reorder/reorganize)
 
 ### IDENTIFY MISSING SLIDES:
 List critical missing content:
@@ -320,8 +327,8 @@ Don't sugarcoat issues. This is internal VC notes, not founder feedback.
     ...
   ],
   "improvements": [
-    {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<title>", "description": "<details>"},
-    ...
+    {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<action-oriented title>", "description": "<specific actionable steps>"},
+    ...at least 5-10 improvements required
   ],
   "missingSlides": [
     {"priority": "high|medium|low", "title": "<slide name>", "description": "<why needed>", "suggestedContent": "<what to include>"},

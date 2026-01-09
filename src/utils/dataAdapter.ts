@@ -61,14 +61,27 @@ export function adaptAnalysisData(data: AnalysisData) {
     },
     strengths: data.metrics.strengths,
     issues: data.metrics.weaknesses,
-    improvements: data.issues
-      .filter(i => i.type === 'improvement')
-      .map(i => ({
-        priority: i.priority,
-        issue: i.title,
-        impact: i.description,
-        pageNumber: i.pageNumber || 1
-      })),
+    improvements: (() => {
+      const improvements = data.issues
+        .filter(i => i.type === 'improvement')
+        .map(i => ({
+          priority: i.priority,
+          issue: i.title,
+          impact: i.description,
+          pageNumber: i.pageNumber || 1
+        }));
+
+      if (improvements.length === 0 && data.metrics.weaknesses.length > 0) {
+        return data.metrics.weaknesses.slice(0, 5).map((weakness, index) => ({
+          priority: index < 2 ? 'high' : 'medium',
+          issue: `Address: ${weakness.split(':')[0] || weakness.substring(0, 50)}`,
+          impact: weakness,
+          pageNumber: null
+        }));
+      }
+
+      return improvements;
+    })(),
     missingSlides: data.missingSlides.map(s => ({
       priority: s.priority,
       title: s.title,

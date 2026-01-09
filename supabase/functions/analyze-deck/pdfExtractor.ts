@@ -11,43 +11,35 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
     const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
     console.log('PDF document proxy created');
 
-    const { totalPages } = await extractText(pdf, { mergePages: true });
-    console.log(`PDF has ${totalPages} pages`);
+    const { totalPages, text: fullText } = await extractText(pdf, { mergePages: true });
+    console.log(`PDF has ${totalPages} pages, ${fullText?.length || 0} characters total`);
+
+    if (!fullText || fullText.trim().length < 10) {
+      throw new Error('Could not extract sufficient text from PDF. The file appears to be image-based.');
+    }
+
+    const pageTexts = fullText.split(/\f|\n{3,}/);
+    console.log(`Split into ${pageTexts.length} sections`);
 
     const pages: PageText[] = [];
-    let allText = '';
+    let formattedText = '';
 
-    for (let i = 1; i <= totalPages; i++) {
-      try {
-        const pageResult = await extractText(pdf, { mergePages: false, pages: [i] });
-        const pageText = pageResult.text || '';
+    for (let i = 0; i < totalPages; i++) {
+      const pageNumber = i + 1;
+      const pageText = pageTexts[i] || '';
 
-        pages.push({
-          pageNumber: i,
-          text: pageText.trim()
-        });
+      pages.push({
+        pageNumber,
+        text: pageText.trim()
+      });
 
-        allText += `\n\n--- PAGE ${i} ---\n${pageText.trim()}\n--- END PAGE ${i} ---\n`;
-
-        console.log(`Page ${i}: ${pageText.length} characters`);
-      } catch (pageError) {
-        console.warn(`Failed to extract page ${i}:`, pageError);
-        pages.push({
-          pageNumber: i,
-          text: ''
-        });
-      }
+      formattedText += `\n\n--- PAGE ${pageNumber} ---\n${pageText.trim()}\n--- END PAGE ${pageNumber} ---\n`;
     }
 
-    if (allText.trim().length < 10) {
-      throw new Error('Could not extract sufficient text from PDF. The file appears to be image-based. Consider using a text-based PDF or enabling OCR.');
-    }
-
-    console.log(`Total extraction: ${allText.length} characters from ${totalPages} pages`);
-    console.log('First 500 chars:', allText.substring(0, 500));
+    console.log(`Total extraction: ${formattedText.length} characters from ${totalPages} pages`);
 
     return {
-      text: allText.trim(),
+      text: formattedText.trim(),
       pageCount: totalPages,
       pages
     };

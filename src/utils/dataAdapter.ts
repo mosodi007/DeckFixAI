@@ -21,12 +21,10 @@ export function adaptAnalysisData(data: AnalysisData) {
       customerCount: data.keyMetrics.customerCount
     },
     metrics: {
-      tractionScore: data.metrics.contentScore / 10,
-      disruptionScore: data.metrics.structureScore / 10,
-      deckQuality: data.metrics.designScore / 10,
-      marketSize: data.metrics.contentScore / 10,
-      teamStrength: data.metrics.contentScore / 10,
-      financialProjections: data.metrics.contentScore / 10
+      contentScore: data.metrics.contentScore / 10,
+      clarityScore: data.metrics.clarityScore / 10,
+      structureScore: data.metrics.structureScore / 10,
+      designScore: data.metrics.designScore / 10
     },
     strengths: data.metrics.strengths,
     issues: data.metrics.weaknesses,

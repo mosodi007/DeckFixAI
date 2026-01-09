@@ -19,14 +19,10 @@ interface MetricItemProps {
 function MetricItem({ icon: Icon, label, value }: MetricItemProps) {
   return (
     <div className="group relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-50/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="relative bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-200/60 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+      <div className="relative bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-200/60 p-6 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
         <div className="flex items-center gap-4">
-          <div className="relative">
-            <div className="absolute inset-0 bg-slate-200 rounded-xl blur-md opacity-50" />
-            <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
-              <Icon className="w-6 h-6 text-slate-600" />
-            </div>
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-3.5 rounded-xl border border-slate-200/60">
+            <Icon className="w-6 h-6 text-slate-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">

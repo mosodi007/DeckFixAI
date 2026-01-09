@@ -60,7 +60,7 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
 
       <div className="flex gap-3">
         <Button variant="primary" icon={Wand2} className="flex-1">
-          Fix Deck Issues
+          Improve & Fix Issues
         </Button>
         <Button variant="secondary" icon={Layout} className="flex-1">
           Explore Templates

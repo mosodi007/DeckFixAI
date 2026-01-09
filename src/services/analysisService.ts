@@ -70,6 +70,11 @@ export interface AnalysisData {
     productScore: number;
     tractionScore: number;
     financialsScore: number;
+    teamFeedback?: string;
+    marketOpportunityFeedback?: string;
+    productFeedback?: string;
+    tractionFeedback?: string;
+    financialsFeedback?: string;
   } | null;
   redFlags: Array<{
     id: string;
@@ -306,6 +311,11 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       productScore: investmentReadiness.product_score,
       tractionScore: investmentReadiness.traction_score,
       financialsScore: investmentReadiness.financials_score,
+      teamFeedback: investmentReadiness.team_feedback,
+      marketOpportunityFeedback: investmentReadiness.market_opportunity_feedback,
+      productFeedback: investmentReadiness.product_feedback,
+      tractionFeedback: investmentReadiness.traction_feedback,
+      financialsFeedback: investmentReadiness.financials_feedback,
     } : null,
     redFlags: redFlags?.map((f: any) => ({
       id: f.id,

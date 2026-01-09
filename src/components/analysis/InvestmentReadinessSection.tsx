@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Target, Users, TrendingUp, Package, DollarSign, Globe, CheckCircle2, XCircle } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { ProgressBar } from '../ui/ProgressBar';
+import { VCCriteriaModal } from './VCCriteriaModal';
 
 interface InvestmentReadiness {
   isInvestmentReady: boolean;
@@ -14,15 +16,22 @@ interface InvestmentReadiness {
     traction: number;
     financials: number;
   };
+  feedback?: {
+    team?: string;
+    marketOpportunity?: string;
+    product?: string;
+    traction?: string;
+    financials?: string;
+  };
 }
 
 interface InvestmentReadinessSectionProps {
   investmentReadiness: InvestmentReadiness | null;
 }
 
-function ScoreBar({ label, score, icon: Icon, color }: { label: string; score: number; icon: any; color: string }) {
+function ScoreBar({ label, score, icon: Icon, color, onClick }: { label: string; score: number; icon: any; color: string; onClick: () => void }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 cursor-pointer hover:bg-slate-50 p-3 rounded-lg transition-colors" onClick={onClick}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className={`w-4 h-4 ${color}`} />
@@ -36,11 +45,19 @@ function ScoreBar({ label, score, icon: Icon, color }: { label: string; score: n
 }
 
 export function InvestmentReadinessSection({ investmentReadiness }: InvestmentReadinessSectionProps) {
+  const [selectedCriteria, setSelectedCriteria] = useState<{
+    title: string;
+    score: number;
+    feedback: string;
+    icon: any;
+    color: string;
+  } | null>(null);
+
   if (!investmentReadiness) {
     return null;
   }
 
-  const { isInvestmentReady, readinessScore, readinessSummary, criticalBlockers, scores } = investmentReadiness;
+  const { isInvestmentReady, readinessScore, readinessSummary, criticalBlockers, scores, feedback } = investmentReadiness;
 
   return (
     <GlassCard className={`p-6 mb-8 ${isInvestmentReady ? 'border-2 border-green-200 bg-gradient-to-br from-green-50/30 to-white' : 'border-2 border-orange-200 bg-gradient-to-br from-orange-50/30 to-white'}`}>
@@ -91,6 +108,13 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
           score={scores.team}
           icon={Users}
           color="text-blue-600"
+          onClick={() => setSelectedCriteria({
+            title: 'Team Strength',
+            score: scores.team,
+            feedback: feedback?.team || 'No detailed feedback available.',
+            icon: Users,
+            color: 'text-blue-600'
+          })}
         />
 
         <ScoreBar
@@ -98,6 +122,13 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
           score={scores.marketOpportunity}
           icon={Globe}
           color="text-green-600"
+          onClick={() => setSelectedCriteria({
+            title: 'Market Opportunity',
+            score: scores.marketOpportunity,
+            feedback: feedback?.marketOpportunity || 'No detailed feedback available.',
+            icon: Globe,
+            color: 'text-green-600'
+          })}
         />
 
         <ScoreBar
@@ -105,6 +136,13 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
           score={scores.product}
           icon={Package}
           color="text-purple-600"
+          onClick={() => setSelectedCriteria({
+            title: 'Product Quality',
+            score: scores.product,
+            feedback: feedback?.product || 'No detailed feedback available.',
+            icon: Package,
+            color: 'text-purple-600'
+          })}
         />
 
         <ScoreBar
@@ -112,6 +150,13 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
           score={scores.traction}
           icon={TrendingUp}
           color="text-orange-600"
+          onClick={() => setSelectedCriteria({
+            title: 'Traction & Validation',
+            score: scores.traction,
+            feedback: feedback?.traction || 'No detailed feedback available.',
+            icon: TrendingUp,
+            color: 'text-orange-600'
+          })}
         />
 
         <ScoreBar
@@ -119,8 +164,27 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
           score={scores.financials}
           icon={DollarSign}
           color="text-emerald-600"
+          onClick={() => setSelectedCriteria({
+            title: 'Financial Strength',
+            score: scores.financials,
+            feedback: feedback?.financials || 'No detailed feedback available.',
+            icon: DollarSign,
+            color: 'text-emerald-600'
+          })}
         />
       </div>
+
+      {selectedCriteria && (
+        <VCCriteriaModal
+          isOpen={true}
+          onClose={() => setSelectedCriteria(null)}
+          title={selectedCriteria.title}
+          score={selectedCriteria.score}
+          feedback={selectedCriteria.feedback}
+          icon={selectedCriteria.icon}
+          color={selectedCriteria.color}
+        />
+      )}
     </GlassCard>
   );
 }

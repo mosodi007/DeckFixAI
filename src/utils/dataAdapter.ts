@@ -48,6 +48,13 @@ export function adaptAnalysisData(data: AnalysisData) {
         product: data.investmentReadiness.productScore / 10,
         traction: data.investmentReadiness.tractionScore / 10,
         financials: data.investmentReadiness.financialsScore / 10
+      },
+      feedback: {
+        team: data.investmentReadiness.teamFeedback,
+        marketOpportunity: data.investmentReadiness.marketOpportunityFeedback,
+        product: data.investmentReadiness.productFeedback,
+        traction: data.investmentReadiness.tractionFeedback,
+        financials: data.investmentReadiness.financialsFeedback
       }
     } : null,
     redFlags: data.redFlags.map(f => ({

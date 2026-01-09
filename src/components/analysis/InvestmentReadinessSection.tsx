@@ -37,12 +37,12 @@ function ScoreBar({ label, score, icon: Icon, color, onClick }: { label: string;
           <Icon className={`w-4 h-4 ${color}`} />
           <span className="text-sm font-medium text-slate-900">{label}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-slate-900">{score.toFixed(1)}/10</span>
-          <span className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">See Feedback</span>
-        </div>
+        <span className="text-sm font-bold text-slate-900">{score.toFixed(1)}/10</span>
       </div>
       <ProgressBar value={score} max={10} color={score >= 7 ? 'green' : score >= 5 ? 'yellow' : 'red'} />
+      <div className="flex justify-end pt-1">
+        <span className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">See Feedback</span>
+      </div>
     </div>
   );
 }

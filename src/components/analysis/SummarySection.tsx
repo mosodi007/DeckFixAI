@@ -1,4 +1,4 @@
-import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp } from 'lucide-react';
+import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
@@ -8,11 +8,12 @@ interface SummarySectionProps {
   overallScore: number;
   investmentGrade: string;
   fundingOdds: 'Very High' | 'High' | 'Low' | 'Very Low';
+  businessSummary: string;
   onNewAnalysis: () => void;
   onOpenImprovementFlow: () => void;
 }
 
-export function SummarySection({ fileName, overallScore, investmentGrade, fundingOdds, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
+export function SummarySection({ fileName, overallScore, investmentGrade, fundingOdds, businessSummary, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
   const getGradeColor = (grade: string) => {
     if (grade.startsWith('A')) return 'text-green-600';
     if (grade.startsWith('B')) return 'text-blue-600';
@@ -39,7 +40,7 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <StatCard
           label="Overall Score"
           value={overallScore}
@@ -58,6 +59,23 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
           icon={Zap}
           valueClassName={getFundingOddsColor(fundingOdds)}
         />
+      </div>
+
+      <div className="border-t border-slate-200 pt-6 mb-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-slate-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Business Summary</h3>
+            <p className="text-sm text-slate-600">Executive overview of your pitch deck</p>
+          </div>
+        </div>
+        <div className="prose prose-slate max-w-none">
+          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+            {businessSummary}
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-3">

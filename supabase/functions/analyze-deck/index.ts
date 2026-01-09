@@ -134,15 +134,16 @@ Calculate **Overall Score** as weighted average:
 Be harsh. Average real decks should score 50-65. Only truly excellent, investor-ready decks score 80+.
 
 ### PAGE ANALYSIS:
-For EACH page in the deck (1 to ${pageCount}):
+CRITICAL: You MUST include an entry for EVERY SINGLE PAGE in the deck. The deck has ${pageCount} pages, so your pages array MUST contain exactly ${pageCount} entries numbered 1 through ${pageCount}. Do not skip any pages.
 
-- pageNumber: actual page number
+For EACH page (1 to ${pageCount}):
+- pageNumber: actual page number (1, 2, 3, ... ${pageCount})
 - title: Slide title/heading (e.g., "Cover", "Problem", "Solution", "Market", "Team", "Financials")
 - score: 0-100 (be harsh, most slides score 40-70)
-- content: 1-2 sentence summary
-- feedback: 2-3 sentences of brutally honest VC feedback. Don't hedge. If it's weak, say "This slide is weak because..." If data is missing, say "Critical data missing:" If messaging is unclear, say "The message is muddled and fails to..."
-- recommendations: Array of 2-3 specific actions to improve (keep brief and direct)
-- idealVersion: 1 sentence describing what a perfect version would include
+- content: 1 sentence summary
+- feedback: 1-2 sentences of direct VC feedback
+- recommendations: Array of 1-2 specific actions (keep very brief)
+- idealVersion: 1 short sentence
 
 ### IDENTIFY ISSUES:
 List specific problems found (diagnostic):
@@ -198,6 +199,8 @@ Write a concise summary (100-150 words) covering:
 
 ## REQUIRED JSON FORMAT:
 
+REMINDER: The pages array below MUST contain ALL ${pageCount} pages. Every page from 1 to ${pageCount} must be included.
+
 {
   "overallScore": <number 0-100>,
   "totalPages": ${pageCount},
@@ -247,11 +250,21 @@ Write a concise summary (100-150 words) covering:
       "pageNumber": 1,
       "title": "<title>",
       "score": <0-100>,
-      "content": "<1-2 sentences>",
-      "feedback": "<2-3 sentences>",
+      "content": "<1 sentence>",
+      "feedback": "<1-2 sentences>",
       "recommendations": ["<action 1>", "<action 2>"],
       "idealVersion": "<1 sentence>"
-    }
+    },
+    {
+      "pageNumber": 2,
+      "title": "<title>",
+      "score": <0-100>,
+      "content": "<1 sentence>",
+      "feedback": "<1-2 sentences>",
+      "recommendations": ["<action 1>", "<action 2>"],
+      "idealVersion": "<1 sentence>"
+    },
+    ... CONTINUE FOR ALL ${pageCount} PAGES ...
   ],
   "metrics": {
     "clarityScore": <0-100>,
@@ -295,7 +308,11 @@ Write a concise summary (100-150 words) covering:
   ]
 }
 
-CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }. If the response is getting too long, prioritize completing the JSON structure over adding more detail.`;
+CRITICAL REQUIREMENTS:
+1. Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }.
+2. The pages array MUST include ALL ${pageCount} pages. Do not omit any pages.
+3. If response is getting long, make feedback shorter but NEVER skip pages.
+4. Keep feedback concise (1-2 sentences per page) to fit all pages within token limit.`;
 
     console.log('Calling OpenAI API for text-based analysis...');
 

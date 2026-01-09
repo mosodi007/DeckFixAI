@@ -3,6 +3,7 @@ import { Sparkles, CheckCircle2, TrendingUp } from 'lucide-react';
 import { UploadZone } from './upload/UploadZone';
 import { AnalysisProgress } from './upload/AnalysisProgress';
 import { FeatureCard } from './upload/FeatureCard';
+import { analyzeDeck } from '../services/analysisService';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
@@ -40,6 +41,21 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
   };
 
   const handleAnalyze = async () => {
+    if (!selectedFile) return;
+
+    setIsAnalyzing(true);
+
+    try {
+      const { analysisId } = await analyzeDeck(selectedFile);
+      onAnalysisComplete({ analysisId });
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      alert('Failed to analyze deck. Please try again.');
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleAnalyzeOld = async () => {
     if (!selectedFile) return;
 
     setIsAnalyzing(true);

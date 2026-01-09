@@ -1,5 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { extractTextFromPDF, extractPageImages } from './pdfExtractor.ts';
+import { extractTextFromPDF } from './pdfExtractor.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -419,68 +419,20 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     const analysisId = analysisRecord.id;
     console.log('Analysis created with ID:', analysisId);
 
-    console.log('Extracting page images...');
-    let pageImages: Map<number, { imageUrl: string; thumbnailUrl: string }> = new Map();
-
-    try {
-      const { images } = await extractPageImages(arrayBuffer, pageCount);
-
-      if (images && images.length > 0) {
-        console.log(`Uploading ${images.length} slide images to storage...`);
-
-        for (const image of images) {
-          try {
-            const fileName = `${analysisId}/slide-${image.pageNumber}.png`;
-
-            const { data: uploadData, error: uploadError } = await supabase
-              .storage
-              .from('slide-images')
-              .upload(fileName, image.imageData, {
-                contentType: 'image/png',
-                upsert: true
-              });
-
-            if (uploadError) {
-              console.error(`Failed to upload image for page ${image.pageNumber}:`, uploadError);
-              continue;
-            }
-
-            const { data: { publicUrl } } = supabase
-              .storage
-              .from('slide-images')
-              .getPublicUrl(fileName);
-
-            pageImages.set(image.pageNumber, {
-              imageUrl: publicUrl,
-              thumbnailUrl: publicUrl
-            });
-
-            console.log(`✓ Uploaded slide ${image.pageNumber}`);
-          } catch (imgError) {
-            console.error(`Error processing image for page ${image.pageNumber}:`, imgError);
-          }
-        }
-
-        console.log(`Successfully uploaded ${pageImages.size} slide images`);
-      }
-    } catch (imageError) {
-      console.warn('Could not extract page images, continuing without images:', imageError);
-    }
+    // Note: PDF to image rendering is disabled due to canvas limitations in Deno edge functions
+    // Future enhancement: implement client-side PDF rendering or use external service
 
     if (analysis.pages && analysis.pages.length > 0) {
-      const pagesData = analysis.pages.map((page: any) => {
-        const imageData = pageImages.get(page.pageNumber);
-        return {
-          analysis_id: analysisId,
-          page_number: page.pageNumber,
-          title: page.title,
-          score: page.score,
-          content: page.content || null,
-          image_url: imageData?.imageUrl || null,
-          thumbnail_url: imageData?.thumbnailUrl || null,
-        };
-      });
-      console.log(`Inserting ${pagesData.length} pages with images`);
+      const pagesData = analysis.pages.map((page: any) => ({
+        analysis_id: analysisId,
+        page_number: page.pageNumber,
+        title: page.title,
+        score: page.score,
+        content: page.content || null,
+        image_url: null,
+        thumbnail_url: null,
+      }));
+      console.log(`Inserting ${pagesData.length} pages`);
       await supabase.from('analysis_pages').insert(pagesData);
     }
 

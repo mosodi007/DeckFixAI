@@ -1,4 +1,4 @@
-import { extractText, getDocumentProxy, renderPageAsImage } from "npm:unpdf";
+import { extractText, getDocumentProxy } from "npm:unpdf";
 
 export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number }> {
   try {
@@ -49,35 +49,8 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
   }
 }
 
-export async function extractPageImages(arrayBuffer: ArrayBuffer, totalPages: number): Promise<{ images: Array<{ pageNumber: number; imageData: Uint8Array }> }> {
-  const images: Array<{ pageNumber: number; imageData: Uint8Array }> = [];
-
-  try {
-    console.log(`Starting PDF page image extraction for ${totalPages} pages...`);
-    const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
-
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      try {
-        console.log(`Rendering page ${pageNum}...`);
-        const imageBuffer = await renderPageAsImage(pdf, pageNum, {
-          scale: 1.5,
-        });
-
-        images.push({
-          pageNumber: pageNum,
-          imageData: new Uint8Array(imageBuffer)
-        });
-
-        console.log(`✓ Page ${pageNum} rendered successfully`);
-      } catch (pageError) {
-        console.error(`Failed to render page ${pageNum}:`, pageError);
-      }
-    }
-
-    console.log(`Successfully extracted ${images.length} page images`);
-    return { images };
-  } catch (error) {
-    console.error('PDF image extraction error:', error);
-    return { images: [] };
-  }
-}
+// Note: PDF to image rendering is not supported in Deno edge functions
+// due to lack of canvas support. Image rendering requires native canvas or OffscreenCanvas
+// which are not available in the Deno Deploy environment.
+// See: https://github.com/unjs/unpdf/issues/10
+// See: https://github.com/denoland/deno/issues/5701

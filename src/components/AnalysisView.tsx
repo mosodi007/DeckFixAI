@@ -16,7 +16,7 @@ interface AnalysisViewProps {
 
 type MetricType = 'traction' | 'disruption' | 'deckQuality' | 'marketSize' | 'teamStrength' | 'financials' | null;
 
-export function AnalysisView({ data, onOpenImprovementFlow }: AnalysisViewProps) {
+export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: AnalysisViewProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(null);
 
   const metricBreakdowns = {
@@ -76,6 +76,8 @@ export function AnalysisView({ data, onOpenImprovementFlow }: AnalysisViewProps)
         overallScore={data.overallScore}
         investmentGrade={data.investmentGrade}
         fundingOdds={data.fundingOdds}
+        onNewAnalysis={onNewAnalysis}
+        onOpenImprovementFlow={onOpenImprovementFlow}
       />
 
       <KeyMetricsSection

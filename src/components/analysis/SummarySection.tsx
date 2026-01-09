@@ -1,4 +1,4 @@
-import { TrendingUp, Zap, Target, Download, Wand2, Layout } from 'lucide-react';
+import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
@@ -8,9 +8,11 @@ interface SummarySectionProps {
   overallScore: number;
   investmentGrade: string;
   fundingOdds: 'Very High' | 'High' | 'Low' | 'Very Low';
+  onNewAnalysis: () => void;
+  onOpenImprovementFlow: () => void;
 }
 
-export function SummarySection({ fileName, overallScore, investmentGrade, fundingOdds }: SummarySectionProps) {
+export function SummarySection({ fileName, overallScore, investmentGrade, fundingOdds, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
   const getGradeColor = (grade: string) => {
     if (grade.startsWith('A')) return 'text-green-600';
     if (grade.startsWith('B')) return 'text-blue-600';
@@ -59,7 +61,10 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
       </div>
 
       <div className="flex gap-3">
-        <Button variant="primary" icon={Wand2} className="flex-1">
+        <Button variant="secondary" icon={FileUp} className="flex-1" onClick={onNewAnalysis}>
+          Analyze New Deck
+        </Button>
+        <Button variant="primary" icon={Wand2} className="flex-1" onClick={onOpenImprovementFlow}>
           Improve & Fix Issues
         </Button>
         <Button variant="secondary" icon={Layout} className="flex-1">

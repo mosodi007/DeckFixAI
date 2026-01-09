@@ -89,11 +89,15 @@ export function adaptAnalysisData(data: AnalysisData) {
       suggestedContent: s.suggestedContent
     })),
     pages: data.pages.map(p => ({
-      pageNumber: p.pageNumber,
+      page_number: p.pageNumber,
       title: p.title,
       score: p.score,
+      content: p.content || null,
+      feedback: p.feedback || null,
+      recommendations: p.recommendations || null,
+      ideal_version: p.idealVersion || null,
       thumbnail: p.thumbnailUrl || null,
-      imageUrl: p.imageUrl || null
+      image_url: p.imageUrl || null
     }))
   };
 }

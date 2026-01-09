@@ -20,6 +20,9 @@ export interface AnalysisData {
     title: string;
     score: number;
     content: string | null;
+    feedback: string | null;
+    recommendations: string[] | null;
+    idealVersion: string | null;
     imageUrl: string | null;
     thumbnailUrl: string | null;
   }>;
@@ -244,6 +247,9 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       title: p.title,
       score: p.score,
       content: p.content,
+      feedback: p.feedback,
+      recommendations: p.recommendations,
+      idealVersion: p.ideal_version,
       imageUrl: p.image_url,
       thumbnailUrl: p.thumbnail_url,
     })) || [],

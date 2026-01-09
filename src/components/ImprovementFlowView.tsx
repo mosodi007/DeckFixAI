@@ -3,6 +3,7 @@ import { ArrowLeft, Filter } from 'lucide-react';
 import { DeckPageCard } from './improvement/DeckPageCard';
 import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
+import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -12,13 +13,18 @@ interface ImprovementFlowViewProps {
 export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) {
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
+  const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
-    pageNumber: i + 1,
+    page_number: i + 1,
     title: `Slide ${i + 1}`,
     score: Math.floor(Math.random() * 40) + 60,
+    content: null,
+    feedback: null,
+    recommendations: null,
+    ideal_version: null,
     thumbnail: null,
-    imageUrl: null
+    image_url: null
   }));
 
   const allIssues = [
@@ -148,11 +154,20 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                 {deckPages.map((page: any) => (
                   <DeckPageCard
-                    key={page.pageNumber}
-                    page={page}
-                    isSelected={selectedPage === page.pageNumber}
-                    issueCount={sortedIssues.filter(i => i.pageNumber === page.pageNumber).length}
-                    onClick={() => setSelectedPage(page.pageNumber)}
+                    key={page.page_number}
+                    page={{
+                      pageNumber: page.page_number,
+                      title: page.title,
+                      score: page.score,
+                      thumbnail: page.thumbnail
+                    }}
+                    isSelected={selectedPage === page.page_number}
+                    issueCount={sortedIssues.filter(i => i.pageNumber === page.page_number).length}
+                    onClick={() => setSelectedPage(page.page_number)}
+                    onFixClick={(e) => {
+                      e.stopPropagation();
+                      setFeedbackModalPage(page);
+                    }}
                   />
                 ))}
               </div>
@@ -164,9 +179,9 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
             {selectedPage > 0 && (
               <SlideViewer
                 slideNumber={selectedPage}
-                imageUrl={deckPages.find((p: any) => p.pageNumber === selectedPage)?.imageUrl}
-                title={deckPages.find((p: any) => p.pageNumber === selectedPage)?.title || `Slide ${selectedPage}`}
-                score={deckPages.find((p: any) => p.pageNumber === selectedPage)?.score || 0}
+                imageUrl={deckPages.find((p: any) => p.page_number === selectedPage)?.image_url}
+                title={deckPages.find((p: any) => p.page_number === selectedPage)?.title || `Slide ${selectedPage}`}
+                score={deckPages.find((p: any) => p.page_number === selectedPage)?.score || 0}
               />
             )}
 
@@ -216,6 +231,13 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
           </div>
         </div>
       </div>
+
+      {feedbackModalPage && (
+        <SlideFeedbackModal
+          page={feedbackModalPage}
+          onClose={() => setFeedbackModalPage(null)}
+        />
+      )}
     </div>
   );
 }

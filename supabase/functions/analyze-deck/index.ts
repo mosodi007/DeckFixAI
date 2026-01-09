@@ -217,11 +217,25 @@ Calculate **Overall Score** as weighted average:
 Be harsh. Average real decks should score 50-65. Only truly excellent, investor-ready decks score 80+.
 
 ### PAGE ANALYSIS:
-For EACH page in the deck (1 to ${pageCount}), provide:
+For EACH page in the deck (1 to ${pageCount}), provide BRUTAL, UNBIASED VC FEEDBACK:
+
 - pageNumber: actual page number (use the number from the PAGE markers)
 - title: Extract the actual slide title/heading. Look at the visual slide screenshots provided and identify the main heading or title text that appears on the slide. Common titles include: "Cover", "Problem", "Solution", "Market Size", "Business Model", "Traction", "Team", "Financials", "Ask", etc. If no clear title is visible, create a descriptive title based on the content (e.g., "Financial Projections", "Customer Testimonials"). DO NOT leave titles blank or use generic "Slide X" placeholders.
-- score: individual page quality (0-100)
+- score: individual page quality (0-100) - be harsh, only truly excellent slides score 85+
 - content: brief summary of page content
+- feedback: (NEW - CRITICAL) Provide 2-4 paragraphs of BRUTAL, DIRECT VC feedback for this specific slide. Write as if you're a partner in a Monday morning investment committee explaining why you passed. Include:
+  * What's wrong or weak about this slide (be specific, not generic)
+  * Why this matters to investors (impact on funding decision)
+  * What red flags or concerns this raises
+  * What's missing that VCs expect to see
+  * How this compares to top-tier decks you've funded
+  BE BRUTALLY HONEST. Don't sugarcoat. Use phrases like "This is a red flag because...", "This lacks credibility due to...", "No investor will believe...", "This raises serious concerns about..."
+- recommendations: Array of 2-4 SPECIFIC, ACTIONABLE fixes that would significantly boost this slide's score. Each recommendation should be a string with clear, implementable action. Format: "Add [specific thing] showing [specific metric/data] to demonstrate [specific outcome]". Examples:
+  * "Add a competitor comparison matrix showing your product's 3 key differentiators with quantified performance metrics (e.g., '10x faster processing', '50% lower cost')"
+  * "Include actual customer logos from Fortune 500 companies or recognizable brands to build credibility. At minimum, show '15+ enterprise customers including companies in [industry]'"
+  * "Replace vague market size with bottom-up TAM calculation: [target customer segment] × [number of potential customers] × [annual spend per customer] = [$X billion TAM]"
+  Each recommendation should be so specific that implementing it would directly address the feedback issues.
+- idealVersion: (NEW) Describe in 2-3 sentences what a PERFECT version of this slide would contain. Be specific about what data, visuals, messaging would make this slide score 95-100. Reference examples from successful decks you've seen.
 
 ### IDENTIFY ISSUES:
 List specific problems found (diagnostic):
@@ -317,7 +331,15 @@ Don't sugarcoat issues. This is internal VC notes, not founder feedback.
     ...
   ],
   "pages": [
-    {"pageNumber": 1, "title": "<title>", "score": <0-100>, "content": "<brief summary>"},
+    {
+      "pageNumber": 1,
+      "title": "<title>",
+      "score": <0-100>,
+      "content": "<brief summary>",
+      "feedback": "<2-4 paragraphs of brutal VC feedback>",
+      "recommendations": ["<specific action 1>", "<specific action 2>", "<specific action 3>"],
+      "idealVersion": "<description of perfect slide>"
+    },
     ...
   ],
   "metrics": {
@@ -465,10 +487,13 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
         title: page.title,
         score: page.score,
         content: page.content || null,
+        feedback: page.feedback || null,
+        recommendations: page.recommendations || [],
+        ideal_version: page.idealVersion || null,
         image_url: imageUrls[page.pageNumber - 1] || null,
         thumbnail_url: imageUrls[page.pageNumber - 1] || null,
       }));
-      console.log(`Inserting ${pagesData.length} pages with image URLs`);
+      console.log(`Inserting ${pagesData.length} pages with detailed feedback`);
       console.log('Page numbers:', analysis.pages.map((p: any) => p.pageNumber));
       console.log('Available image URLs:', imageUrls.length);
       await supabase.from('analysis_pages').insert(pagesData);

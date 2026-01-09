@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { extractTextFromPDF } from './pdfExtractor.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,9 +39,10 @@ Deno.serve(async (req: Request) => {
     console.log('Processing file:', file.name, 'Size:', file.size);
 
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const { text, pageCount } = await extractTextFromPDF(arrayBuffer);
 
-    console.log('Calling OpenAI for PDF analysis...');
+    console.log(`Extracted ${text.length} characters from ${pageCount} pages`);
+    console.log('Calling OpenAI for analysis...');
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -57,7 +59,7 @@ Deno.serve(async (req: Request) => {
 
 1. Overall Structure & Flow
 2. Content Quality & Completeness
-3. Visual Design & Clarity
+3. Message Clarity
 4. Investment Readiness
 5. Missing Critical Elements
 
@@ -65,17 +67,19 @@ Provide scores from 0-100 and specific, constructive feedback.`
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Analyze this pitch deck PDF comprehensively. Provide your analysis in the following JSON format:
+            content: `Analyze this pitch deck content comprehensively. The deck has ${pageCount} pages.
+
+Content:
+${text.substring(0, 15000)}
+
+Provide your analysis in the following JSON format:
 
 {
   "overallScore": <number 0-100>,
-  "totalPages": <number>,
-  "summary": "<executive summary>",
+  "totalPages": ${pageCount},
+  "summary": "<executive summary of the pitch deck and overall assessment>",
   "pages": [
-    {"pageNumber": <number>, "title": "<title>", "score": <0-100>, "content": "<brief description>"}
+    {"pageNumber": <number>, "title": "<inferred slide title>", "score": <0-100>, "content": "<brief assessment>"}
   ],
   "metrics": {
     "clarityScore": <0-100>,
@@ -83,29 +87,20 @@ Provide scores from 0-100 and specific, constructive feedback.`
     "contentScore": <0-100>,
     "structureScore": <0-100>
   },
-  "strengths": ["<strength 1>", "<strength 2>", ...],
-  "weaknesses": ["<weakness 1>", "<weakness 2>", ...],
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "weaknesses": ["<weakness 1>", "<weakness 2>", "<weakness 3>"],
   "issues": [
-    {"priority": "High|Medium|Low", "title": "<issue>", "description": "<details>", "pageNumber": <number>}
+    {"priority": "High|Medium|Low", "title": "<issue title>", "description": "<detailed description>", "pageNumber": <number or null>}
   ],
   "improvements": [
-    {"priority": "High|Medium|Low", "title": "<suggestion>", "description": "<impact>", "pageNumber": <number>}
+    {"priority": "High|Medium|Low", "title": "<improvement title>", "description": "<expected impact>", "pageNumber": <number or null>}
   ],
   "missingSlides": [
     {"priority": "High|Medium|Low", "title": "<slide name>", "description": "<why needed>", "suggestedContent": "<what to include>"}
   ]
 }
 
-Be specific and actionable in your feedback.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${base64}`,
-                  detail: 'high'
-                }
-              }
-            ]
+Be specific and actionable in your feedback. Provide at least 3 strengths, 3 weaknesses, 5 issues, 5 improvements, and 3 missing slides.`
           }
         ],
         max_tokens: 4096,
@@ -116,16 +111,17 @@ Be specific and actionable in your feedback.`
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
       console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${openaiResponse.status}`);
+      throw new Error(`OpenAI API error: ${openaiResponse.status} - ${errorData}`);
     }
 
     const openaiResult = await openaiResponse.json();
     const content = openaiResult.choices[0].message.content;
     
-    console.log('OpenAI response:', content);
+    console.log('OpenAI response received');
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error('Could not parse JSON from response:', content);
       throw new Error('Could not parse JSON from OpenAI response');
     }
 

@@ -26,7 +26,7 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
   };
 
   return (
-    <GlassCard className="shadow-xl p-8 mb-8">
+    <GlassCard className="p-8 mb-8" hover={false}>
       <div className="flex items-start justify-between mb-6">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-2">Analysis Complete</h2>

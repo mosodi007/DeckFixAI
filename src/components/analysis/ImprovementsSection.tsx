@@ -19,13 +19,13 @@ export function ImprovementsSection({ improvements }: ImprovementsSectionProps) 
   };
 
   return (
-    <GlassCard className="shadow-lg p-6">
+    <GlassCard className="p-6">
       <h3 className="text-xl font-bold text-slate-900 mb-6">Priority Improvements</h3>
       <div className="space-y-4">
         {improvements.map((improvement, index) => (
           <div
             key={index}
-            className="flex items-start gap-4 p-4 bg-white/40 backdrop-blur-md rounded-lg border border-white/60 hover:border-slate-400 transition-colors"
+            className="flex items-start gap-4 p-4 bg-white/60 backdrop-blur-md rounded-lg border border-slate-200/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
           >
             <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(improvement.priority)}`}>
               {improvement.priority}

@@ -23,6 +23,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <SummarySection
         fileName={data.fileName}
+        companyName={data.keyMetrics.companyName}
         overallScore={data.overallScore}
         investmentGrade={data.investmentGrade}
         fundingOdds={data.fundingOdds}

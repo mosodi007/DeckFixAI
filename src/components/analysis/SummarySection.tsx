@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 
 interface SummarySectionProps {
   fileName: string;
+  companyName: string;
   overallScore: number;
   investmentGrade: string;
   fundingOdds: 'Very High' | 'High' | 'Low' | 'Very Low';
@@ -13,7 +14,7 @@ interface SummarySectionProps {
   onOpenImprovementFlow: () => void;
 }
 
-export function SummarySection({ fileName, overallScore, investmentGrade, fundingOdds, businessSummary, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
+export function SummarySection({ fileName, companyName, overallScore, investmentGrade, fundingOdds, businessSummary, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
   const getGradeColor = (grade: string) => {
     if (grade.startsWith('A')) return 'text-green-600';
     if (grade.startsWith('B')) return 'text-blue-600';
@@ -32,7 +33,9 @@ export function SummarySection({ fileName, overallScore, investmentGrade, fundin
     <GlassCard className="p-8 mb-8" hover={false}>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Analysis Complete</h2>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">
+            PitchDeck for {companyName}
+          </h2>
           <p className="text-slate-600">{fileName}</p>
         </div>
         <Button variant="secondary" icon={Download}>

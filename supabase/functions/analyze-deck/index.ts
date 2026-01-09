@@ -134,16 +134,16 @@ Calculate **Overall Score** as weighted average:
 Be harsh. Average real decks should score 50-65. Only truly excellent, investor-ready decks score 80+.
 
 ### PAGE ANALYSIS:
-CRITICAL: You MUST include an entry for EVERY SINGLE PAGE in the deck. The deck has ${pageCount} pages, so your pages array MUST contain exactly ${pageCount} entries numbered 1 through ${pageCount}. Do not skip any pages.
+CRITICAL: You MUST include an entry for EVERY SINGLE PAGE in the deck. The deck has ${pageCount} pages, so your pages array MUST contain exactly ${pageCount} entries numbered 1 through ${pageCount}. Do not skip any pages. Keep ALL feedback EXTREMELY brief to fit within token limits.
 
 For EACH page (1 to ${pageCount}):
 - pageNumber: actual page number (1, 2, 3, ... ${pageCount})
-- title: Slide title/heading (e.g., "Cover", "Problem", "Solution", "Market", "Team", "Financials")
+- title: Slide title/heading (e.g., "Cover", "Problem", "Solution")
 - score: 0-100 (be harsh, most slides score 40-70)
-- content: 1 sentence summary
-- feedback: 1-2 sentences of direct VC feedback
-- recommendations: Array of 1-2 specific actions (keep very brief)
-- idealVersion: 1 short sentence
+- content: 1 SHORT sentence (max 10 words)
+- feedback: 1 SHORT sentence only (max 15 words)
+- recommendations: Array of 1-2 actions (each max 5 words)
+- idealVersion: 1 very short sentence (max 10 words)
 
 ### IDENTIFY ISSUES:
 List specific problems found (diagnostic):
@@ -311,8 +311,8 @@ REMINDER: The pages array below MUST contain ALL ${pageCount} pages. Every page 
 CRITICAL REQUIREMENTS:
 1. Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }.
 2. The pages array MUST include ALL ${pageCount} pages. Do not omit any pages.
-3. If response is getting long, make feedback shorter but NEVER skip pages.
-4. Keep feedback concise (1-2 sentences per page) to fit all pages within token limit.`;
+3. KEEP ALL FEEDBACK EXTREMELY BRIEF. Each page entry should be minimal to fit all pages.
+4. Priority: Include ALL pages > Detailed feedback. Brief feedback for all pages is better than detailed feedback for some.`;
 
     console.log('Calling OpenAI API for text-based analysis...');
 
@@ -423,6 +423,15 @@ CRITICAL REQUIREMENTS:
       analysis = JSON.parse(jsonMatch[0]);
       console.log('Analysis parsed successfully');
       console.log('Overall score:', analysis.overallScore);
+      console.log('Total pages in response:', analysis.totalPages);
+      console.log('Pages array length:', analysis.pages?.length || 0);
+      console.log('Expected page count from PDF:', pageCount);
+
+      if (analysis.pages && analysis.pages.length < pageCount) {
+        console.error(`⚠️ MISSING PAGES: OpenAI returned ${analysis.pages.length} pages but PDF has ${pageCount} pages!`);
+        console.error('Pages returned:', analysis.pages.map((p: any) => p.pageNumber));
+      }
+
       console.log('Metrics:', analysis.metrics);
       console.log('Key Metrics:', analysis.keyMetrics);
     } catch (parseError: any) {
@@ -508,7 +517,7 @@ CRITICAL REQUIREMENTS:
     const baseUrl = storageBaseUrl.replace('/dummy', '');
 
     if (analysis.pages && analysis.pages.length > 0) {
-      const pagesData = analysis.pages.map((page: any) => {
+      let pagesData = analysis.pages.map((page: any) => {
         const imageUrl = `${baseUrl}/${analysisId}/page_${page.pageNumber}.jpg`;
         return {
           analysis_id: analysisId,
@@ -523,8 +532,57 @@ CRITICAL REQUIREMENTS:
           thumbnail_url: imageUrl,
         };
       });
+
+      // If OpenAI didn't return all pages (due to token limits), create placeholder pages for missing ones
+      if (analysis.pages.length < pageCount) {
+        console.warn(`Creating placeholder pages for ${pageCount - analysis.pages.length} missing pages`);
+        const returnedPageNumbers = new Set(analysis.pages.map((p: any) => p.pageNumber));
+
+        for (let i = 1; i <= pageCount; i++) {
+          if (!returnedPageNumbers.has(i)) {
+            const imageUrl = `${baseUrl}/${analysisId}/page_${i}.jpg`;
+            pagesData.push({
+              analysis_id: analysisId,
+              page_number: i,
+              title: `Slide ${i}`,
+              score: 50,
+              content: 'Page requires detailed analysis',
+              feedback: 'This page will be analyzed when you upload slide images',
+              recommendations: ['Upload slide images for detailed visual analysis'],
+              ideal_version: null,
+              image_url: imageUrl,
+              thumbnail_url: imageUrl,
+            });
+          }
+        }
+
+        // Sort by page number
+        pagesData.sort((a, b) => a.page_number - b.page_number);
+      }
+
       console.log(`Inserting ${pagesData.length} pages with detailed feedback and image URLs`);
-      console.log('Page numbers:', analysis.pages.map((p: any) => p.pageNumber));
+      console.log('Page numbers:', pagesData.map((p: any) => p.page_number));
+      await supabase.from('analysis_pages').insert(pagesData);
+    } else {
+      // If no pages at all, create placeholders for all pages
+      console.warn('No pages returned by OpenAI, creating placeholders for all pages');
+      const pagesData = [];
+      for (let i = 1; i <= pageCount; i++) {
+        const imageUrl = `${baseUrl}/${analysisId}/page_${i}.jpg`;
+        pagesData.push({
+          analysis_id: analysisId,
+          page_number: i,
+          title: `Slide ${i}`,
+          score: 50,
+          content: 'Page requires detailed analysis',
+          feedback: 'This page will be analyzed when you upload slide images',
+          recommendations: ['Upload slide images for detailed visual analysis'],
+          ideal_version: null,
+          image_url: imageUrl,
+          thumbnail_url: imageUrl,
+        });
+      }
+      console.log(`Inserting ${pagesData.length} placeholder pages`);
       await supabase.from('analysis_pages').insert(pagesData);
     }
 

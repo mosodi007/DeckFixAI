@@ -84,8 +84,11 @@ Deno.serve(async (req: Request) => {
     const textToAnalyze = text.substring(0, maxChars);
     console.log('Preparing OpenAI request...');
     console.log('Text length to send:', textToAnalyze.length, 'chars');
+    console.log('Images available:', imageUrls.length);
 
     const prompt = `You are a seasoned venture capital partner with 20+ years of experience evaluating pitch decks. You've seen thousands of decks and funded 100+ companies. You are brutally honest and focus on what actually matters for funding decisions. Analyze this ${pageCount}-page pitch deck with the critical eye of someone who writes checks.
+
+IMPORTANT: You have access to both the extracted text AND ${imageUrls.length > 0 ? `visual screenshots of all ${pageCount} slides` : 'the text content'}. ${imageUrls.length > 0 ? 'The slides are provided as images in sequential order (Slide 1, Slide 2, Slide 3, etc.). Use these visual screenshots to accurately extract slide titles from the headings you can SEE on each slide.' : ''}
 
 ## DECK CONTENT:
 The content below is separated by page markers "--- PAGE X ---" and "--- END PAGE X ---". Use these markers to accurately identify which content belongs to each page number.
@@ -216,7 +219,7 @@ Be harsh. Average real decks should score 50-65. Only truly excellent, investor-
 ### PAGE ANALYSIS:
 For EACH page in the deck (1 to ${pageCount}), provide:
 - pageNumber: actual page number (use the number from the PAGE markers)
-- title: Extract the actual slide title/heading from the page content. Look for the main heading or prominent text that identifies the slide topic (e.g., "Cover", "Problem Statement", "Solution", "Market Opportunity", "Team", etc.)
+- title: Extract the actual slide title/heading. Look at the visual slide screenshots provided and identify the main heading or title text that appears on the slide. Common titles include: "Cover", "Problem", "Solution", "Market Size", "Business Model", "Traction", "Team", "Financials", "Ask", etc. If no clear title is visible, create a descriptive title based on the content (e.g., "Financial Projections", "Customer Testimonials"). DO NOT leave titles blank or use generic "Slide X" placeholders.
 - score: individual page quality (0-100)
 - content: brief summary of page content
 
@@ -353,6 +356,21 @@ Don't sugarcoat issues. This is internal VC notes, not founder feedback.
 
 Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
+    const userMessageContent: any[] = [{ type: 'text', text: prompt }];
+
+    if (imageUrls.length > 0) {
+      console.log(`Adding ${imageUrls.length} slide images to OpenAI request for vision analysis`);
+      for (let i = 0; i < Math.min(imageUrls.length, pageCount); i++) {
+        userMessageContent.push({
+          type: 'image_url',
+          image_url: {
+            url: imageUrls[i],
+            detail: 'low'
+          }
+        });
+      }
+    }
+
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -368,7 +386,7 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
           },
           {
             role: 'user',
-            content: prompt
+            content: userMessageContent
           }
         ],
         max_tokens: 4096,

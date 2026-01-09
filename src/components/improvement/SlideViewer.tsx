@@ -29,8 +29,7 @@ export function SlideViewer({ slideNumber, imageUrl, title, score }: SlideViewer
       <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 p-4 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Slide {slideNumber}</h3>
-            <p className="text-sm text-slate-600">{title}</p>
+            <h3 className="text-lg font-bold text-slate-900">Slide {slideNumber} - {title}</h3>
           </div>
           <div className="flex items-center gap-3">
             <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${getScoreColor(score)}`}>
@@ -92,8 +91,7 @@ export function SlideViewer({ slideNumber, imageUrl, title, score }: SlideViewer
               onClick={(e) => e.stopPropagation()}
             />
             <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-lg">
-              <p className="font-semibold">Slide {slideNumber}</p>
-              <p className="text-sm opacity-90">{title}</p>
+              <p className="font-semibold">Slide {slideNumber} - {title}</p>
             </div>
           </div>
         </div>

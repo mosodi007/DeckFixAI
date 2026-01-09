@@ -125,7 +125,11 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
           {/* Left Panel - Deck Pages */}
           <div className="lg:col-span-4 space-y-4">
             <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/60 p-6 shadow-lg sticky top-8">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Deck Pages</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-4">
+                {data?.keyMetrics?.company && data.keyMetrics.company !== 'Not specified'
+                  ? data.keyMetrics.company
+                  : data?.fileName?.replace('.pdf', '') || 'Deck Pages'}
+              </h2>
 
               <button
                 onClick={() => setSelectedPage(0)}

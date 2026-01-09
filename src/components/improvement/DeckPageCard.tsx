@@ -32,10 +32,10 @@ export function DeckPageCard({ page, isSelected, issueCount, onClick }: DeckPage
         isSelected ? 'border-blue-500' : 'border-slate-200/60'
       }`}>
         <div className="flex items-start gap-3">
-          {/* Thumbnail Placeholder */}
-          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex items-center justify-center">
+          {/* Thumbnail */}
+          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex items-center justify-center overflow-hidden">
             {page.thumbnail ? (
-              <img src={page.thumbnail} alt={page.title} className="w-full h-full object-cover rounded-lg" />
+              <img src={page.thumbnail} alt={`Slide ${page.pageNumber}`} className="w-full h-full object-cover rounded-lg" />
             ) : (
               <FileText className="w-8 h-8 text-slate-400" />
             )}
@@ -44,15 +44,12 @@ export function DeckPageCard({ page, isSelected, issueCount, onClick }: DeckPage
           {/* Page Info */}
           <div className="flex-1 text-left min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-slate-500">
-                Slide {page.pageNumber}
-              </span>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getScoreColor(page.score)}`}>
                 {page.score}
               </span>
             </div>
             <h3 className="font-semibold text-slate-900 text-sm mb-2 truncate">
-              {page.title}
+              Slide {page.pageNumber} - {page.title}
             </h3>
 
             {issueCount > 0 && (

@@ -441,16 +441,18 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     console.log('Analysis created with ID:', analysisId);
 
     if (analysis.pages && analysis.pages.length > 0) {
-      const pagesData = analysis.pages.map((page: any, index: number) => ({
+      const pagesData = analysis.pages.map((page: any) => ({
         analysis_id: analysisId,
         page_number: page.pageNumber,
         title: page.title,
         score: page.score,
         content: page.content || null,
-        image_url: imageUrls[index] || null,
-        thumbnail_url: imageUrls[index] || null,
+        image_url: imageUrls[page.pageNumber - 1] || null,
+        thumbnail_url: imageUrls[page.pageNumber - 1] || null,
       }));
       console.log(`Inserting ${pagesData.length} pages with image URLs`);
+      console.log('Page numbers:', analysis.pages.map((p: any) => p.pageNumber));
+      console.log('Available image URLs:', imageUrls.length);
       await supabase.from('analysis_pages').insert(pagesData);
     }
 

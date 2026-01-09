@@ -36,6 +36,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('Environment check passed');
+    console.log('OpenAI key present:', openaiKey ? `Yes (${openaiKey.substring(0, 7)}...)` : 'No');
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -49,13 +50,25 @@ Deno.serve(async (req: Request) => {
     console.log('Processing file:', file.name, 'Size:', file.size);
 
     const arrayBuffer = await file.arrayBuffer();
-    console.log('File loaded into memory, extracting text...');
-    
-    const { text, pageCount } = await extractTextFromPDF(arrayBuffer);
+    console.log('File loaded into memory, size:', arrayBuffer.byteLength, 'bytes');
+    console.log('Extracting text from PDF...');
 
-    console.log(`Extracted ${text.length} characters from ${pageCount} pages`);
+    let text: string;
+    let pageCount: number;
 
-    console.log('Calling OpenAI for analysis...');
+    try {
+      const result = await extractTextFromPDF(arrayBuffer);
+      text = result.text;
+      pageCount = result.pageCount;
+      console.log(`✓ PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
+      console.log('First 200 chars:', text.substring(0, 200));
+    } catch (pdfError) {
+      console.error('PDF extraction failed:', pdfError);
+      throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
+    }
+
+    console.log('Preparing OpenAI request...');
+    console.log('Text length to send:', text.substring(0, 12000).length, 'chars');
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -80,10 +93,17 @@ Deno.serve(async (req: Request) => {
       }),
     });
 
+    console.log('OpenAI response status:', openaiResponse.status);
+
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
       console.error('OpenAI API error:', openaiResponse.status, errorData);
-      throw new Error(`OpenAI API error: ${openaiResponse.status}. Check if your API key is valid.`);
+
+      if (openaiResponse.status === 401) {
+        throw new Error('OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY secret in Supabase Edge Functions settings.');
+      }
+
+      throw new Error(`OpenAI API error: ${openaiResponse.status}. ${errorData}`);
     }
 
     const openaiResult = await openaiResponse.json();

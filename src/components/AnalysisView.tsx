@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { SummarySection } from './analysis/SummarySection';
 import { GeneralReviewSection } from './analysis/GeneralReviewSection';
 import { KeyMetricsSection } from './analysis/KeyMetricsSection';
@@ -18,11 +19,78 @@ interface AnalysisViewProps {
   onOpenImprovementFlow: () => void;
 }
 
+const sections = [
+  { id: 'summary', label: 'Summary' },
+  { id: 'general-review', label: 'General Review' },
+  { id: 'key-metrics', label: 'Key Metrics' },
+  { id: 'stage-assessment', label: 'Stage Assessment' },
+  { id: 'investment-readiness', label: 'Investment Readiness' },
+  { id: 'deal-breakers', label: 'Deal Breakers' },
+  { id: 'red-flags', label: 'Red Flags' },
+  { id: 'missing-pages', label: 'Missing Pages' },
+  { id: 'metrics-scores', label: 'Metrics & Scores' },
+  { id: 'strengths-issues', label: 'Strengths & Issues' },
+  { id: 'improvements', label: 'Improvements' },
+];
+
 export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: AnalysisViewProps) {
+  const [activeSection, setActiveSection] = useState('summary');
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { threshold: 0.2, rootMargin: '-100px 0px -50% 0px' }
+    );
+
+    sections.forEach((section) => {
+      const element = document.getElementById(section.id);
+      if (element) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      const offset = 100;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      window.scrollTo({
+        top: elementPosition - offset,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <SummarySection
+      {/* Navigation Menu */}
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-8 shadow-sm">
+        <nav className="flex gap-1 overflow-x-auto py-3 scrollbar-hide">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => scrollToSection(section.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                activeSection === section.id
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div id="summary">
+        <SummarySection
         fileName={data.fileName}
         companyName={data.keyMetrics.companyName}
         overallScore={data.overallScore}
@@ -41,57 +109,74 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         onNewAnalysis={onNewAnalysis}
         onOpenImprovementFlow={onOpenImprovementFlow}
       />
+      </div>
 
-      <GeneralReviewSection
-        overallScore={data.overallScore}
-        investmentGrade={data.investmentGrade}
-        dealBreakersCount={data.dealBreakers?.length || 0}
-        redFlagsCount={data.redFlags?.length || 0}
-        investmentReady={data.investmentReady}
-        strengths={data.strengths || []}
-        issues={data.issues || []}
-      />
+      <div id="general-review">
+        <GeneralReviewSection
+          overallScore={data.overallScore}
+          investmentGrade={data.investmentGrade}
+          dealBreakersCount={data.dealBreakers?.length || 0}
+          redFlagsCount={data.redFlags?.length || 0}
+          investmentReady={data.investmentReady}
+          strengths={data.strengths || []}
+          issues={data.issues || []}
+        />
+      </div>
 
-      <KeyMetricsSection
-        company={data.keyMetrics.companyName}
-        industry={data.keyMetrics.industry}
-        currentRevenue={data.keyMetrics.currentRevenue}
-        fundingSought={data.keyMetrics.fundingSought}
-        growthRate={data.keyMetrics.growthRate}
-        teamSize={data.keyMetrics.teamSize}
-        marketSize={data.keyMetrics.marketSize}
-        valuation={data.keyMetrics.valuation}
-        businessModel={data.keyMetrics.businessModel}
-        customerCount={data.keyMetrics.customerCount}
-      />
+      <div id="key-metrics">
+        <KeyMetricsSection
+          company={data.keyMetrics.companyName}
+          industry={data.keyMetrics.industry}
+          currentRevenue={data.keyMetrics.currentRevenue}
+          fundingSought={data.keyMetrics.fundingSought}
+          growthRate={data.keyMetrics.growthRate}
+          teamSize={data.keyMetrics.teamSize}
+          marketSize={data.keyMetrics.marketSize}
+          valuation={data.keyMetrics.valuation}
+          businessModel={data.keyMetrics.businessModel}
+          customerCount={data.keyMetrics.customerCount}
+        />
+      </div>
 
-      <StageAssessmentSection
-        stageAssessment={data.stageAssessment}
-        fundingStage={data.fundingStage}
-      />
+      <div id="stage-assessment">
+        <StageAssessmentSection
+          stageAssessment={data.stageAssessment}
+          fundingStage={data.fundingStage}
+        />
+      </div>
 
-      <InvestmentReadinessSection investmentReadiness={data.investmentReadiness} />
+      <div id="investment-readiness">
+        <InvestmentReadinessSection investmentReadiness={data.investmentReadiness} />
+      </div>
 
-      <DealBreakersSection dealBreakers={data.dealBreakers || []} />
+      <div id="deal-breakers">
+        <DealBreakersSection dealBreakers={data.dealBreakers || []} />
+      </div>
 
-      <RedFlagsSection redFlags={data.redFlags || []} />
+      <div id="red-flags">
+        <RedFlagsSection redFlags={data.redFlags || []} />
+      </div>
 
-      <MissingPagesSection missingSlides={data.missingSlides || []} />
+      <div id="missing-pages">
+        <MissingPagesSection missingSlides={data.missingSlides || []} />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div id="metrics-scores" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <MetricsSection metrics={data.metrics} />
         <ScoreDistributionSection overallScore={data.overallScore} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div id="strengths-issues" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <StrengthsSection strengths={data.strengths} />
         <IssuesSection issues={data.issues} />
       </div>
 
-      <ImprovementsSection
-        improvements={data.improvements}
-        onOpenImprovementFlow={onOpenImprovementFlow}
-      />
+      <div id="improvements">
+        <ImprovementsSection
+          improvements={data.improvements}
+          onOpenImprovementFlow={onOpenImprovementFlow}
+        />
+      </div>
     </div>
   );
 }

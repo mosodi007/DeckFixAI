@@ -48,7 +48,7 @@ export function MetricModal({
       onClick={onClose}
     >
       <div
-        className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-white/60"
+        className="bg-white/80 backdrop-blur-xl rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-white/60"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-gradient-to-r from-slate-700 to-slate-900 p-6 text-white">

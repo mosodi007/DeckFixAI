@@ -423,7 +423,7 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     let pageImages: Map<number, { imageUrl: string; thumbnailUrl: string }> = new Map();
 
     try {
-      const { images } = await extractPageImages(arrayBuffer);
+      const { images } = await extractPageImages(arrayBuffer, pageCount);
 
       if (images && images.length > 0) {
         console.log(`Uploading ${images.length} slide images to storage...`);

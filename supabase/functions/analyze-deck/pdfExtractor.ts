@@ -1,4 +1,4 @@
-import { extractText, getDocumentProxy } from "npm:unpdf";
+import { extractText, getDocumentProxy, renderPageAsImages } from "npm:unpdf";
 
 export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number }> {
   try {
@@ -46,5 +46,29 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
       throw new Error(`PDF extraction failed: ${error.message}`);
     }
     throw new Error('Could not extract text from PDF. Please ensure the file is a valid, text-based PDF.');
+  }
+}
+
+export async function extractPageImages(arrayBuffer: ArrayBuffer): Promise<{ images: Array<{ pageNumber: number; imageData: Uint8Array }> }> {
+  try {
+    console.log('Starting PDF page image extraction...');
+    const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
+
+    const images = await renderPageAsImages(pdf, {
+      scale: 2,
+      format: 'png'
+    });
+
+    console.log(`Extracted ${images.length} page images`);
+
+    return {
+      images: images.map((imageData, index) => ({
+        pageNumber: index + 1,
+        imageData: new Uint8Array(imageData)
+      }))
+    };
+  } catch (error) {
+    console.error('PDF image extraction error:', error);
+    return { images: [] };
   }
 }

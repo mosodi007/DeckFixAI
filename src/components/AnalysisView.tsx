@@ -5,6 +5,7 @@ import { StageAssessmentSection } from './analysis/StageAssessmentSection';
 import { InvestmentReadinessSection } from './analysis/InvestmentReadinessSection';
 import { DealBreakersSection } from './analysis/DealBreakersSection';
 import { RedFlagsSection } from './analysis/RedFlagsSection';
+import { MissingPagesSection } from './analysis/MissingPagesSection';
 import { MetricsSection } from './analysis/MetricsSection';
 import { ScoreDistributionSection } from './analysis/ScoreDistributionSection';
 import { StrengthsSection } from './analysis/StrengthsSection';
@@ -74,6 +75,8 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
       <DealBreakersSection dealBreakers={data.dealBreakers || []} />
 
       <RedFlagsSection redFlags={data.redFlags || []} />
+
+      <MissingPagesSection missingSlides={data.missingSlides || []} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <MetricsSection metrics={data.metrics} />

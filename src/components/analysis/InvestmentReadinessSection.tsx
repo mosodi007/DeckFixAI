@@ -52,7 +52,7 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
             <XCircle className="w-7 h-7 text-orange-600" />
           )}
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Investment Readiness</h3>
+            <h3 className="text-xl font-bold text-slate-900">Investor Readiness</h3>
             <p className={`text-sm font-semibold ${isInvestmentReady ? 'text-green-700' : 'text-orange-700'}`}>
               {isInvestmentReady ? 'Ready for investor conversations' : 'Not ready for investors yet'}
             </p>

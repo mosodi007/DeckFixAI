@@ -45,7 +45,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
           }
         });
       },
-      { threshold: 0.2, rootMargin: '-100px 0px -50% 0px' }
+      { threshold: 0.2, rootMargin: '-130px 0px -50% 0px' }
     );
 
     sections.forEach((section) => {
@@ -59,7 +59,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 100;
+      const offset = 130;
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       window.scrollTo({
         top: elementPosition - offset,
@@ -71,7 +71,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       {/* Navigation Menu */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-8 shadow-sm">
+      <div className="sticky top-16 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-8 shadow-sm">
         <nav className="flex gap-1 overflow-x-auto py-3 scrollbar-hide">
           {sections.map((section) => (
             <button

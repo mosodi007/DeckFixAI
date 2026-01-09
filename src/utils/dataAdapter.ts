@@ -92,7 +92,8 @@ export function adaptAnalysisData(data: AnalysisData) {
       pageNumber: p.pageNumber,
       title: p.title,
       score: p.score,
-      thumbnail: null
+      thumbnail: p.thumbnailUrl || null,
+      imageUrl: p.imageUrl || null
     }))
   };
 }

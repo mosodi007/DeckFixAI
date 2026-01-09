@@ -20,6 +20,8 @@ export interface AnalysisData {
     title: string;
     score: number;
     content: string | null;
+    imageUrl: string | null;
+    thumbnailUrl: string | null;
   }>;
   metrics: {
     clarityScore: number;
@@ -234,6 +236,8 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       title: p.title,
       score: p.score,
       content: p.content,
+      imageUrl: p.image_url,
+      thumbnailUrl: p.thumbnail_url,
     })) || [],
     metrics: {
       clarityScore: metrics?.clarity_score || 0,

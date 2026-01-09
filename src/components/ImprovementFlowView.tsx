@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Filter } from 'lucide-react';
 import { DeckPageCard } from './improvement/DeckPageCard';
 import { IssueCard } from './improvement/IssueCard';
+import { SlideViewer } from './improvement/SlideViewer';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -16,7 +17,8 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
     pageNumber: i + 1,
     title: `Slide ${i + 1}`,
     score: Math.floor(Math.random() * 40) + 60,
-    thumbnail: null
+    thumbnail: null,
+    imageUrl: null
   }));
 
   const allIssues = [
@@ -153,12 +155,21 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
             </div>
           </div>
 
-          {/* Right Panel - Issues & Recommendations */}
-          <div className="lg:col-span-8">
+          {/* Right Panel - Slide Viewer & Issues */}
+          <div className="lg:col-span-8 space-y-6">
+            {selectedPage > 0 && (
+              <SlideViewer
+                slideNumber={selectedPage}
+                imageUrl={deckPages.find((p: any) => p.pageNumber === selectedPage)?.imageUrl}
+                title={deckPages.find((p: any) => p.pageNumber === selectedPage)?.title || `Slide ${selectedPage}`}
+                score={deckPages.find((p: any) => p.pageNumber === selectedPage)?.score || 0}
+              />
+            )}
+
             <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/60 p-6 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <h2 className="text-lg font-bold text-slate-900">
-                  {selectedPage === 0 ? 'All Issues & Recommendations' : `Slide ${selectedPage} Issues`}
+                  {selectedPage === 0 ? 'All Issues & Recommendations' : `Slide ${selectedPage} - Feedback & Recommendations`}
                 </h2>
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-slate-600" />

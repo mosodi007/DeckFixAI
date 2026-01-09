@@ -19,19 +19,19 @@ export function ImprovementFlowView({ data, onBack }: ImprovementFlowViewProps) 
   }));
 
   const allIssues = [
-    ...(data?.analysis?.issues || []).map((issue: string) => ({
+    ...(data?.issues || []).map((issue: string, index: number) => ({
       type: 'issue' as const,
-      priority: 'High',
+      priority: index % 3 === 0 ? 'High' : index % 2 === 0 ? 'Medium' : 'Low',
       title: issue,
       description: 'This issue may negatively impact your pitch effectiveness.',
       pageNumber: Math.floor(Math.random() * deckPages.length) + 1,
     })),
-    ...(data?.analysis?.improvements || []).map((improvement: any) => ({
+    ...(data?.improvements || []).map((improvement: any) => ({
       type: 'improvement' as const,
       priority: improvement.priority,
       title: improvement.issue,
       description: improvement.impact,
-      pageNumber: Math.floor(Math.random() * deckPages.length) + 1,
+      pageNumber: improvement.pageNumber || Math.floor(Math.random() * deckPages.length) + 1,
     }))
   ];
 

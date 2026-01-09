@@ -86,23 +86,65 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
           {
             priority: 'High',
             issue: 'Add detailed unit economics slide',
-            impact: 'Investors need clear visibility into profitability metrics'
+            impact: 'Investors need clear visibility into profitability metrics',
+            pageNumber: 8
           },
           {
             priority: 'High',
             issue: 'Include competitive analysis matrix',
-            impact: 'Better positioning against competitors strengthens investment case'
+            impact: 'Better positioning against competitors strengthens investment case',
+            pageNumber: 5
+          },
+          {
+            priority: 'High',
+            issue: 'Strengthen value proposition clarity',
+            impact: 'Make the unique selling points more prominent and compelling',
+            pageNumber: 2
           },
           {
             priority: 'Medium',
             issue: 'Expand on team credentials',
-            impact: 'Highlight relevant industry experience and past exits'
+            impact: 'Highlight relevant industry experience and past exits',
+            pageNumber: 9
           },
           {
             priority: 'Medium',
             issue: 'Refine financial projections',
-            impact: 'More conservative projections increase credibility'
+            impact: 'More conservative projections increase credibility',
+            pageNumber: 10
+          },
+          {
+            priority: 'Medium',
+            issue: 'Add customer testimonials',
+            impact: 'Social proof builds investor confidence in product-market fit',
+            pageNumber: 6
+          },
+          {
+            priority: 'Low',
+            issue: 'Update market sizing methodology',
+            impact: 'Use bottom-up approach to validate TAM calculations',
+            pageNumber: 4
+          },
+          {
+            priority: 'Low',
+            issue: 'Improve slide design consistency',
+            impact: 'Professional visual consistency enhances credibility',
+            pageNumber: 1
           }
+        ],
+        pages: [
+          { pageNumber: 1, title: 'Cover Slide', score: 85, thumbnail: null },
+          { pageNumber: 2, title: 'Problem Statement', score: 78, thumbnail: null },
+          { pageNumber: 3, title: 'Solution Overview', score: 82, thumbnail: null },
+          { pageNumber: 4, title: 'Market Opportunity', score: 72, thumbnail: null },
+          { pageNumber: 5, title: 'Competitive Landscape', score: 65, thumbnail: null },
+          { pageNumber: 6, title: 'Product Demo', score: 88, thumbnail: null },
+          { pageNumber: 7, title: 'Business Model', score: 80, thumbnail: null },
+          { pageNumber: 8, title: 'Traction & Metrics', score: 68, thumbnail: null },
+          { pageNumber: 9, title: 'Team', score: 75, thumbnail: null },
+          { pageNumber: 10, title: 'Financial Projections', score: 62, thumbnail: null },
+          { pageNumber: 11, title: 'Go-to-Market Strategy', score: 70, thumbnail: null },
+          { pageNumber: 12, title: 'Funding Ask', score: 90, thumbnail: null }
         ]
       };
 

@@ -3,8 +3,7 @@ import { extractTextFromPDF } from './pdfExtractor.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface AnalysisResult {
@@ -56,10 +55,6 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Extracted ${text.length} characters from ${pageCount} pages`);
 
-    if (text.length < 50) {
-      throw new Error('Could not extract text from PDF. The file may be image-based or corrupted.');
-    }
-
     console.log('Calling OpenAI for analysis...');
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -77,7 +72,7 @@ Deno.serve(async (req: Request) => {
           },
           {
             role: 'user',
-            content: `Analyze this pitch deck content comprehensively. The deck has ${pageCount} pages.\n\nContent:\n${text.substring(0, 15000)}\n\nProvide your analysis in JSON format with: overallScore, totalPages, summary, pages array, metrics object (clarityScore, designScore, contentScore, structureScore), strengths array, weaknesses array, issues array, improvements array, and missingSlides array.`
+            content: `Analyze this pitch deck content comprehensively. The deck has ${pageCount} pages.\n\nContent:\n${text.substring(0, 12000)}\n\nProvide your analysis in strict JSON format with these exact fields:\n- overallScore (number 0-100)\n- totalPages (number)\n- summary (string)\n- pages (array with pageNumber, title, score, content)\n- metrics (object with clarityScore, designScore, contentScore, structureScore - all numbers 0-100)\n- strengths (array of strings)\n- weaknesses (array of strings)\n- issues (array with pageNumber, priority, title, description)\n- improvements (array with pageNumber, priority, title, description)\n- missingSlides (array with priority, title, description, suggestedContent)\n\nReturn ONLY valid JSON, no markdown formatting.`
           }
         ],
         max_tokens: 4096,

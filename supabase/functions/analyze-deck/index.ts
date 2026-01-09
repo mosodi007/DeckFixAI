@@ -42,12 +42,25 @@ Deno.serve(async (req: Request) => {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
+    const providedAnalysisId = formData.get('analysisId') as string;
+    const imageUrlsJson = formData.get('imageUrls') as string;
 
     if (!file) {
       throw new Error('No file provided');
     }
 
+    let imageUrls: string[] = [];
+    if (imageUrlsJson) {
+      try {
+        imageUrls = JSON.parse(imageUrlsJson);
+        console.log('Received', imageUrls.length, 'image URLs');
+      } catch (e) {
+        console.error('Failed to parse imageUrls:', e);
+      }
+    }
+
     console.log('Processing file:', file.name, 'Size:', file.size);
+    console.log('Analysis ID:', providedAnalysisId || 'will be generated');
 
     const arrayBuffer = await file.arrayBuffer();
     console.log('File loaded into memory, size:', arrayBuffer.byteLength, 'bytes');
@@ -397,17 +410,23 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     console.log('Metrics:', analysis.metrics);
     console.log('Key Metrics:', analysis.keyMetrics);
 
+    const analysisData: any = {
+      file_name: file.name,
+      file_size: file.size,
+      overall_score: analysis.overallScore,
+      total_pages: analysis.totalPages,
+      summary: analysis.summary,
+      funding_stage: analysis.stageAssessment?.detectedStage || null,
+      investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
+    };
+
+    if (providedAnalysisId) {
+      analysisData.id = providedAnalysisId;
+    }
+
     const { data: analysisRecord, error: analysisError } = await supabase
       .from('analyses')
-      .insert({
-        file_name: file.name,
-        file_size: file.size,
-        overall_score: analysis.overallScore,
-        total_pages: analysis.totalPages,
-        summary: analysis.summary,
-        funding_stage: analysis.stageAssessment?.detectedStage || null,
-        investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
-      })
+      .insert(analysisData)
       .select()
       .single();
 
@@ -419,20 +438,17 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     const analysisId = analysisRecord.id;
     console.log('Analysis created with ID:', analysisId);
 
-    // Note: PDF to image rendering is disabled due to canvas limitations in Deno edge functions
-    // Future enhancement: implement client-side PDF rendering or use external service
-
     if (analysis.pages && analysis.pages.length > 0) {
-      const pagesData = analysis.pages.map((page: any) => ({
+      const pagesData = analysis.pages.map((page: any, index: number) => ({
         analysis_id: analysisId,
         page_number: page.pageNumber,
         title: page.title,
         score: page.score,
         content: page.content || null,
-        image_url: null,
-        thumbnail_url: null,
+        image_url: imageUrls[index] || null,
+        thumbnail_url: imageUrls[index] || null,
       }));
-      console.log(`Inserting ${pagesData.length} pages`);
+      console.log(`Inserting ${pagesData.length} pages with image URLs`);
       await supabase.from('analysis_pages').insert(pagesData);
     }
 

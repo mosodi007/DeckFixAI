@@ -48,9 +48,3 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
     throw new Error('Could not extract text from PDF. Please ensure the file is a valid, text-based PDF.');
   }
 }
-
-// Note: PDF to image rendering is not supported in Deno edge functions
-// due to lack of canvas support. Image rendering requires native canvas or OffscreenCanvas
-// which are not available in the Deno Deploy environment.
-// See: https://github.com/unjs/unpdf/issues/10
-// See: https://github.com/denoland/deno/issues/5701

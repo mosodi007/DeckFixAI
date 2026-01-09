@@ -4,6 +4,9 @@ import { UploadZone } from './upload/UploadZone';
 import { AnalysisProgress } from './upload/AnalysisProgress';
 import { FeatureCard } from './upload/FeatureCard';
 import { analyzeDeck } from '../services/analysisService';
+import { extractPageImages } from '../services/pdfImageExtractor';
+import { uploadPageImages } from '../services/storageService';
+import { v4 as uuidv4 } from 'uuid';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
@@ -42,190 +45,51 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
   };
 
   useEffect(() => {
-    let interval: number;
-
-    if (isAnalyzing) {
-      setAnalysisProgress(0);
-      interval = setInterval(() => {
-        setAnalysisProgress(prev => {
-          if (prev >= 95) return prev;
-          const increment = Math.random() * 10 + 5;
-          return Math.min(prev + increment, 95);
-        });
-      }, 500);
-    } else {
+    if (!isAnalyzing) {
       setAnalysisProgress(0);
     }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [isAnalyzing]);
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
     setIsAnalyzing(true);
+    setAnalysisProgress(0);
 
     try {
-      const { analysisId } = await analyzeDeck(selectedFile);
+      const analysisId = uuidv4();
+
+      setAnalysisProgress(10);
+
+      const images = await extractPageImages(selectedFile, (progress) => {
+        const extractionProgress = 10 + (progress.currentPage / progress.totalPages) * 30;
+        setAnalysisProgress(extractionProgress);
+      });
+
+      setAnalysisProgress(40);
+
+      const imageUrls = await uploadPageImages(images, analysisId, (progress) => {
+        const uploadProgress = 40 + (progress.currentPage / progress.totalPages) * 20;
+        setAnalysisProgress(uploadProgress);
+      });
+
+      setAnalysisProgress(60);
+
+      await analyzeDeck(selectedFile, analysisId, imageUrls);
+
       setAnalysisProgress(100);
+
       setTimeout(() => {
         onAnalysisComplete({ analysisId });
       }, 500);
     } catch (error) {
       console.error('Analysis failed:', error);
-      alert('Failed to analyze deck. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.');
       setIsAnalyzing(false);
       setAnalysisProgress(0);
     }
   };
 
-  const handleAnalyzeOld = async () => {
-    if (!selectedFile) return;
-
-    setIsAnalyzing(true);
-
-    setTimeout(() => {
-      const mockAnalysis = {
-        fileName: selectedFile.name,
-        uploadDate: new Date().toISOString(),
-        overallScore: 7.8,
-        investmentGrade: 'B+',
-        fundingOdds: 'High',
-        keyMetrics: {
-          company: 'PayFlow Technologies',
-          industry: 'Fintech',
-          currentRevenue: '$3.2M ARR',
-          fundingSought: '$5M Series A',
-          growthRate: '25% MoM',
-          teamSize: 12,
-          marketSize: '$5B TAM'
-        },
-        metrics: {
-          tractionScore: 8.2,
-          disruptionScore: 7.5,
-          deckQuality: 8.0,
-          marketSize: 7.8,
-          teamStrength: 7.2,
-          financialProjections: 6.9
-        },
-        strengths: [
-          'Strong revenue growth trajectory with 3x YoY increase',
-          'Clear competitive advantages and defensible moat',
-          'Experienced founding team with proven track record',
-          'Large addressable market with clear expansion path',
-          'Well-articulated value proposition'
-        ],
-        issues: [
-          'Customer acquisition costs trending higher than industry average',
-          'Limited details on go-to-market strategy for international expansion',
-          'Financial projections lack detailed assumptions',
-          'Cap table and previous funding rounds not clearly presented',
-          'Missing key metrics: LTV, churn rate, burn rate'
-        ],
-        improvements: [
-          {
-            priority: 'High',
-            issue: 'Add detailed unit economics slide',
-            impact: 'Investors need clear visibility into profitability metrics',
-            pageNumber: 8
-          },
-          {
-            priority: 'High',
-            issue: 'Include competitive analysis matrix',
-            impact: 'Better positioning against competitors strengthens investment case',
-            pageNumber: 5
-          },
-          {
-            priority: 'High',
-            issue: 'Strengthen value proposition clarity',
-            impact: 'Make the unique selling points more prominent and compelling',
-            pageNumber: 2
-          },
-          {
-            priority: 'Medium',
-            issue: 'Expand on team credentials',
-            impact: 'Highlight relevant industry experience and past exits',
-            pageNumber: 9
-          },
-          {
-            priority: 'Medium',
-            issue: 'Refine financial projections',
-            impact: 'More conservative projections increase credibility',
-            pageNumber: 10
-          },
-          {
-            priority: 'Medium',
-            issue: 'Add customer testimonials',
-            impact: 'Social proof builds investor confidence in product-market fit',
-            pageNumber: 6
-          },
-          {
-            priority: 'Low',
-            issue: 'Update market sizing methodology',
-            impact: 'Use bottom-up approach to validate TAM calculations',
-            pageNumber: 4
-          },
-          {
-            priority: 'Low',
-            issue: 'Improve slide design consistency',
-            impact: 'Professional visual consistency enhances credibility',
-            pageNumber: 1
-          }
-        ],
-        missingSlides: [
-          {
-            priority: 'High',
-            title: 'Unit Economics & Key Metrics',
-            description: 'Your deck is missing critical financial metrics. Investors need to see CAC, LTV, gross margins, and payback period to assess business viability.',
-            suggestedContent: 'CAC, LTV, LTV/CAC ratio, Gross Margin, Payback Period'
-          },
-          {
-            priority: 'High',
-            title: 'Competitive Advantage & Moat',
-            description: 'No clear differentiation from competitors. Add a slide showing your unique advantages, barriers to entry, and defensible positioning.',
-            suggestedContent: 'Competitive matrix, unique IP, network effects, switching costs'
-          },
-          {
-            priority: 'Medium',
-            title: 'Customer Case Studies',
-            description: 'Missing social proof and validation. Include 2-3 customer success stories or testimonials to demonstrate product-market fit.',
-            suggestedContent: 'Customer logos, testimonials, results achieved, retention metrics'
-          },
-          {
-            priority: 'Medium',
-            title: 'Use of Funds Breakdown',
-            description: 'Funding ask needs detailed allocation plan. Show exactly how investment will be deployed across hiring, product, marketing, etc.',
-            suggestedContent: 'Budget breakdown, hiring plan, milestones, runway extension'
-          },
-          {
-            priority: 'Low',
-            title: 'Risk Analysis & Mitigation',
-            description: 'Demonstrate awareness of key risks and your strategies to address them. Shows maturity and thorough planning.',
-            suggestedContent: 'Market risks, competitive risks, execution risks, mitigation strategies'
-          }
-        ],
-        pages: [
-          { pageNumber: 1, title: 'Cover Slide', score: 85, thumbnail: null },
-          { pageNumber: 2, title: 'Problem Statement', score: 78, thumbnail: null },
-          { pageNumber: 3, title: 'Solution Overview', score: 82, thumbnail: null },
-          { pageNumber: 4, title: 'Market Opportunity', score: 72, thumbnail: null },
-          { pageNumber: 5, title: 'Competitive Landscape', score: 65, thumbnail: null },
-          { pageNumber: 6, title: 'Product Demo', score: 88, thumbnail: null },
-          { pageNumber: 7, title: 'Business Model', score: 80, thumbnail: null },
-          { pageNumber: 8, title: 'Traction & Metrics', score: 68, thumbnail: null },
-          { pageNumber: 9, title: 'Team', score: 75, thumbnail: null },
-          { pageNumber: 10, title: 'Financial Projections', score: 62, thumbnail: null },
-          { pageNumber: 11, title: 'Go-to-Market Strategy', score: 70, thumbnail: null },
-          { pageNumber: 12, title: 'Funding Ask', score: 90, thumbnail: null }
-        ]
-      };
-
-      onAnalysisComplete(mockAnalysis);
-      setIsAnalyzing(false);
-    }, 3000);
-  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">

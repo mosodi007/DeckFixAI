@@ -91,11 +91,19 @@ export interface AnalysisData {
   }>;
 }
 
-export async function analyzeDeck(file: File): Promise<{ analysisId: string }> {
+export async function analyzeDeck(
+  file: File,
+  analysisId: string,
+  imageUrls: string[]
+): Promise<{ analysisId: string }> {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('analysisId', analysisId);
+  formData.append('imageUrls', JSON.stringify(imageUrls));
 
   console.log('Uploading file:', file.name, 'Size:', file.size);
+  console.log('Analysis ID:', analysisId);
+  console.log('Image URLs:', imageUrls.length);
 
   const response = await fetch(
     `${supabaseUrl}/functions/v1/analyze-deck`,

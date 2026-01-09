@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Sparkles, CheckCircle2, TrendingUp } from 'lucide-react';
 import { UploadZone } from './upload/UploadZone';
-import { AnalysisProgress } from './upload/AnalysisProgress';
 import { FeatureCard } from './upload/FeatureCard';
 import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
@@ -116,8 +115,6 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
         onClearFile={() => setSelectedFile(null)}
         fileInputRef={fileInputRef}
       />
-
-      {isAnalyzing && <AnalysisProgress />}
 
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
         <FeatureCard

@@ -1,7 +1,7 @@
+import { useState, useEffect } from 'react';
 import { Upload, FileText, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { Button } from '../ui/Button';
-import { ProgressBar } from '../ui/ProgressBar';
 
 interface UploadZoneProps {
   isDragging: boolean;
@@ -17,6 +17,21 @@ interface UploadZoneProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
 }
 
+const funnyMessages = [
+  "Please wait while our AI calculates your TAM, SAM, and 'trust me bro' market...",
+  "Please wait while our AI wonders whether you should pivot to Web3 just in case...",
+  "Please wait while our AI ensures your CTO is a 10x developer...",
+  "Please wait while our AI checks if your market research goes beyond 'everyone will love this.'...",
+  "Please wait while our AI checks if your traction is more than just your mom and best friend...",
+  "Please wait while our AI runs your deck through the Peter Thiel contrarian test...",
+  "Please wait while our AI checks if you've included the hockey stick graph...",
+  "Please wait while our AI verifies your 'unfair advantage' is actually unfair...",
+  "Please wait while our AI counts how many buzzwords per slide...",
+  "Please wait while our AI checks if 'synergy' appears more than twice...",
+  "Please wait while our AI determines if your moat has any water in it...",
+  "Please wait while our AI looks for the 'Uber for X' comparison...",
+];
+
 export function UploadZone({
   isDragging,
   selectedFile,
@@ -30,6 +45,24 @@ export function UploadZone({
   onClearFile,
   fileInputRef,
 }: UploadZoneProps) {
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [fadeIn, setFadeIn] = useState(true);
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+
+    const messageInterval = setInterval(() => {
+      setFadeIn(false);
+
+      setTimeout(() => {
+        setCurrentMessageIndex((prev) => (prev + 1) % funnyMessages.length);
+        setFadeIn(true);
+      }, 300);
+    }, 3500);
+
+    return () => clearInterval(messageInterval);
+  }, [isAnalyzing]);
+
   return (
     <div
       onDragOver={onDragOver}
@@ -71,13 +104,15 @@ export function UploadZone({
           </p>
 
           {isAnalyzing && (
-            <div className="mb-6 max-w-md mx-auto">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-700">Analyzing</span>
-                <span className="text-sm font-semibold text-slate-900">{Math.round(analysisProgress)}%</span>
+            <div className="mb-6 max-w-2xl mx-auto">
+              <div
+                className={`text-sm text-slate-700 italic transition-opacity duration-300 ${
+                  fadeIn ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                {funnyMessages[currentMessageIndex]}
               </div>
-              <ProgressBar value={analysisProgress} max={100} height="md" />
-              <p className="text-xs text-slate-500 mt-2">This usually takes 30-60 seconds</p>
+              <p className="text-xs text-slate-500 mt-3">This usually takes 30-60 seconds</p>
             </div>
           )}
 

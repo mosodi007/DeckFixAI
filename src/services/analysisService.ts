@@ -56,6 +56,7 @@ export async function analyzeDeck(file: File): Promise<{ analysisId: string }> {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
       },
       body: formData,
     }

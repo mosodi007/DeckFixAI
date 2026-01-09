@@ -2,6 +2,7 @@ import { AnalysisData } from '../services/analysisService';
 
 export function adaptAnalysisData(data: AnalysisData) {
   return {
+    id: data.id,
     fileName: data.fileName,
     uploadDate: data.createdAt,
     overallScore: data.overallScore / 10,

@@ -11,11 +11,12 @@ import { ImprovementsSection } from './analysis/ImprovementsSection';
 interface AnalysisViewProps {
   data: any;
   onNewAnalysis: () => void;
+  onOpenImprovementFlow: () => void;
 }
 
 type MetricType = 'traction' | 'disruption' | 'deckQuality' | 'marketSize' | 'teamStrength' | 'financials' | null;
 
-export function AnalysisView({ data }: AnalysisViewProps) {
+export function AnalysisView({ data, onOpenImprovementFlow }: AnalysisViewProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(null);
 
   const metricBreakdowns = {
@@ -100,7 +101,10 @@ export function AnalysisView({ data }: AnalysisViewProps) {
         <IssuesSection issues={data.issues} />
       </div>
 
-      <ImprovementsSection improvements={data.improvements} />
+      <ImprovementsSection
+        improvements={data.improvements}
+        onOpenImprovementFlow={onOpenImprovementFlow}
+      />
 
       {selectedMetric && (
         <MetricModal

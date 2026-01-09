@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
+import { ImprovementFlowView } from './components/ImprovementFlowView';
 
 function App() {
-  const [view, setView] = useState<'upload' | 'analysis'>('upload');
+  const [view, setView] = useState<'upload' | 'analysis' | 'improvement'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
 
   const handleAnalysisComplete = (data: any) => {
@@ -14,6 +15,14 @@ function App() {
   const handleNewAnalysis = () => {
     setView('upload');
     setAnalysisData(null);
+  };
+
+  const handleOpenImprovementFlow = () => {
+    setView('improvement');
+  };
+
+  const handleBackToAnalysis = () => {
+    setView('analysis');
   };
 
   return (
@@ -28,7 +37,7 @@ function App() {
                 className="h-8"
               />
             </div>
-            {view === 'analysis' && (
+            {(view === 'analysis' || view === 'improvement') && (
               <button
                 onClick={handleNewAnalysis}
                 className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
@@ -43,8 +52,17 @@ function App() {
       <main>
         {view === 'upload' ? (
           <UploadView onAnalysisComplete={handleAnalysisComplete} />
+        ) : view === 'analysis' ? (
+          <AnalysisView
+            data={analysisData}
+            onNewAnalysis={handleNewAnalysis}
+            onOpenImprovementFlow={handleOpenImprovementFlow}
+          />
         ) : (
-          <AnalysisView data={analysisData} onNewAnalysis={handleNewAnalysis} />
+          <ImprovementFlowView
+            data={analysisData}
+            onBack={handleBackToAnalysis}
+          />
         )}
       </main>
     </div>

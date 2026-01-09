@@ -9,8 +9,8 @@ export function ScoreCircle({ score, size }: ScoreCircleProps) {
   const offset = circumference - (score / 100) * circumference;
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return '#10b981';
-    if (score >= 60) return '#3b82f6';
+    if (score >= 80) return '#22c55e';
+    if (score >= 60) return '#84cc16';
     if (score >= 40) return '#f59e0b';
     return '#ef4444';
   };

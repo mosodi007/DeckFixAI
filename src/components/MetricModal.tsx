@@ -30,13 +30,11 @@ export function MetricModal({
 
   const percentage = (score / max) * 100;
 
-  const colorClasses = {
-    blue: 'from-blue-500 to-blue-600',
-    cyan: 'from-cyan-500 to-cyan-600',
-    green: 'from-green-500 to-green-600',
-    purple: 'from-purple-500 to-purple-600',
-    orange: 'from-orange-500 to-orange-600',
-    pink: 'from-pink-500 to-pink-600',
+  const getBarColor = (percent: number) => {
+    if (percent >= 80) return 'from-green-500 to-green-600';
+    if (percent >= 60) return 'from-yellow-500 to-green-500';
+    if (percent >= 40) return 'from-orange-500 to-yellow-500';
+    return 'from-red-500 to-orange-500';
   };
 
   const getStatusIcon = (status: 'good' | 'warning' | 'poor') => {
@@ -46,21 +44,26 @@ export function MetricModal({
   };
 
   const getStatusBg = (status: 'good' | 'warning' | 'poor') => {
-    if (status === 'good') return 'bg-green-50 border-green-200';
-    if (status === 'warning') return 'bg-yellow-50 border-yellow-200';
-    return 'bg-red-50 border-red-200';
+    if (status === 'good') return 'bg-white/40 backdrop-blur-md border-green-200';
+    if (status === 'warning') return 'bg-white/40 backdrop-blur-md border-yellow-200';
+    return 'bg-white/40 backdrop-blur-md border-red-200';
+  };
+
+  const getItemBarColor = (itemScore: number) => {
+    const itemPercent = (itemScore / 10) * 100;
+    return getBarColor(itemPercent);
   };
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+        className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-white/60"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`bg-gradient-to-r ${colorClasses[color]} p-6 text-white`}>
+        <div className="bg-gradient-to-r from-slate-700 to-slate-900 p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold">{metricName}</h2>
             <button
@@ -77,9 +80,9 @@ export function MetricModal({
               <span className="text-2xl opacity-90">/ {max}</span>
             </div>
             <div className="flex-1">
-              <div className="w-full bg-white bg-opacity-30 rounded-full h-3 overflow-hidden">
+              <div className="w-full bg-white/20 backdrop-blur-sm rounded-full h-3 overflow-hidden">
                 <div
-                  className="h-full bg-white transition-all duration-500"
+                  className={`h-full bg-gradient-to-r ${getBarColor(percentage)} transition-all duration-500`}
                   style={{ width: `${percentage}%` }}
                 />
               </div>
@@ -90,7 +93,7 @@ export function MetricModal({
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-slate-600" />
+            <TrendingUp className="w-5 h-5 text-slate-700" />
             <h3 className="text-lg font-semibold text-slate-900">Detailed Breakdown</h3>
           </div>
 
@@ -98,14 +101,20 @@ export function MetricModal({
             {breakdown.map((item, index) => (
               <div
                 key={index}
-                className={`p-4 rounded-lg border ${getStatusBg(item.status)}`}
+                className={`p-4 rounded-xl border ${getStatusBg(item.status)}`}
               >
                 <div className="flex items-start gap-3">
                   {getStatusIcon(item.status)}
                   <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold text-slate-900">{item.category}</h4>
                       <span className="text-sm font-bold text-slate-700">{item.score}/10</span>
+                    </div>
+                    <div className="w-full bg-slate-200/50 rounded-full h-2 overflow-hidden mb-2">
+                      <div
+                        className={`h-full bg-gradient-to-r ${getItemBarColor(item.score)} transition-all duration-500`}
+                        style={{ width: `${(item.score / 10) * 100}%` }}
+                      />
                     </div>
                     <p className="text-sm text-slate-700">{item.feedback}</p>
                   </div>

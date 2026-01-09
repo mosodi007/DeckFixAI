@@ -176,7 +176,10 @@ Extract the following business metrics from the deck content. If a metric is not
 ### ASSESS DECK QUALITY METRICS:
 Analyze these additional quality metrics:
 - wordDensity: Assessment of text density per slide. Return one of: "Low" (minimal text, mostly visuals), "Medium" (balanced text and visuals), "High" (text-heavy but readable), "Very High" (overwhelming text, slides too busy)
+- wordDensityFeedback: 2-3 sentences explaining the word density assessment, what you observed, and recommendations if needed
 - disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting
+- disruptionSignalFeedback: 2-3 sentences explaining the disruption score, what makes it innovative or not, competitive landscape considerations
+- pageCountFeedback: 2-3 sentences assessing if the page count is appropriate for the stage and content depth, recommendations for optimal length
 
 ### BUSINESS SUMMARY:
 Write a concise summary (100-150 words) covering:
@@ -257,7 +260,10 @@ Write a concise summary (100-150 words) covering:
   },
   "deckQualityMetrics": {
     "wordDensity": "Low|Medium|High|Very High",
-    "disruptionSignal": <0-100>
+    "wordDensityFeedback": "<2-3 sentences explaining word density>",
+    "disruptionSignal": <0-100>,
+    "disruptionSignalFeedback": "<2-3 sentences explaining disruption potential>",
+    "pageCountFeedback": "<2-3 sentences about page count appropriateness>"
   },
   "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
   "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
@@ -439,6 +445,9 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
       investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
       word_density: analysis.deckQualityMetrics?.wordDensity || 'Not analyzed',
       disruption_signal: analysis.deckQualityMetrics?.disruptionSignal || 0,
+      word_density_feedback: analysis.deckQualityMetrics?.wordDensityFeedback || null,
+      disruption_signal_feedback: analysis.deckQualityMetrics?.disruptionSignalFeedback || null,
+      page_count_feedback: analysis.deckQualityMetrics?.pageCountFeedback || null,
     };
 
     if (providedAnalysisId) {

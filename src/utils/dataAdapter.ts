@@ -13,6 +13,9 @@ export function adaptAnalysisData(data: AnalysisData) {
     totalPages: data.totalPages,
     wordDensity: data.wordDensity,
     disruptionSignal: data.disruptionSignal / 10,
+    wordDensityFeedback: data.wordDensityFeedback,
+    disruptionSignalFeedback: data.disruptionSignalFeedback,
+    pageCountFeedback: data.pageCountFeedback,
     keyMetrics: {
       companyName: data.keyMetrics.companyName,
       industry: data.keyMetrics.industry,

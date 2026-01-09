@@ -17,6 +17,9 @@ export interface AnalysisData {
   investmentReady: boolean;
   wordDensity: string;
   disruptionSignal: number;
+  wordDensityFeedback: string | null;
+  disruptionSignalFeedback: string | null;
+  pageCountFeedback: string | null;
   pages: Array<{
     pageNumber: number;
     title: string;
@@ -247,6 +250,9 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     investmentReady: analysis.investment_ready || false,
     wordDensity: analysis.word_density || 'Not analyzed',
     disruptionSignal: analysis.disruption_signal || 0,
+    wordDensityFeedback: analysis.word_density_feedback || null,
+    disruptionSignalFeedback: analysis.disruption_signal_feedback || null,
+    pageCountFeedback: analysis.page_count_feedback || null,
     pages: pages?.map((p: any) => ({
       pageNumber: p.page_number,
       title: p.title,

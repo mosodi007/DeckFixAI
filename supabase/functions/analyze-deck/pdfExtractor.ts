@@ -17,7 +17,6 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
     if (!fullText || fullText.trim().length < 10) {
       throw new Error('Could not extract sufficient text from PDF. The file appears to be image-based.');
     }
-
     const pageTexts = fullText.split(/\f|\n{3,}/);
     console.log(`Split into ${pageTexts.length} sections`);
 

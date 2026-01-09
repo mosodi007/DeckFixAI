@@ -31,6 +31,9 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         totalPages={data.totalPages}
         wordDensity={data.wordDensity}
         disruptionSignal={data.disruptionSignal}
+        wordDensityFeedback={data.wordDensityFeedback}
+        disruptionSignalFeedback={data.disruptionSignalFeedback}
+        pageCountFeedback={data.pageCountFeedback}
         onNewAnalysis={onNewAnalysis}
         onOpenImprovementFlow={onOpenImprovementFlow}
       />

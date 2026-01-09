@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText, FileStack, AlignLeft, Sparkles } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
+import { MetricDetailModal } from './MetricDetailModal';
 
 interface SummarySectionProps {
   fileName: string;
@@ -13,11 +15,51 @@ interface SummarySectionProps {
   totalPages: number;
   wordDensity: string;
   disruptionSignal: number;
+  wordDensityFeedback: string | null;
+  disruptionSignalFeedback: string | null;
+  pageCountFeedback: string | null;
   onNewAnalysis: () => void;
   onOpenImprovementFlow: () => void;
 }
 
-export function SummarySection({ fileName, companyName, overallScore, investmentGrade, fundingOdds, businessSummary, totalPages, wordDensity, disruptionSignal, onNewAnalysis, onOpenImprovementFlow }: SummarySectionProps) {
+export function SummarySection({
+  fileName,
+  companyName,
+  overallScore,
+  investmentGrade,
+  fundingOdds,
+  businessSummary,
+  totalPages,
+  wordDensity,
+  disruptionSignal,
+  wordDensityFeedback,
+  disruptionSignalFeedback,
+  pageCountFeedback,
+  onNewAnalysis,
+  onOpenImprovementFlow
+}: SummarySectionProps) {
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    value: string | number;
+    feedback: string | null;
+    icon: React.ComponentType<{ className?: string }>;
+  }>({
+    isOpen: false,
+    title: '',
+    value: '',
+    feedback: null,
+    icon: FileStack,
+  });
+
+  const openModal = (title: string, value: string | number, feedback: string | null, icon: React.ComponentType<{ className?: string }>) => {
+    setModalState({ isOpen: true, title, value, feedback, icon });
+  };
+
+  const closeModal = () => {
+    setModalState(prev => ({ ...prev, isOpen: false }));
+  };
+
   const getGradeColor = (grade: string) => {
     if (grade.startsWith('A')) return 'text-green-600';
     if (grade.startsWith('B')) return 'text-blue-600';
@@ -87,12 +129,14 @@ export function SummarySection({ fileName, companyName, overallScore, investment
           value={totalPages}
           suffix=" pages"
           icon={FileStack}
+          onClick={() => openModal('Page Count', `${totalPages} pages`, pageCountFeedback, FileStack)}
         />
         <StatCard
           label="Word Density"
           value={wordDensity}
           icon={AlignLeft}
           valueClassName={getWordDensityColor(wordDensity)}
+          onClick={() => openModal('Word Density', wordDensity, wordDensityFeedback, AlignLeft)}
         />
         <StatCard
           label="Disruption Signal"
@@ -100,6 +144,7 @@ export function SummarySection({ fileName, companyName, overallScore, investment
           suffix="/10"
           icon={Sparkles}
           valueClassName={getDisruptionColor(disruptionSignal)}
+          onClick={() => openModal('Disruption Signal', `${disruptionSignal}/10`, disruptionSignalFeedback, Sparkles)}
         />
       </div>
 
@@ -127,8 +172,16 @@ export function SummarySection({ fileName, companyName, overallScore, investment
         <Button variant="secondary" icon={FileUp} className="flex-1" onClick={onNewAnalysis}>
           Analyze New Deck
         </Button>
-        
       </div>
+
+      <MetricDetailModal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        value={modalState.value}
+        feedback={modalState.feedback}
+        icon={modalState.icon}
+      />
     </GlassCard>
   );
 }

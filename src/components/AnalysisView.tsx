@@ -1,4 +1,5 @@
 import { SummarySection } from './analysis/SummarySection';
+import { GeneralReviewSection } from './analysis/GeneralReviewSection';
 import { KeyMetricsSection } from './analysis/KeyMetricsSection';
 import { StageAssessmentSection } from './analysis/StageAssessmentSection';
 import { InvestmentReadinessSection } from './analysis/InvestmentReadinessSection';
@@ -28,6 +29,16 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         fundingOdds={data.fundingOdds}
         onNewAnalysis={onNewAnalysis}
         onOpenImprovementFlow={onOpenImprovementFlow}
+      />
+
+      <GeneralReviewSection
+        overallScore={data.overallScore}
+        investmentGrade={data.investmentGrade}
+        dealBreakersCount={data.dealBreakers?.length || 0}
+        redFlagsCount={data.redFlags?.length || 0}
+        investmentReady={data.investmentReady}
+        strengths={data.strengths || []}
+        issues={data.issues || []}
       />
 
       <KeyMetricsSection

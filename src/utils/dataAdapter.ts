@@ -11,7 +11,7 @@ export function adaptAnalysisData(data: AnalysisData) {
     fundingStage: data.fundingStage,
     businessSummary: data.summary,
     keyMetrics: {
-      company: data.keyMetrics.companyName,
+      companyName: data.keyMetrics.companyName,
       industry: data.keyMetrics.industry,
       currentRevenue: data.keyMetrics.currentRevenue,
       fundingSought: data.keyMetrics.fundingSought,

@@ -43,7 +43,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
       />
 
       <KeyMetricsSection
-        company={data.keyMetrics.company}
+        company={data.keyMetrics.companyName}
         industry={data.keyMetrics.industry}
         currentRevenue={data.keyMetrics.currentRevenue}
         fundingSought={data.keyMetrics.fundingSought}

@@ -37,14 +37,43 @@ function App() {
                 className="h-8"
               />
             </div>
-            {(view === 'analysis' || view === 'improvement') && (
-              <button
-                onClick={handleNewAnalysis}
-                className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-              >
-                Analyze New Deck
-              </button>
-            )}
+
+            <div className="flex items-center gap-3">
+              {view === 'analysis' && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleNewAnalysis}
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    Analyze New Deck
+                  </button>
+                  <button
+                    onClick={handleOpenImprovementFlow}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                  >
+                    Improve & Fix Issues
+                  </button>
+                </div>
+              )}
+
+              {view === 'improvement' && (
+                <button
+                  onClick={handleNewAnalysis}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  Analyze New Deck
+                </button>
+              )}
+
+              <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
+                <button className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                  Login
+                </button>
+                <button className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm">
+                  Sign Up
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </nav>

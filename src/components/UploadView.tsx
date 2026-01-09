@@ -132,6 +132,38 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
             pageNumber: 1
           }
         ],
+        missingSlides: [
+          {
+            priority: 'High',
+            title: 'Unit Economics & Key Metrics',
+            description: 'Your deck is missing critical financial metrics. Investors need to see CAC, LTV, gross margins, and payback period to assess business viability.',
+            suggestedContent: 'CAC, LTV, LTV/CAC ratio, Gross Margin, Payback Period'
+          },
+          {
+            priority: 'High',
+            title: 'Competitive Advantage & Moat',
+            description: 'No clear differentiation from competitors. Add a slide showing your unique advantages, barriers to entry, and defensible positioning.',
+            suggestedContent: 'Competitive matrix, unique IP, network effects, switching costs'
+          },
+          {
+            priority: 'Medium',
+            title: 'Customer Case Studies',
+            description: 'Missing social proof and validation. Include 2-3 customer success stories or testimonials to demonstrate product-market fit.',
+            suggestedContent: 'Customer logos, testimonials, results achieved, retention metrics'
+          },
+          {
+            priority: 'Medium',
+            title: 'Use of Funds Breakdown',
+            description: 'Funding ask needs detailed allocation plan. Show exactly how investment will be deployed across hiring, product, marketing, etc.',
+            suggestedContent: 'Budget breakdown, hiring plan, milestones, runway extension'
+          },
+          {
+            priority: 'Low',
+            title: 'Risk Analysis & Mitigation',
+            description: 'Demonstrate awareness of key risks and your strategies to address them. Shows maturity and thorough planning.',
+            suggestedContent: 'Market risks, competitive risks, execution risks, mitigation strategies'
+          }
+        ],
         pages: [
           { pageNumber: 1, title: 'Cover Slide', score: 85, thumbnail: null },
           { pageNumber: 2, title: 'Problem Statement', score: 78, thumbnail: null },

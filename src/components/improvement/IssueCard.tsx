@@ -1,13 +1,13 @@
-import { AlertCircle, Lightbulb, Wand2, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Lightbulb, Wand2, CheckCircle2, FilePlus } from 'lucide-react';
 import { useState } from 'react';
 
 interface IssueCardProps {
   issue: {
-    type: 'issue' | 'improvement';
+    type: 'issue' | 'improvement' | 'missing_slide';
     priority: string;
     title: string;
     description: string;
-    pageNumber: number;
+    pageNumber: number | null;
   };
 }
 
@@ -37,10 +37,13 @@ export function IssueCard({ issue }: IssueCardProps) {
           </div>
           <div className="flex-1">
             <h4 className="font-semibold text-green-900 mb-1">
-              {issue.type === 'issue' ? 'Issue Fixed!' : 'Improvement Applied!'}
+              {issue.type === 'missing_slide' ? 'Slide Generated!' : issue.type === 'issue' ? 'Issue Fixed!' : 'Improvement Applied!'}
             </h4>
             <p className="text-sm text-green-700">
-              Changes have been applied to Slide {issue.pageNumber}
+              {issue.type === 'missing_slide'
+                ? 'New slide has been generated and added to your deck'
+                : `Changes have been applied to Slide ${issue.pageNumber}`
+              }
             </p>
           </div>
         </div>
@@ -48,18 +51,42 @@ export function IssueCard({ issue }: IssueCardProps) {
     );
   }
 
+  const getIconConfig = () => {
+    if (issue.type === 'missing_slide') {
+      return {
+        bgColor: 'bg-purple-100',
+        icon: <FilePlus className="w-5 h-5 text-purple-600" />,
+        buttonColor: 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:-translate-y-0.5',
+        buttonText: 'Generate Slide',
+        loadingText: 'Generating...'
+      };
+    }
+    if (issue.type === 'issue') {
+      return {
+        bgColor: 'bg-orange-100',
+        icon: <AlertCircle className="w-5 h-5 text-orange-600" />,
+        buttonColor: 'bg-orange-600 text-white hover:bg-orange-700 hover:shadow-lg hover:-translate-y-0.5',
+        buttonText: 'Fix Issue',
+        loadingText: 'Applying...'
+      };
+    }
+    return {
+      bgColor: 'bg-blue-100',
+      icon: <Lightbulb className="w-5 h-5 text-blue-600" />,
+      buttonColor: 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5',
+      buttonText: 'Apply Improvement',
+      loadingText: 'Applying...'
+    };
+  };
+
+  const iconConfig = getIconConfig();
+
   return (
     <div className="bg-white/90 backdrop-blur-sm border border-slate-200/60 rounded-xl p-5 hover:shadow-md transition-all duration-300">
       <div className="flex items-start gap-4">
         {/* Icon */}
-        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-          issue.type === 'issue' ? 'bg-orange-100' : 'bg-blue-100'
-        }`}>
-          {issue.type === 'issue' ? (
-            <AlertCircle className="w-5 h-5 text-orange-600" />
-          ) : (
-            <Lightbulb className="w-5 h-5 text-blue-600" />
-          )}
+        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconConfig.bgColor}`}>
+          {iconConfig.icon}
         </div>
 
         {/* Content */}
@@ -68,7 +95,11 @@ export function IssueCard({ issue }: IssueCardProps) {
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getPriorityColor(issue.priority)}`}>
               {issue.priority}
             </span>
-            <span className="text-xs text-slate-500">Slide {issue.pageNumber}</span>
+            {issue.type === 'missing_slide' ? (
+              <span className="text-xs text-slate-500 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">Missing Slide</span>
+            ) : (
+              <span className="text-xs text-slate-500">Slide {issue.pageNumber}</span>
+            )}
           </div>
 
           <h4 className="font-semibold text-slate-900 mb-2">
@@ -87,13 +118,11 @@ export function IssueCard({ issue }: IssueCardProps) {
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
                 isLoading
                   ? 'bg-slate-100 text-slate-400 cursor-wait'
-                  : issue.type === 'issue'
-                  ? 'bg-orange-600 text-white hover:bg-orange-700 hover:shadow-lg hover:-translate-y-0.5'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5'
+                  : iconConfig.buttonColor
               }`}
             >
               <Wand2 className="w-4 h-4" />
-              {isLoading ? 'Applying...' : issue.type === 'issue' ? 'Fix Issue' : 'Apply Improvement'}
+              {isLoading ? iconConfig.loadingText : iconConfig.buttonText}
             </button>
 
             <button

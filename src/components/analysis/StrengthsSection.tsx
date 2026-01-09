@@ -14,7 +14,7 @@ export function StrengthsSection({ strengths }: StrengthsSectionProps) {
       </div>
       <ul className="space-y-3">
         {strengths.map((strength: string, index: number) => (
-          <li key={index} className="flex items-start gap-3 p-3 bg-white/60 backdrop-blur-md rounded-lg border border-slate-200/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+          <li key={index} className="flex items-start gap-3 p-3 bg-white/60 backdrop-blur-md rounded-xl border border-slate-200/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
             <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
             <span className="text-sm text-slate-700">{strength}</span>
           </li>

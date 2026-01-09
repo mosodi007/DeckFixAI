@@ -25,7 +25,7 @@ export function ImprovementsSection({ improvements }: ImprovementsSectionProps) 
         {improvements.map((improvement, index) => (
           <div
             key={index}
-            className="flex items-start gap-4 p-4 bg-white/60 backdrop-blur-md rounded-lg border border-slate-200/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
+            className="flex items-start gap-4 p-4 bg-white/60 backdrop-blur-md rounded-xl border border-slate-200/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
           >
             <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(improvement.priority)}`}>
               {improvement.priority}
@@ -34,7 +34,7 @@ export function ImprovementsSection({ improvements }: ImprovementsSectionProps) 
               <h4 className="font-semibold text-slate-900 mb-1">{improvement.issue}</h4>
               <p className="text-sm text-slate-600">{improvement.impact}</p>
             </div>
-            <button className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-slate-700 hover:bg-white/60 rounded-lg transition-colors">
+            <button className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-slate-700 hover:bg-white/60 rounded-xl transition-colors">
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

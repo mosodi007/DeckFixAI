@@ -50,7 +50,7 @@ export function KeyMetricsSection({
   return (
     <div className="relative mb-8">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-50/30 rounded-xl blur-2xl" />
-      <div className="relative bg-white/50 backdrop-blur-2xl rounded-xl border border-slate-200/60 shadow-2xl p-8">
+      <div className="relative bg-white/50 backdrop-blur-2xl rounded-xl border border-slate-200/60 shadow-xl p-8">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-1 w-12 bg-gradient-to-r from-slate-400 to-slate-200 rounded-full" />
           <h3 className="text-2xl font-bold text-slate-900">

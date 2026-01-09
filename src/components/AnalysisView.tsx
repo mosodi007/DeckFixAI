@@ -31,10 +31,12 @@ export function AnalysisView({ data }: AnalysisViewProps) {
       { category: 'Scalability', score: 6, status: 'warning' as const, feedback: 'Good scalability potential but needs validation' },
     ],
     deckQuality: [
-      { category: 'Visual Design', score: 7, status: 'good' as const, feedback: 'Professional and clean design aesthetic' },
-      { category: 'Story Flow', score: 6, status: 'warning' as const, feedback: 'Good narrative but transitions could be smoother' },
-      { category: 'Data Presentation', score: 8, status: 'good' as const, feedback: 'Well-structured data with clear visualizations' },
-      { category: 'Clarity', score: 7, status: 'good' as const, feedback: 'Message is clear but some slides are dense' },
+      { category: 'Team Quality', score: 7, status: 'good' as const, feedback: 'Experienced team with relevant domain expertise' },
+      { category: 'Market Size', score: 8, status: 'good' as const, feedback: 'Large addressable market with clear growth potential' },
+      { category: 'Competitive Advantage', score: 7, status: 'good' as const, feedback: 'Strong differentiation and defensible moat' },
+      { category: 'Growth Strategy', score: 6, status: 'warning' as const, feedback: 'Clear strategy but needs more detailed execution plan' },
+      { category: 'Market Heat', score: 8, status: 'good' as const, feedback: 'High investor interest in this sector currently' },
+      { category: 'Traction Metrics', score: 8, status: 'good' as const, feedback: 'Strong metrics with clear evidence of product-market fit' },
     ],
     marketSize: [
       { category: 'TAM Analysis', score: 8, status: 'good' as const, feedback: 'Well-researched total addressable market' },

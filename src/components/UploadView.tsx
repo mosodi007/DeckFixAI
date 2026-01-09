@@ -52,15 +52,13 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
         investmentGrade: 'B+',
         fundingOdds: 'High',
         keyMetrics: {
+          company: 'PayFlow Technologies',
           industry: 'Fintech',
-          servedMarket: 'Nigeria',
-          marketSize: {
-            tam: '$5B',
-            sam: '$3B',
-            som: '$1B'
-          },
-          traction: '$3M ARR, 2 Partnerships',
-          teamSize: 3
+          currentRevenue: '$3.2M ARR',
+          fundingSought: '$5M Series A',
+          growthRate: '25% MoM',
+          teamSize: 12,
+          marketSize: '$5B TAM'
         },
         metrics: {
           tractionScore: 8.2,

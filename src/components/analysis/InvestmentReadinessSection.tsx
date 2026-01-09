@@ -31,13 +31,16 @@ interface InvestmentReadinessSectionProps {
 
 function ScoreBar({ label, score, icon: Icon, color, onClick }: { label: string; score: number; icon: any; color: string; onClick: () => void }) {
   return (
-    <div className="space-y-2 cursor-pointer hover:bg-slate-50 p-3 rounded-lg transition-colors" onClick={onClick}>
+    <div className="border-2 border-slate-200 rounded-lg p-4 space-y-2 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all" onClick={onClick}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className={`w-4 h-4 ${color}`} />
           <span className="text-sm font-medium text-slate-900">{label}</span>
         </div>
-        <span className="text-sm font-bold text-slate-900">{score.toFixed(1)}/10</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-slate-900">{score.toFixed(1)}/10</span>
+          <span className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">See Feedback</span>
+        </div>
       </div>
       <ProgressBar value={score} max={10} color={score >= 7 ? 'green' : score >= 5 ? 'yellow' : 'red'} />
     </div>
@@ -100,7 +103,7 @@ export function InvestmentReadinessSection({ investmentReadiness }: InvestmentRe
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <h4 className="text-sm font-bold text-slate-900 mb-3">VC Evaluation Criteria</h4>
 
         <ScoreBar

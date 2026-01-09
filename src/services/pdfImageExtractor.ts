@@ -29,65 +29,80 @@ export async function extractPageImages(
     const totalPages = pdf.numPages;
     const images: PageImage[] = [];
 
+    console.log(`Starting extraction of ${totalPages} pages`);
+
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      onProgress?.({
-        currentPage: pageNum,
-        totalPages,
-        status: 'processing',
-        message: `Processing page ${pageNum} of ${totalPages}...`
-      });
+      try {
+        onProgress?.({
+          currentPage: pageNum,
+          totalPages,
+          status: 'processing',
+          message: `Processing page ${pageNum} of ${totalPages}...`
+        });
 
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1.0 });
+        console.log(`Extracting page ${pageNum}/${totalPages}`);
 
-      let scale = 1.0;
-      if (viewport.width > MAX_DIMENSION || viewport.height > MAX_DIMENSION) {
-        scale = Math.min(
-          MAX_DIMENSION / viewport.width,
-          MAX_DIMENSION / viewport.height
-        );
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.0 });
+
+        let scale = 1.0;
+        if (viewport.width > MAX_DIMENSION || viewport.height > MAX_DIMENSION) {
+          scale = Math.min(
+            MAX_DIMENSION / viewport.width,
+            MAX_DIMENSION / viewport.height
+          );
+        }
+
+        const scaledViewport = page.getViewport({ scale });
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Failed to get canvas context');
+        }
+
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+
+        await page.render({
+          canvasContext: context,
+          viewport: scaledViewport,
+          canvas
+        }).promise;
+
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to convert canvas to blob'));
+              }
+            },
+            'image/jpeg',
+            JPEG_QUALITY
+          );
+        });
+
+        images.push({
+          pageNumber: pageNum,
+          blob,
+          width: scaledViewport.width,
+          height: scaledViewport.height
+        });
+
+        console.log(`Page ${pageNum} extracted successfully (${blob.size} bytes)`);
+
+        page.cleanup();
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (pageError) {
+        console.error(`Failed to extract page ${pageNum}:`, pageError);
+        throw pageError;
       }
-
-      const scaledViewport = page.getViewport({ scale });
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Failed to get canvas context');
-      }
-
-      canvas.width = scaledViewport.width;
-      canvas.height = scaledViewport.height;
-
-      await page.render({
-        canvasContext: context,
-        viewport: scaledViewport,
-        canvas
-      }).promise;
-
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve(blob);
-            } else {
-              reject(new Error('Failed to convert canvas to blob'));
-            }
-          },
-          'image/jpeg',
-          JPEG_QUALITY
-        );
-      });
-
-      images.push({
-        pageNumber: pageNum,
-        blob,
-        width: scaledViewport.width,
-        height: scaledViewport.height
-      });
-
-      page.cleanup();
     }
+
+    console.log(`Successfully extracted ${images.length} pages`);
 
     onProgress?.({
       currentPage: totalPages,
@@ -98,6 +113,7 @@ export async function extractPageImages(
 
     return images;
   } catch (error) {
+    console.error('PDF image extraction failed:', error);
     onProgress?.({
       currentPage: 0,
       totalPages: 0,

@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
     console.log('Preparing OpenAI request (text-only analysis)...');
     console.log('Text length to send:', textToAnalyze.length, 'chars');
 
-    const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck based on the text content. Be direct and honest.
+    const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be brutally honest and direct. No sugar-coating. Call out weaknesses plainly.
 
 ## DECK CONTENT:
 ${textToAnalyze}
@@ -135,8 +135,8 @@ For EACH page in the deck (1 to ${pageCount}):
 - title: Slide title/heading (e.g., "Cover", "Problem", "Solution", "Market", "Team", "Financials")
 - score: 0-100 (be harsh, most slides score 40-70)
 - content: 1-2 sentence summary
-- feedback: 2-3 sentences of direct VC feedback on what's weak/missing
-- recommendations: Array of 2-3 specific actions to improve (keep brief)
+- feedback: 2-3 sentences of brutally honest VC feedback. Don't hedge. If it's weak, say "This slide is weak because..." If data is missing, say "Critical data missing:" If messaging is unclear, say "The message is muddled and fails to..."
+- recommendations: Array of 2-3 specific actions to improve (keep brief and direct)
 - idealVersion: 1 sentence describing what a perfect version would include
 
 ### IDENTIFY ISSUES:
@@ -174,12 +174,15 @@ Extract the following business metrics from the deck content. If a metric is not
 - customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
 
 ### ASSESS DECK QUALITY METRICS:
-Analyze these additional quality metrics:
+Analyze these quality metrics with brutal honesty:
 - wordDensity: Assessment of text density per slide. Return one of: "Low" (minimal text, mostly visuals), "Medium" (balanced text and visuals), "High" (text-heavy but readable), "Very High" (overwhelming text, slides too busy)
-- wordDensityFeedback: 2-3 sentences explaining the word density assessment, what you observed, and recommendations if needed
-- disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting
-- disruptionSignalFeedback: 2-3 sentences explaining the disruption score, what makes it innovative or not, competitive landscape considerations
-- pageCountFeedback: 2-3 sentences assessing if the page count is appropriate for the stage and content depth, recommendations for optimal length
+- wordDensityFeedback: 2-3 sentences being brutally honest about text density. Don't sugarcoat - if slides are text walls, say so. If they're too sparse, call it out.
+- disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting. Be harsh - most ideas are not disruptive.
+- disruptionSignalFeedback: 2-3 sentences of brutal truth about the innovation level. If it's just another SaaS tool or incremental improvement, say so plainly. Don't inflate mediocre ideas.
+- pageCountFeedback: 2-3 sentences being direct about whether page count is appropriate. If it's too long, say it's bloated. If too short, say it's underdeveloped.
+- overallScoreFeedback: 2-3 sentences explaining the overall score with brutal honesty. Directly state the core issues dragging the score down. No fluff.
+- investmentGradeFeedback: 2-3 sentences explaining why this grade was assigned. Be direct about what separates this from A-grade decks. If it's mediocre, say so.
+- fundingOddsFeedback: 2-3 sentences of harsh reality about funding chances. If odds are low, explain exactly why VCs would pass. Don't soften the message.
 
 ### BUSINESS SUMMARY:
 Write a concise summary (100-150 words) covering:
@@ -260,10 +263,13 @@ Write a concise summary (100-150 words) covering:
   },
   "deckQualityMetrics": {
     "wordDensity": "Low|Medium|High|Very High",
-    "wordDensityFeedback": "<2-3 sentences explaining word density>",
+    "wordDensityFeedback": "<2-3 brutal sentences about text density>",
     "disruptionSignal": <0-100>,
-    "disruptionSignalFeedback": "<2-3 sentences explaining disruption potential>",
-    "pageCountFeedback": "<2-3 sentences about page count appropriateness>"
+    "disruptionSignalFeedback": "<2-3 brutal sentences about innovation level>",
+    "pageCountFeedback": "<2-3 brutal sentences about page count>",
+    "overallScoreFeedback": "<2-3 brutal sentences explaining overall score>",
+    "investmentGradeFeedback": "<2-3 brutal sentences explaining the grade>",
+    "fundingOddsFeedback": "<2-3 brutal sentences about funding reality>"
   },
   "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
   "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
@@ -300,7 +306,7 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
           messages: [
             {
               role: 'system',
-              content: 'You are an expert pitch deck analyst and venture capital advisor with 15+ years of experience. You provide thorough, accurate, and actionable feedback. You are detail-oriented and base your analysis strictly on the actual text content provided.'
+              content: 'You are a brutally honest VC partner with 15+ years of experience. You provide direct, unfiltered feedback without sugarcoating. You call out weaknesses plainly and don\'t inflate scores or praise. Most decks are mediocre - treat them as such. Be thorough, accurate, and ruthlessly honest. Base your analysis strictly on the actual text content provided.'
             },
             {
               role: 'user',
@@ -445,6 +451,9 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
       investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
       word_density: analysis.deckQualityMetrics?.wordDensity || 'Not analyzed',
       disruption_signal: analysis.deckQualityMetrics?.disruptionSignal || 0,
+      overall_score_feedback: analysis.deckQualityMetrics?.overallScoreFeedback || null,
+      investment_grade_feedback: analysis.deckQualityMetrics?.investmentGradeFeedback || null,
+      funding_odds_feedback: analysis.deckQualityMetrics?.fundingOddsFeedback || null,
       word_density_feedback: analysis.deckQualityMetrics?.wordDensityFeedback || null,
       disruption_signal_feedback: analysis.deckQualityMetrics?.disruptionSignalFeedback || null,
       page_count_feedback: analysis.deckQualityMetrics?.pageCountFeedback || null,

@@ -381,8 +381,9 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
     const userMessageContent: any[] = [{ type: 'text', text: prompt }];
 
     if (imageUrls.length > 0) {
-      console.log(`Adding ${imageUrls.length} slide images to OpenAI request for vision analysis`);
-      for (let i = 0; i < Math.min(imageUrls.length, pageCount); i++) {
+      const maxImages = Math.min(12, imageUrls.length, pageCount);
+      console.log(`Adding ${maxImages} slide images (out of ${imageUrls.length}) to OpenAI request for vision analysis`);
+      for (let i = 0; i < maxImages; i++) {
         userMessageContent.push({
           type: 'image_url',
           image_url: {
@@ -393,28 +394,45 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
       }
     }
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert pitch deck analyst and venture capital advisor with 15+ years of experience. You provide thorough, accurate, and actionable feedback. You are detail-oriented and base your analysis strictly on the actual content provided.'
-          },
-          {
-            role: 'user',
-            content: userMessageContent
-          }
-        ],
-        max_tokens: 4096,
-        temperature: 0.3,
-      }),
-    });
+    console.log('Calling OpenAI API with timeout handling...');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    let openaiResponse;
+    try {
+      openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert pitch deck analyst and venture capital advisor with 15+ years of experience. You provide thorough, accurate, and actionable feedback. You are detail-oriented and base your analysis strictly on the actual content provided.'
+            },
+            {
+              role: 'user',
+              content: userMessageContent
+            }
+          ],
+          max_tokens: 6000,
+          temperature: 0.3,
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('OpenAI request timed out after 90 seconds. Please try with a smaller deck or try again later.');
+      }
+      throw fetchError;
+    }
+
+    clearTimeout(timeoutId);
 
     console.log('OpenAI response status:', openaiResponse.status);
 
@@ -426,7 +444,15 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
         throw new Error('OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY secret in Supabase Edge Functions settings.');
       }
 
-      throw new Error(`OpenAI API error: ${openaiResponse.status}. ${errorData}`);
+      if (openaiResponse.status === 502 || openaiResponse.status === 503 || openaiResponse.status === 504) {
+        throw new Error('OpenAI API is temporarily unavailable (timeout or overloaded). This usually happens with large decks. Try again in a few moments, or contact support if the issue persists.');
+      }
+
+      if (openaiResponse.status === 429) {
+        throw new Error('OpenAI API rate limit exceeded. Please wait a moment and try again.');
+      }
+
+      throw new Error(`OpenAI API error (${openaiResponse.status}): ${errorData || 'Unknown error'}`);
     }
 
     const openaiResult = await openaiResponse.json();

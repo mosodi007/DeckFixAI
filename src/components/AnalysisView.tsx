@@ -79,7 +79,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
               onClick={() => scrollToSection(section.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                 activeSection === section.id
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-black-600 text-white shadow-md'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >

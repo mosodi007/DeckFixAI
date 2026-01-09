@@ -1,3 +1,5 @@
+import { ProgressBar } from './ui/ProgressBar';
+
 interface MetricCardProps {
   label: string;
   value: number;
@@ -6,16 +8,7 @@ interface MetricCardProps {
   onClick?: () => void;
 }
 
-export function MetricCard({ label, value, max, color, onClick }: MetricCardProps) {
-  const percentage = (value / max) * 100;
-
-  const getBarColor = (percent: number) => {
-    if (percent >= 80) return 'from-green-500 to-green-600';
-    if (percent >= 60) return 'from-yellow-500 to-green-500';
-    if (percent >= 40) return 'from-orange-500 to-yellow-500';
-    return 'from-red-500 to-orange-500';
-  };
-
+export function MetricCard({ label, value, max, onClick }: MetricCardProps) {
   return (
     <button
       onClick={onClick}
@@ -25,12 +18,7 @@ export function MetricCard({ label, value, max, color, onClick }: MetricCardProp
         <span className="text-sm font-medium text-slate-700">{label}</span>
         <span className="text-lg font-bold text-slate-900">{value}</span>
       </div>
-      <div className="w-full bg-slate-200/50 rounded-full h-2 overflow-hidden">
-        <div
-          className={`h-full bg-gradient-to-r ${getBarColor(percentage)} transition-all duration-500`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
+      <ProgressBar value={value} max={max} />
     </button>
   );
 }

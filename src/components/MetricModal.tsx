@@ -1,4 +1,5 @@
 import { X, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
+import { ProgressBar } from './ui/ProgressBar';
 
 interface MetricBreakdown {
   category: string;
@@ -23,19 +24,11 @@ export function MetricModal({
   metricName,
   score,
   max,
-  color,
   breakdown
 }: MetricModalProps) {
   if (!isOpen) return null;
 
   const percentage = (score / max) * 100;
-
-  const getBarColor = (percent: number) => {
-    if (percent >= 80) return 'from-green-500 to-green-600';
-    if (percent >= 60) return 'from-yellow-500 to-green-500';
-    if (percent >= 40) return 'from-orange-500 to-yellow-500';
-    return 'from-red-500 to-orange-500';
-  };
 
   const getStatusIcon = (status: 'good' | 'warning' | 'poor') => {
     if (status === 'good') return <CheckCircle2 className="w-5 h-5 text-green-600" />;
@@ -47,11 +40,6 @@ export function MetricModal({
     if (status === 'good') return 'bg-white/40 backdrop-blur-md border-green-200';
     if (status === 'warning') return 'bg-white/40 backdrop-blur-md border-yellow-200';
     return 'bg-white/40 backdrop-blur-md border-red-200';
-  };
-
-  const getItemBarColor = (itemScore: number) => {
-    const itemPercent = (itemScore / 10) * 100;
-    return getBarColor(itemPercent);
   };
 
   return (
@@ -81,10 +69,7 @@ export function MetricModal({
             </div>
             <div className="flex-1">
               <div className="w-full bg-white/20 backdrop-blur-sm rounded-full h-3 overflow-hidden">
-                <div
-                  className={`h-full bg-gradient-to-r ${getBarColor(percentage)} transition-all duration-500`}
-                  style={{ width: `${percentage}%` }}
-                />
+                <ProgressBar value={score} max={max} height="md" />
               </div>
               <p className="text-sm mt-2 opacity-90">{percentage.toFixed(0)}% of maximum score</p>
             </div>
@@ -110,13 +95,8 @@ export function MetricModal({
                       <h4 className="font-semibold text-slate-900">{item.category}</h4>
                       <span className="text-sm font-bold text-slate-700">{item.score}/10</span>
                     </div>
-                    <div className="w-full bg-slate-200/50 rounded-full h-2 overflow-hidden mb-2">
-                      <div
-                        className={`h-full bg-gradient-to-r ${getItemBarColor(item.score)} transition-all duration-500`}
-                        style={{ width: `${(item.score / 10) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-slate-700">{item.feedback}</p>
+                    <ProgressBar value={item.score} max={10} height="sm" />
+                    <p className="text-sm text-slate-700 mt-2">{item.feedback}</p>
                   </div>
                 </div>
               </div>

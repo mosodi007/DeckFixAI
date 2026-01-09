@@ -18,13 +18,12 @@ interface UploadZoneProps {
 }
 
 const funnyMessages = [
-  "Please wait while DeckFix AI calculates your TAM, SAM, and 'trust me bro' market...",
-  "Please wait while DeckFix AI asks itself if this should secretly be a Web3 startup..",
-  "Please wait while DeckFix AI searches for proof your market is bigger than your imagination...",
+  "Please wait while DeckFix AI analyzes your TAM, SAM, and 'trust me bro' market...",
   "Please wait while DeckFix AI confirms your traction includes humans you are not related to...",
   "Please wait while DeckFix AI asks, what would Peter Thiel hate about this?...",
   "Please wait while DeckFix AI looks for the mandatory hockey stick that defies gravity...",
-  "Please wait while DeckFix AI counts buzzwords and judges you silently...",
+    "Please wait while DeckFix detect if your market research goes beyond 'everyone will love this.'...",
+  "Please wait while DeckFix AI checks if your traction is more than 2 of your family members..."
   "Please wait while DeckFix AI verifies your 'unfair advantage' is actually unfair...",
   "Please wait while DeckFix AI inspects your moat to see if it holds water or hope....",
   "Please wait while DeckFix AI checks if 'synergy' appears more than twice...",

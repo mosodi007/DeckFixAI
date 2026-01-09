@@ -317,7 +317,7 @@ CRITICAL REQUIREMENTS:
     console.log('Calling OpenAI API for text-based analysis...');
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), 180000);
 
     let openaiResponse;
     try {
@@ -339,7 +339,6 @@ CRITICAL REQUIREMENTS:
               content: prompt
             }
           ],
-          max_tokens: 10000,
           temperature: 0.3,
         }),
         signal: controller.signal,
@@ -347,7 +346,7 @@ CRITICAL REQUIREMENTS:
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error('OpenAI request timed out after 90 seconds. Please try with a smaller deck or try again later.');
+        throw new Error('OpenAI request timed out after 3 minutes. Please try again later.');
       }
       throw fetchError;
     }

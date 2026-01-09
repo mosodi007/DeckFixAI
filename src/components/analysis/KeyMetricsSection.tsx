@@ -1,5 +1,4 @@
 import { Building2, Briefcase, DollarSign, Target, TrendingUp, Users, Globe } from 'lucide-react';
-import { GlassCard } from '../ui/GlassCard';
 
 interface KeyMetricsSectionProps {
   company: string;
@@ -9,6 +8,38 @@ interface KeyMetricsSectionProps {
   growthRate: string;
   teamSize: number;
   marketSize: string;
+}
+
+interface MetricItemProps {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+}
+
+function MetricItem({ icon: Icon, label, value }: MetricItemProps) {
+  return (
+    <div className="group relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-50/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="relative bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-200/60 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="absolute inset-0 bg-slate-200 rounded-xl blur-md opacity-50" />
+            <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+              <Icon className="w-6 h-6 text-slate-600" />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+              {label}
+            </p>
+            <p className="text-lg font-bold text-slate-900 truncate">
+              {value}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function KeyMetricsSection({
@@ -21,79 +52,26 @@ export function KeyMetricsSection({
   marketSize,
 }: KeyMetricsSectionProps) {
   return (
-    <GlassCard className="shadow-xl mb-8">
-      <h3 className="text-2xl font-bold text-slate-900 mb-6">Key Metrics</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-50 rounded-xl">
-            <Building2 className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Company</p>
-            <p className="text-lg font-semibold text-slate-900">{company}</p>
-          </div>
+    <div className="relative mb-8">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 to-slate-50/30 rounded-3xl blur-2xl" />
+      <div className="relative bg-white/50 backdrop-blur-2xl rounded-3xl border border-slate-200/60 shadow-2xl p-8">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-1 w-12 bg-gradient-to-r from-slate-400 to-slate-200 rounded-full" />
+          <h3 className="text-2xl font-bold text-slate-900">
+            Key Metrics
+          </h3>
         </div>
 
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-cyan-50 rounded-xl">
-            <Briefcase className="w-6 h-6 text-cyan-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Industry</p>
-            <p className="text-lg font-semibold text-slate-900">{industry}</p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-green-50 rounded-xl">
-            <DollarSign className="w-6 h-6 text-green-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Current Revenue</p>
-            <p className="text-lg font-semibold text-slate-900">{currentRevenue}</p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-purple-50 rounded-xl">
-            <Target className="w-6 h-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Funding Sought</p>
-            <p className="text-lg font-semibold text-slate-900">{fundingSought}</p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-orange-50 rounded-xl">
-            <TrendingUp className="w-6 h-6 text-orange-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Growth Rate</p>
-            <p className="text-lg font-semibold text-slate-900">{growthRate}</p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-pink-50 rounded-xl">
-            <Users className="w-6 h-6 text-pink-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Team Size</p>
-            <p className="text-lg font-semibold text-slate-900">{teamSize} Members</p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-indigo-50 rounded-xl">
-            <Globe className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-600 mb-1">Market Size</p>
-            <p className="text-lg font-semibold text-slate-900">{marketSize}</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <MetricItem icon={Building2} label="Company" value={company} />
+          <MetricItem icon={Briefcase} label="Industry" value={industry} />
+          <MetricItem icon={DollarSign} label="Current Revenue" value={currentRevenue} />
+          <MetricItem icon={Target} label="Funding Sought" value={fundingSought} />
+          <MetricItem icon={TrendingUp} label="Growth Rate" value={growthRate} />
+          <MetricItem icon={Users} label="Team Size" value={`${teamSize} Members`} />
+          <MetricItem icon={Globe} label="Market Size" value={marketSize} />
         </div>
       </div>
-    </GlassCard>
+    </div>
   );
 }

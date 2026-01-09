@@ -94,12 +94,17 @@ Provide: detected_stage, stage_confidence (high/medium/low), stage_appropriatene
 
 ### STEP 2: INVESTMENT READINESS
 
-Score 5 dimensions (0-100 each):
+Score 5 dimensions (0-100 each) and provide detailed feedback for EACH:
 - **Team**: Founder quality, experience, completeness
+  - Provide teamFeedback: 3-4 sentences of brutally honest assessment covering founder backgrounds, team composition, gaps, relevant experience, and credibility. If the team is weak or incomplete, say so directly.
 - **Market**: TAM size, growth, accessibility
+  - Provide marketOpportunityFeedback: 3-4 sentences evaluating market size, growth trajectory, competitive landscape, and market timing. If the market is crowded or too small, be blunt about it.
 - **Product**: Solution strength, differentiation, moat
+  - Provide productFeedback: 3-4 sentences assessing product differentiation, technical moat, competitive advantages, and defensibility. If it's a commodity product with no moat, say so plainly.
 - **Traction**: Revenue, users, partnerships, metrics
+  - Provide tractionFeedback: 3-4 sentences analyzing customer traction, revenue metrics, growth trajectory, and validation signals. If traction is weak or non-existent, be direct about the implications.
 - **Financials**: Projections quality, burn rate, use of funds
+  - Provide financialsFeedback: 3-4 sentences evaluating financial projections, unit economics, burn rate, runway, and capital efficiency. If projections are unrealistic or missing, call it out clearly.
 
 **Readiness Score** = average of 5 scores
 **is_investment_ready** = true if score >= 70 AND no deal-breakers
@@ -209,10 +214,15 @@ Write a concise summary (100-150 words) covering:
     "readinessSummary": "<direct assessment of investment readiness>",
     "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
     "teamScore": <0-100>,
+    "teamFeedback": "<3-4 sentences of brutal team assessment>",
     "marketOpportunityScore": <0-100>,
+    "marketOpportunityFeedback": "<3-4 sentences of brutal market assessment>",
     "productScore": <0-100>,
+    "productFeedback": "<3-4 sentences of brutal product assessment>",
     "tractionScore": <0-100>,
-    "financialsScore": <0-100>
+    "tractionFeedback": "<3-4 sentences of brutal traction assessment>",
+    "financialsScore": <0-100>,
+    "financialsFeedback": "<3-4 sentences of brutal financials assessment>"
   },
   "redFlags": [
     {
@@ -287,7 +297,6 @@ Write a concise summary (100-150 words) covering:
 
 CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }. If the response is getting too long, prioritize completing the JSON structure over adding more detail.`;
 
-    // Text-only analysis for initial upload (fast and reliable)
     console.log('Calling OpenAI API for text-based analysis...');
 
     const controller = new AbortController();
@@ -477,7 +486,6 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
     const analysisId = analysisRecord.id;
     console.log('Analysis created with ID:', analysisId);
 
-    // Construct image URLs from Supabase storage (images were uploaded separately)
     const { data: { publicUrl: storageBaseUrl } } = supabase.storage
       .from('slide-images')
       .getPublicUrl('dummy');
@@ -595,10 +603,15 @@ CRITICAL: Return ONLY the JSON object above. No explanations, no markdown, no co
         readiness_summary: analysis.investmentReadiness.readinessSummary,
         critical_blockers: analysis.investmentReadiness.criticalBlockers || [],
         team_score: analysis.investmentReadiness.teamScore,
+        team_feedback: analysis.investmentReadiness.teamFeedback || null,
         market_opportunity_score: analysis.investmentReadiness.marketOpportunityScore,
+        market_opportunity_feedback: analysis.investmentReadiness.marketOpportunityFeedback || null,
         product_score: analysis.investmentReadiness.productScore,
+        product_feedback: analysis.investmentReadiness.productFeedback || null,
         traction_score: analysis.investmentReadiness.tractionScore,
+        traction_feedback: analysis.investmentReadiness.tractionFeedback || null,
         financials_score: analysis.investmentReadiness.financialsScore,
+        financials_feedback: analysis.investmentReadiness.financialsFeedback || null,
       });
     }
 

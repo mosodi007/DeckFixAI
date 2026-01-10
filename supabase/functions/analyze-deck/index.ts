@@ -351,7 +351,21 @@ Deno.serve(async (req: Request) => {
       console.log('Anonymous user - creating analysis');
     }
 
-    const formData = await req.formData();
+    const contentType = req.headers.get('content-type') || '';
+    console.log('Content-Type:', contentType);
+
+    if (!contentType.includes('multipart/form-data')) {
+      throw new Error(`Invalid content type: ${contentType}. Expected multipart/form-data`);
+    }
+
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch (formError: any) {
+      console.error('Failed to parse form data:', formError);
+      throw new Error(`Failed to parse form data: ${formError.message}`);
+    }
+
     const file = formData.get('file') as File;
     const sessionId = formData.get('sessionId') as string;
     const clientAnalysisId = formData.get('analysisId') as string;

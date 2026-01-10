@@ -66,6 +66,21 @@ export async function getCurrentUser(): Promise<User | null> {
   return user;
 }
 
+export async function getUserProfile(userId: string): Promise<{ full_name: string | null; email: string } | null> {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('full_name, email')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function getCurrentSession(): Promise<Session | null> {
   const { data: { session } } = await supabase.auth.getSession();
   return session;

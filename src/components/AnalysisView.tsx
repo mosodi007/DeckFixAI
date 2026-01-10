@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { SummarySection } from './analysis/SummarySection';
 import { GeneralReviewSection } from './analysis/GeneralReviewSection';
-import { KeyMetricsSection } from './analysis/KeyMetricsSection';
+// import { KeyMetricsSection } from './analysis/KeyMetricsSection';
 import { StageAssessmentSection } from './analysis/StageAssessmentSection';
 import { InvestmentReadinessSection } from './analysis/InvestmentReadinessSection';
 import { DealBreakersSection } from './analysis/DealBreakersSection';
@@ -22,7 +22,7 @@ interface AnalysisViewProps {
 const sections = [
   { id: 'summary', label: 'Summary' },
   { id: 'general-review', label: 'General Review' },
-  { id: 'key-metrics', label: 'Business Information' },
+  // { id: 'key-metrics', label: 'Business Information' },
   { id: 'stage-assessment', label: 'Stage Assessment' },
   { id: 'investment-readiness', label: 'Investor Readiness' },
   { id: 'deal-breakers', label: 'Deal Breakers' },
@@ -146,7 +146,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         />
       </div>
 
-      <div id="key-metrics">
+      {/* <div id="key-metrics">
         <KeyMetricsSection
           company={data.keyMetrics.companyName}
           industry={data.keyMetrics.industry}
@@ -159,7 +159,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
           businessModel={data.keyMetrics.businessModel}
           customerCount={data.keyMetrics.customerCount}
         />
-      </div>
+      </div> */}
 
       <div id="stage-assessment">
         <StageAssessmentSection

@@ -58,7 +58,7 @@ export function IssueCard({ issue }: IssueCardProps) {
     }
     return {
       bgColor: 'bg-blue-100',
-      icon: <Lightbulb className="w-5 h-5 text-blue-600" />,
+      icon: ,
       badgeColor: 'bg-blue-100 text-blue-700 border-blue-300',
       badgeText: 'IMPROVEMENT'
     };

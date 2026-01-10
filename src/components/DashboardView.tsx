@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, Target, Zap } from 'lucide-react';
+import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
@@ -261,11 +261,11 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
         {analyses.length === 0 ? (
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <h1 className="text-5xl font-bold text-slate-900 mb-4 leading-tight">
-                Make your Pitch Deck<br />Investor-Ready in Minutes
+              <h1 className="text-7xl font-semibold text-slate-900 mb-4 tracking-tighter">
+                Make your Pitch Deck Investor-Ready in Minutes.
               </h1>
-              <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                Get instant AI-powered analysis and actionable feedback from a VC perspective
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                Receive professional AI analysis based on industry VC standards and patterns from thousands of successfully funded startups.
               </p>
             </div>
 
@@ -334,27 +334,27 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                     </div>
                     <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Analysis</h4>
                     <p className="text-sm text-slate-600">
-                      Advanced AI evaluates every aspect of your deck
+                      Advanced algorithms trained on thousands of successful pitch decks and funding outcomes
                     </p>
                   </div>
 
                   <div className="text-center">
                     <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-                      <Target className="w-7 h-7 text-slate-700" />
+                      <TrendingUp className="w-7 h-7 text-slate-700" />
                     </div>
                     <h4 className="font-semibold text-slate-900 mb-2">VC Perspective</h4>
                     <p className="text-sm text-slate-600">
-                      Feedback based on what investors look for
+                      Get insights from the investor's point of view with industry-standard evaluation metrics
                     </p>
                   </div>
 
                   <div className="text-center">
-                    <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-                      <Zap className="w-7 h-7 text-slate-700" />
+                    <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+                      <CheckCircle2 className="w-7 h-7 text-slate-700" />
                     </div>
-                    <h4 className="font-semibold text-slate-900 mb-2">Instant Results</h4>
+                    <h4 className="font-semibold text-slate-900 mb-2">Actionable Insights</h4>
                     <p className="text-sm text-slate-600">
-                      Get actionable insights in under a minute
+                      Receive specific recommendations to improve your deck and increase funding odds
                     </p>
                   </div>
                 </div>

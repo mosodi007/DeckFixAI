@@ -11,31 +11,42 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
     const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
     console.log('PDF document proxy created');
 
-    const { totalPages, text: fullText } = await extractText(pdf, { mergePages: true });
-    console.log(`PDF has ${totalPages} pages, ${fullText?.length || 0} characters total`);
-
-    if (!fullText || fullText.trim().length < 10) {
-      throw new Error('Could not extract sufficient text from PDF. The file appears to be image-based.');
-    }
-    const pageTexts = fullText.split(/\f|\n{3,}/);
-    console.log(`Split into ${pageTexts.length} sections`);
+    const totalPages = pdf.numPages;
+    console.log(`PDF has ${totalPages} pages`);
 
     const pages: PageText[] = [];
     let formattedText = '';
+    let totalTextLength = 0;
 
-    for (let i = 0; i < totalPages; i++) {
-      const pageNumber = i + 1;
-      const pageText = pageTexts[i] || '';
+    for (let i = 1; i <= totalPages; i++) {
+      try {
+        const pageResult = await extractText(pdf, { page: i });
+        const pageText = pageResult.text || '';
 
-      pages.push({
-        pageNumber,
-        text: pageText.trim()
-      });
+        pages.push({
+          pageNumber: i,
+          text: pageText.trim()
+        });
 
-      formattedText += `\n\n--- PAGE ${pageNumber} ---\n${pageText.trim()}\n--- END PAGE ${pageNumber} ---\n`;
+        totalTextLength += pageText.length;
+        formattedText += `\n\n--- PAGE ${i} ---\n${pageText.trim()}\n--- END PAGE ${i} ---\n`;
+
+        console.log(`Page ${i}: ${pageText.trim().length} characters`);
+      } catch (pageError) {
+        console.warn(`Failed to extract text from page ${i}:`, pageError);
+        pages.push({
+          pageNumber: i,
+          text: ''
+        });
+        formattedText += `\n\n--- PAGE ${i} ---\n\n--- END PAGE ${i} ---\n`;
+      }
     }
 
-    console.log(`Total extraction: ${formattedText.length} characters from ${totalPages} pages`);
+    console.log(`Total extraction: ${totalTextLength} characters from ${totalPages} pages`);
+
+    if (totalTextLength < 10) {
+      throw new Error('Could not extract sufficient text from PDF. The file appears to be image-based.');
+    }
 
     return {
       text: formattedText.trim(),

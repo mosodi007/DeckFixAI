@@ -96,6 +96,7 @@ Deno.serve(async (req: Request) => {
           },
           body: JSON.stringify({
             model: 'gpt-4o',
+            response_format: { type: 'json_object' },
             messages: [
               {
                 role: 'system',
@@ -164,19 +165,13 @@ Provide your analysis in the following JSON format:
 
         console.log(`Slide ${page.page_number} response length:`, content.length);
 
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          console.error(`Could not extract JSON from slide ${page.page_number} response:`, content);
-          throw new Error('Invalid JSON response from OpenAI');
-        }
-
         let analysis;
         try {
-          analysis = JSON.parse(jsonMatch[0]);
+          analysis = JSON.parse(content);
         } catch (parseError) {
           console.error(`JSON parse error for slide ${page.page_number}:`, parseError);
-          console.error('Matched JSON string:', jsonMatch[0]);
-          throw new Error('Invalid JSON format in OpenAI response');
+          console.error('Response content:', content.substring(0, 1000));
+          throw new Error(`Invalid JSON format in OpenAI response: ${parseError.message}`);
         }
 
         const { error: updateError } = await supabase

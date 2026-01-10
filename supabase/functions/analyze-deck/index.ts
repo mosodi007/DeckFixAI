@@ -245,6 +245,7 @@ async function analyzeWithVision(
       ],
       max_tokens: 8000,
       temperature: 0.7,
+      response_format: { type: 'json_object' }
     }),
   });
 
@@ -264,18 +265,12 @@ async function analyzeWithVision(
   console.log('OpenAI Vision response length:', content.length);
   console.log('First 500 chars:', content.substring(0, 500));
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    console.error('Failed to extract JSON. Full response:', content);
-    throw new Error('No JSON found in Vision response. Check function logs for details.');
-  }
-
   try {
-    return JSON.parse(jsonMatch[0]);
+    return JSON.parse(content);
   } catch (parseError) {
     console.error('JSON parse error:', parseError);
-    console.error('Matched JSON string:', jsonMatch[0]);
-    throw new Error('Invalid JSON in Vision response. Check function logs for details.');
+    console.error('Response content:', content.substring(0, 2000));
+    throw new Error(`Invalid JSON in Vision response: ${parseError.message}. Check function logs for details.`);
   }
 }
 
@@ -306,6 +301,7 @@ async function analyzeWithText(
       ],
       max_tokens: 8000,
       temperature: 0.7,
+      response_format: { type: 'json_object' }
     }),
   });
 
@@ -325,18 +321,12 @@ async function analyzeWithText(
   console.log('OpenAI Text response length:', content.length);
   console.log('First 500 chars:', content.substring(0, 500));
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    console.error('Failed to extract JSON. Full response:', content);
-    throw new Error('No JSON found in response. Check function logs for details.');
-  }
-
   try {
-    return JSON.parse(jsonMatch[0]);
+    return JSON.parse(content);
   } catch (parseError) {
     console.error('JSON parse error:', parseError);
-    console.error('Matched JSON string:', jsonMatch[0]);
-    throw new Error('Invalid JSON in response. Check function logs for details.');
+    console.error('Response content:', content.substring(0, 2000));
+    throw new Error(`Invalid JSON in response: ${parseError.message}. Check function logs for details.`);
   }
 }
 

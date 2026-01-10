@@ -116,7 +116,6 @@ export function IssueCard({ issue }: IssueCardProps) {
             {issue.impact && (
               <div className="bg-red-50/50 border border-red-100 rounded-lg p-3">
                 <p className="text-sm font-semibold text-red-900 mb-1 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5" />
                   Investor Impact:
                 </p>
                 <p className="text-sm text-red-800 leading-relaxed">

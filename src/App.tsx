@@ -74,17 +74,19 @@ function App() {
     setView('improvement');
 
     try {
-      console.log('Starting in-depth slide analysis with OpenAI...');
-      await analyzeSlides(analysisData.id);
+      console.log('Starting in-depth slide analysis with OpenAI Vision...');
+      const result = await analyzeSlides(analysisData.id);
+      console.log('Analysis result:', result);
 
       console.log('Reloading analysis data with enhanced feedback...');
       const updatedAnalysis = await getAnalysis(analysisData.id);
       const adaptedData = adaptAnalysisData(updatedAnalysis);
       setAnalysisData(adaptedData);
 
-      console.log('Slide analysis complete!');
-    } catch (error) {
+      console.log('Slide analysis complete! Enhanced feedback loaded.');
+    } catch (error: any) {
       console.error('Failed to analyze slides:', error);
+      alert(`Failed to analyze slides: ${error.message || 'Unknown error'}. Check console for details.`);
     } finally {
       setIsAnalyzingSlides(false);
     }

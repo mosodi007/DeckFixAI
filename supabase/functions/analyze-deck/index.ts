@@ -121,11 +121,11 @@ ${isImageBased ? `⚠️ NOTE: This deck appears to be IMAGE-BASED (slides are i
 
 **IMPORTANT FOR IMAGE-BASED DECKS:**
 - Try to extract the company name from PDF metadata (Title, Author fields) or any available text
-- If metadata has "XYZ Pitch Deck" or "XYZ Company", extract "XYZ" as the company name
+- If metadata has \"XYZ Pitch Deck\" or \"XYZ Company\", extract \"XYZ\" as the company name
 - Look for company names in Author, Creator, or Title fields
 - Even with minimal text, try to identify: company name, funding stage indicators, key metrics if mentioned
-- For fields you cannot determine, mark as "Not specified - requires visual analysis"
-- DO NOT mark company name as "Not specified" if it appears ANYWHERE in metadata or extractable text` : ''}
+- For fields you cannot determine, mark as \"Not specified - requires visual analysis\"
+- DO NOT mark company name as \"Not specified\" if it appears ANYWHERE in metadata or extractable text` : ''}
 
 ## WORD COUNT PER PAGE:
 ${wordCountSummary}
@@ -134,7 +134,7 @@ ${wordCountSummary}
 ${textToAnalyze}
 
 ## INSTRUCTIONS:
-Provide analysis in strict JSON format. Be concise and specific.${isImageBased ? ' Since this is an image-based deck, extract whatever information is available (especially company name from metadata), and note that visual elements cannot be assessed at this stage. Mark unavailable fields as "Not specified - requires visual analysis".' : ''}
+Provide analysis in strict JSON format. Be concise and specific.${isImageBased ? ' Since this is an image-based deck, extract whatever information is available (especially company name from metadata), and note that visual elements cannot be assessed at this stage. Mark unavailable fields as \"Not specified - requires visual analysis\".' : ''}
 
 ### STEP 1: DETECT FUNDING STAGE
 
@@ -211,39 +211,48 @@ List 3-8 major strengths of the deck. Each strength should be a detailed, specif
 - WHAT the strength is
 - WHY it matters to investors
 - Specific metrics, names, or details when available
-- Example: Instead of "Strong team" write "Experienced founding team with 15+ years at Google and Tesla, proven track record in autonomous systems"
-- Example: Instead of "Good traction" write "Strong early traction with 5K paying users and $200K MRR after 8 months, 25% MoM growth"
-- Example: Instead of "Large market" write "Targeting $85B financial services market with clear wedge in underbanked Nigerian SME segment (15M businesses)"
+- Example: Instead of \"Strong team\" write \"Experienced founding team with 15+ years at Google and Tesla, proven track record in autonomous systems\"
+- Example: Instead of \"Good traction\" write \"Strong early traction with 5K paying users and $200K MRR after 8 months, 25% MoM growth\"
+- Example: Instead of \"Large market\" write \"Targeting $85B financial services market with clear wedge in underbanked Nigerian SME segment (15M businesses)\"
+
+### KEY WEAKNESSES:
+List 3-8 major weaknesses of the deck. Each weakness should be a detailed, specific statement (10-20 words) that includes:
+- WHAT the weakness is
+- WHY it's problematic for investors
+- Specific examples or missing elements
+- Example: Instead of \"Weak financials\" write \"Financial projections lack unit economics breakdown - CAC, LTV, and payback period not specified, making ROI assessment impossible\"
+- Example: Instead of \"Poor design\" write \"Slides 4-7 contain 200+ words each with no visual hierarchy, making key points difficult to extract quickly\"
+- Example: Instead of \"Missing info\" write \"No customer acquisition strategy detailed - channels, costs per channel, and scaling timeline completely absent\"
 
 ### KEY ISSUES TO ADDRESS:
 List 3-8 critical issues that must be fixed. Each issue should be a detailed, specific statement (10-20 words) that includes:
 - WHAT the problem is
 - WHY it's concerning to investors
 - Specific examples or page references when relevant
-- Example: Instead of "Weak financials" write "Financials page lacks critical unit economics - CAC, LTV, and payback period missing, making ROI unclear"
-- Example: Instead of "Poor design" write "Slides 4-7 are text-heavy with 200+ words per slide, making key points hard to grasp quickly"
-- Example: Instead of "Missing information" write "No clear go-to-market strategy - customer acquisition channels, costs, and timeline completely absent"
+- Example: Instead of \"Weak financials\" write \"Financials page lacks critical unit economics - CAC, LTV, and payback period missing, making ROI unclear\"
+- Example: Instead of \"Poor design\" write \"Slides 4-7 are text-heavy with 200+ words per slide, making key points hard to grasp quickly\"
+- Example: Instead of \"Missing information\" write \"No clear go-to-market strategy - customer acquisition channels, costs, and timeline completely absent\"
 
 ### DETAILED DIAGNOSTIC ISSUES:
 List specific problems found for improvement tracking:
 - pageNumber: which page has the issue (or null if deck-wide)
-- priority: "high", "medium", or "low"
+- priority: \"high\", \"medium\", or \"low\"
 - title: brief issue name
 - description: what's wrong and why it matters (2-3 sentences, specific)
-- category: "content", "design", "structure", "data", or "messaging"
+- type: \"content\", \"design\", \"structure\", \"data\", or \"messaging\"
 
 Be thorough and find 8-15 specific issues across content quality, design problems, missing information, unclear messaging, and structural problems.
 
 ### EXTRACT KEY BUSINESS METRICS:
-Extract the following business metrics from the deck content. If a metric is not explicitly stated, write "Not specified":
-- companyName: Company name (string). **IMPORTANT: Check PDF metadata fields (Title, Author, Subject, Creator) FIRST. If metadata contains "XYZ Pitch Deck" or "XYZ Company" or "XYZ - Series A", extract "XYZ" as the company name. Also look in the first page content. Only mark as "Not specified" if truly no company identifier exists anywhere.**
+Extract the following business metrics from the deck content. If a metric is not explicitly stated, write \"Not specified\":
+- companyName: Company name (string). **IMPORTANT: Check PDF metadata fields (Title, Author, Subject, Creator) FIRST. If metadata contains \"XYZ Pitch Deck\" or \"XYZ Company\" or \"XYZ - Series A\", extract \"XYZ\" as the company name. Also look in the first page content. Only mark as \"Not specified\" if truly no company identifier exists anywhere.**
 - industry: Industry/sector (string)
-- currentRevenue: Current revenue/ARR (string with units, e.g., "$2M ARR", "Not specified")
-- fundingSought: Amount of funding sought (string with units, e.g., "$5M Series A", "Not specified")
-- teamSize: Current team size (string, e.g., "12 employees", "Not specified")
-- customerCount: Number of customers/users (string, e.g., "5,000 users", "Not specified")
-- growthRate: Growth rate if mentioned (string, e.g., "30% MoM", "Not specified")
-- monthlyRevenue: Monthly recurring revenue if mentioned (string, e.g., "$50K MRR", "Not specified")
+- currentRevenue: Current revenue/ARR (string with units, e.g., \"$2M ARR\", \"Not specified\")
+- fundingSought: Amount of funding sought (string with units, e.g., \"$5M Series A\", \"Not specified\")
+- teamSize: Current team size (string, e.g., \"12 employees\", \"Not specified\")
+- customerCount: Number of customers/users (string, e.g., \"5,000 users\", \"Not specified\")
+- growthRate: Growth rate if mentioned (string, e.g., \"30% MoM\", \"Not specified\")
+- monthlyRevenue: Monthly recurring revenue if mentioned (string, e.g., \"$50K MRR\", \"Not specified\")
 
 ### VC EVALUATION CRITERIA (NEW):
 Score the deck on 8 standard VC criteria (0-100 each) with detailed 4-6 sentence feedback explaining the score:
@@ -281,104 +290,108 @@ Identify which standard pitch deck pages/sections are completely missing:
 ### RED FLAGS:
 List 0-5 serious red flags that would make VCs hesitant:
 - Each red flag should be specific and explain the concern
-- Examples: "No technical co-founder despite being a deep-tech company", "Unrealistic 10x revenue projection without justification", "Founders have no equity split mentioned, suggests potential conflict"
+- Examples: \"No technical co-founder despite being a deep-tech company\", \"Unrealistic 10x revenue projection without justification\", \"Founders have no equity split mentioned, suggests potential conflict\"
 - Leave empty if no major red flags
 
 ### DEAL BREAKERS:
 List 0-3 absolute deal breakers that would result in immediate rejection:
 - These should be fundamental flaws, not fixable issues
-- Examples: "No identifiable market need or validation", "Product is illegal in target market", "Founders own <5% equity, no upside"
+- Examples: \"No identifiable market need or validation\", \"Product is illegal in target market\", \"Founders own <5% equity, no upside\"
 - Leave empty if no deal breakers
 
 Return ONLY valid JSON matching this exact structure:
 
 {
-  "stage": {
-    "detected_stage": "<Pre-Seed|Seed|Series A|Series B+>",
-    "stage_confidence": "<high|medium|low>",
-    "stage_appropriateness_score": <0-100>
+  \"stage\": {
+    \"detected_stage\": \"<Pre-Seed|Seed|Series A|Series B+>\",
+    \"stage_confidence\": \"<high|medium|low>\",
+    \"stage_appropriateness_score\": <0-100>
   },
-  "investmentReadiness": {
-    "teamScore": <0-100>,
-    "teamFeedback": "<6-8 sentences with brutal honesty>",
-    "marketScore": <0-100>,
-    "marketOpportunityFeedback": "<6-8 sentences>",
-    "productScore": <0-100>,
-    "productSolutionFeedback": "<6-8 sentences>",
-    "tractionScore": <0-100>,
-    "tractionFeedback": "<6-8 sentences>",
-    "businessModelScore": <0-100>,
-    "businessModelFeedback": "<6-8 sentences>"
+  \"investmentReadiness\": {
+    \"teamScore\": <0-100>,
+    \"teamFeedback\": \"<6-8 sentences with brutal honesty>\",
+    \"marketScore\": <0-100>,
+    \"marketOpportunityFeedback\": \"<6-8 sentences>\",
+    \"productScore\": <0-100>,
+    \"productSolutionFeedback\": \"<6-8 sentences>\",
+    \"tractionScore\": <0-100>,
+    \"tractionFeedback\": \"<6-8 sentences>\",
+    \"businessModelScore\": <0-100>,
+    \"businessModelFeedback\": \"<6-8 sentences>\"
   },
-  "overallScore": <0-100>,
-  "strengths": [
-    "<detailed 10-20 word strength with specifics>",
+  \"overallScore\": <0-100>,
+  \"strengths\": [
+    \"<detailed 10-20 word strength with specifics>\",
     ...
   ],
-  "keyIssues": [
-    "<detailed 10-20 word issue with specifics>",
+  \"weaknesses\": [
+    \"<detailed 10-20 word weakness with specifics>\",
     ...
   ],
-  "detailedIssues": [
+  \"keyIssues\": [
+    \"<detailed 10-20 word issue with specifics>\",
+    ...
+  ],
+  \"detailedIssues\": [
     {
-      "pageNumber": <number or null>,
-      "priority": "<high|medium|low>",
-      "title": "<brief title>",
-      "description": "<2-3 specific sentences>",
-      "category": "<content|design|structure|data|messaging>"
+      \"pageNumber\": <number or null>,
+      \"priority\": \"<high|medium|low>\",
+      \"title\": \"<brief title>\",
+      \"description\": \"<2-3 specific sentences>\",
+      \"type\": \"<content|design|structure|data|messaging>\"
     },
     ...
   ],
-  "keyMetrics": {
-    "companyName": "<string>",
-    "industry": "<string>",
-    "currentRevenue": "<string>",
-    "fundingSought": "<string>",
-    "teamSize": "<string>",
-    "customerCount": "<string>",
-    "growthRate": "<string>",
-    "monthlyRevenue": "<string>"
+  \"keyMetrics\": {
+    \"companyName\": \"<string>\",
+    \"industry\": \"<string>\",
+    \"currentRevenue\": \"<string>\",
+    \"fundingSought\": \"<string>\",
+    \"teamSize\": \"<string>\",
+    \"customerCount\": \"<string>\",
+    \"growthRate\": \"<string>\",
+    \"monthlyRevenue\": \"<string>\"
   },
-  "vcCriteria": {
-    "teamQualityScore": <0-100>,
-    "teamQualityFeedback": "<4-6 sentences>",
-    "marketSizeScore": <0-100>,
-    "marketSizeFeedback": "<4-6 sentences>",
-    "productDifferentiationScore": <0-100>,
-    "productDifferentiationFeedback": "<4-6 sentences>",
-    "businessModelScore": <0-100>,
-    "businessModelFeedback": "<4-6 sentences>",
-    "gtmStrategyScore": <0-100>,
-    "gtmStrategyFeedback": "<4-6 sentences>",
-    "competitivePositionScore": <0-100>,
-    "competitivePositionFeedback": "<4-6 sentences>",
-    "financialProjectionsScore": <0-100>,
-    "financialProjectionsFeedback": "<4-6 sentences>",
-    "useOfFundsScore": <0-100>,
-    "useOfFundsFeedback": "<4-6 sentences>"
+  \"vcCriteria\": {
+    \"teamQualityScore\": <0-100>,
+    \"teamQualityFeedback\": \"<4-6 sentences>\",
+    \"marketSizeScore\": <0-100>,
+    \"marketSizeFeedback\": \"<4-6 sentences>\",
+    \"productDifferentiationScore\": <0-100>,
+    \"productDifferentiationFeedback\": \"<4-6 sentences>\",
+    \"businessModelScore\": <0-100>,
+    \"businessModelFeedback\": \"<4-6 sentences>\",
+    \"gtmStrategyScore\": <0-100>,
+    \"gtmStrategyFeedback\": \"<4-6 sentences>\",
+    \"competitivePositionScore\": <0-100>,
+    \"competitivePositionFeedback\": \"<4-6 sentences>\",
+    \"financialProjectionsScore\": <0-100>,
+    \"financialProjectionsFeedback\": \"<4-6 sentences>\",
+    \"useOfFundsScore\": <0-100>,
+    \"useOfFundsFeedback\": \"<4-6 sentences>\"
   },
-  "missingPages": [
-    { "section": "<name>", "importance": "<why it matters>" },
+  \"missingPages\": [
+    { \"section\": \"<name>\", \"importance\": \"<why it matters>\" },
     ...
   ],
-  "redFlags": [
-    "<specific red flag with explanation>",
+  \"redFlags\": [
+    \"<specific red flag with explanation>\",
     ...
   ],
-  "dealBreakers": [
-    "<fundamental flaw>",
+  \"dealBreakers\": [
+    \"<fundamental flaw>\",
     ...
   ],
-  "summary": "<2-3 sentence executive summary of the deck's viability>",
-  "idealInvestor": "<1 sentence: who should invest and why>",
-  "idealVersion": "<1 short sentence max 10 words: what this deck would be if perfect>",
-  "deckQuality": {
-    "clarityScore": <0-100>,
-    "designScore": <0-100>,
-    "completenessScore": <0-100>,
-    "storytellingScore": <0-100>,
-    "dataQualityScore": <0-100>,
-    "structureScore": <0-100>
+  \"summary\": \"<2-3 sentence executive summary of the deck's viability>\",
+  \"idealInvestor\": \"<1 sentence: who should invest and why>\",
+  \"idealVersion\": \"<1 short sentence max 10 words: what this deck would be if perfect>\",
+  \"deckQuality\": {
+    \"clarityScore\": <0-100>,
+    \"designScore\": <0-100>,
+    \"completenessScore\": <0-100>,
+    \"storytellingScore\": <0-100>,
+    \"dataQualityScore\": <0-100>,
+    \"structureScore\": <0-100>
   }
 }`;
 
@@ -489,14 +502,20 @@ Return ONLY valid JSON matching this exact structure:
     }
 
     if (analysis.deckQuality) {
-      console.log('Inserting deck quality metrics...');
-      await supabase.from('deck_quality_metrics').insert({
+      console.log('Inserting analysis metrics...');
+
+      const contentScore = Math.round(
+        ((analysis.deckQuality.completenessScore || 0) +
+         (analysis.deckQuality.dataQualityScore || 0)) / 2
+      );
+
+      await supabase.from('analysis_metrics').insert({
         analysis_id: analysisId,
+        strengths: analysis.strengths || [],
+        weaknesses: analysis.weaknesses || [],
         clarity_score: analysis.deckQuality.clarityScore || 0,
         design_score: analysis.deckQuality.designScore || 0,
-        completeness_score: analysis.deckQuality.completenessScore || 0,
-        storytelling_score: analysis.deckQuality.storytellingScore || 0,
-        data_quality_score: analysis.deckQuality.dataQualityScore || 0,
+        content_score: contentScore,
         structure_score: analysis.deckQuality.structureScore || 0,
       });
     }
@@ -506,7 +525,7 @@ Return ONLY valid JSON matching this exact structure:
 
       let teamSize = 0;
       if (analysis.keyMetrics.teamSize && typeof analysis.keyMetrics.teamSize === 'string') {
-        const match = analysis.keyMetrics.teamSize.match(/\d+/);
+        const match = analysis.keyMetrics.teamSize.match(/\\d+/);
         if (match) {
           teamSize = parseInt(match[0], 10);
         }
@@ -572,26 +591,28 @@ Return ONLY valid JSON matching this exact structure:
     }
 
     if (analysis.detailedIssues && analysis.detailedIssues.length > 0) {
-      console.log(`Inserting ${analysis.detailedIssues.length} detailed issues...`);
-      const detailedIssueRecords = analysis.detailedIssues.map((issue: any) => ({
+      console.log(`Inserting ${analysis.detailedIssues.length} analysis issues...`);
+      const issueRecords = analysis.detailedIssues.map((issue: any) => ({
         analysis_id: analysisId,
         page_number: issue.pageNumber,
         priority: issue.priority || 'medium',
         title: issue.title || 'Untitled Issue',
         description: issue.description || '',
-        category: issue.category || 'content',
+        type: issue.type || 'content',
       }));
-      await supabase.from('detailed_issues').insert(detailedIssueRecords);
+      await supabase.from('analysis_issues').insert(issueRecords);
     }
 
     if (analysis.missingPages && analysis.missingPages.length > 0) {
-      console.log(`Inserting ${analysis.missingPages.length} missing pages...`);
-      const missingPageRecords = analysis.missingPages.map((page: any) => ({
+      console.log(`Inserting ${analysis.missingPages.length} missing slides...`);
+      const missingSlideRecords = analysis.missingPages.map((page: any) => ({
         analysis_id: analysisId,
-        section: page.section || 'Unknown',
-        importance: page.importance || '',
+        priority: 'high',
+        title: page.section || 'Unknown Section',
+        description: page.importance || 'Missing critical information',
+        suggested_content: `Add a comprehensive ${page.section || 'section'} to address this gap.`,
       }));
-      await supabase.from('missing_pages').insert(missingPageRecords);
+      await supabase.from('missing_slides').insert(missingSlideRecords);
     }
 
     if (analysis.redFlags && analysis.redFlags.length > 0) {

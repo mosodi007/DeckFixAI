@@ -8,6 +8,7 @@ import { FixSlideModal } from './improvement/FixSlideModal';
 import { CostEstimationModal } from './CostEstimationModal';
 import { generateSlideFix, generateIssueFix, GeneratedFix } from '../services/aiFixService';
 import { getUserCreditBalance } from '../services/creditService';
+import { useCredits } from '../contexts/CreditContext';
 import { supabase } from '../services/authService';
 
 interface ImprovementFlowViewProps {
@@ -26,6 +27,7 @@ interface CostEstimation {
 }
 
 export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick }: ImprovementFlowViewProps) {
+  const { refreshCredits } = useCredits();
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
   const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
@@ -270,6 +272,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         setGeneratedFix({ fix: result.fix, fixId: result.fixId });
         setShowFixModal(true);
 
+        await refreshCredits();
+
         const updatedCredits = await getUserCreditBalance();
         if (updatedCredits) {
           setCurrentBalance(updatedCredits.creditsBalance);
@@ -329,6 +333,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
       if (result.success && result.fix && result.fixId) {
         setGeneratedFix({ fix: result.fix, fixId: result.fixId, issueTitle: issue.title });
         setShowFixModal(true);
+
+        await refreshCredits();
       } else {
         setFixError(result.error || 'Failed to generate fix');
       }

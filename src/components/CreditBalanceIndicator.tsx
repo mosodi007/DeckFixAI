@@ -1,26 +1,10 @@
-import { useState, useEffect } from 'react';
 import { Coins, TrendingUp } from 'lucide-react';
-import { getUserCreditBalance, type UserCredits } from '../services/creditService';
 import { useAuth } from '../contexts/AuthContext';
+import { useCredits } from '../contexts/CreditContext';
 
 export function CreditBalanceIndicator() {
   const { user } = useAuth();
-  const [credits, setCredits] = useState<UserCredits | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      loadCredits();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
-
-  async function loadCredits() {
-    const data = await getUserCreditBalance();
-    setCredits(data);
-    setLoading(false);
-  }
+  const { credits, loading } = useCredits();
 
   if (!user || loading) {
     return null;

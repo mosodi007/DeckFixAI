@@ -36,6 +36,80 @@ interface GeneratedFix {
   afterExample: string;
 }
 
+async function getUserCreditBalance(supabaseClient: any, userId: string) {
+  const { data, error } = await supabaseClient
+    .from('user_credits')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user credits:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function deductCredits(
+  supabaseClient: any,
+  userId: string,
+  creditCost: number,
+  description: string,
+  metadata: Record<string, unknown> = {}
+) {
+  const currentCredits = await getUserCreditBalance(supabaseClient, userId);
+
+  if (!currentCredits) {
+    throw new Error('Unable to fetch credit balance');
+  }
+
+  if (currentCredits.credits_balance < creditCost) {
+    throw new Error('Insufficient credits');
+  }
+
+  const newBalance = currentCredits.credits_balance - creditCost;
+  let newSubscriptionCredits = currentCredits.subscription_credits;
+  let newPurchasedCredits = currentCredits.purchased_credits;
+
+  if (currentCredits.subscription_credits >= creditCost) {
+    newSubscriptionCredits -= creditCost;
+  } else {
+    const remainingToDeduct = creditCost - currentCredits.subscription_credits;
+    newSubscriptionCredits = 0;
+    newPurchasedCredits -= remainingToDeduct;
+  }
+
+  const { error: updateError } = await supabaseClient
+    .from('user_credits')
+    .update({
+      credits_balance: newBalance,
+      subscription_credits: newSubscriptionCredits,
+      purchased_credits: newPurchasedCredits,
+    })
+    .eq('user_id', userId);
+
+  if (updateError) {
+    console.error('Error updating credits:', updateError);
+    throw new Error('Failed to update credits');
+  }
+
+  await supabaseClient
+    .from('credit_transactions')
+    .insert({
+      user_id: userId,
+      amount: -creditCost,
+      transaction_type: 'deduction',
+      description,
+      complexity_score: 50,
+      credits_cost: creditCost,
+      balance_after: newBalance,
+      metadata,
+    });
+
+  return newBalance;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -49,22 +123,18 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization');
     let user = null;
 
-    if (authHeader) {
-      const supabaseClient = createClient(
-        supabaseUrl!,
-        Deno.env.get('SUPABASE_ANON_KEY')!,
-        { global: { headers: { Authorization: authHeader } } }
-      );
+    const supabaseClient = createClient(
+      supabaseUrl!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader || '' } } }
+    );
 
+    if (authHeader) {
       const { data: userData, error: userError } = await supabaseClient.auth.getUser();
       if (!userError && userData?.user) {
         user = userData.user;
         console.log('Authenticated user:', user.id);
       }
-    }
-
-    if (!user) {
-      console.log('Anonymous user - generating issue fix');
     }
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -85,6 +155,77 @@ Deno.serve(async (req: Request) => {
       issueSeverity,
       deckContext,
     } = requestData;
+
+    const ISSUE_FIX_COST = 5;
+
+    if (user) {
+      const userCredits = await getUserCreditBalance(supabaseClient, user.id);
+
+      if (!userCredits) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Unable to fetch credit balance',
+            requiresAuth: false,
+          }),
+          {
+            status: 400,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      if (userCredits.credits_balance < ISSUE_FIX_COST) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Insufficient credits',
+            requiresUpgrade: true,
+            currentBalance: userCredits.credits_balance,
+            requiredCredits: ISSUE_FIX_COST,
+          }),
+          {
+            status: 402,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      await deductCredits(
+        supabaseClient,
+        user.id,
+        ISSUE_FIX_COST,
+        `Issue fix: ${issueTitle}`,
+        {
+          analysisId,
+          issueType,
+          issueTitle,
+        }
+      );
+
+      console.log(`Deducted ${ISSUE_FIX_COST} credits from user ${user.id}`);
+    } else {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Authentication required',
+          requiresAuth: true,
+        }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
 
     let systemPrompt = '';
     let userPrompt = '';

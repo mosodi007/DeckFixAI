@@ -113,7 +113,12 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
                     Generating...
                   </>
                 ) : (
-                  'Generate Instant Fix'
+                  <>
+                    Generate Instant Fix
+                    <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-[10px] font-bold">
+                      5 credits
+                    </span>
+                  </>
                 )}
               </button>
             ) : null}

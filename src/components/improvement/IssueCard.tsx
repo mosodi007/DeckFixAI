@@ -27,6 +27,7 @@ export function IssueCard({ issue }: IssueCardProps) {
     if (issue.type === 'deal_breaker') {
       return {
         bgColor: 'bg-red-100',
+        icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
         badgeColor: 'bg-red-100 text-red-700 border-red-300',
         badgeText: 'DEAL-BREAKER'
       };
@@ -34,26 +35,30 @@ export function IssueCard({ issue }: IssueCardProps) {
     if (issue.type === 'red_flag') {
       return {
         bgColor: 'bg-orange-100',
+        icon: <TrendingDown className="w-5 h-5 text-orange-600" />,
         badgeColor: 'bg-orange-100 text-orange-700 border-orange-300',
         badgeText: 'RED FLAG'
       };
     }
     if (issue.type === 'missing_slide') {
       return {
-        bgColor: 'bg-purple-100',
-        badgeColor: 'bg-purple-100 text-purple-700 border-purple-300',
+        bgColor: 'bg-slate-100',
+        icon: <FilePlus className="w-5 h-5 text-slate-600" />,
+        badgeColor: 'bg-slate-100 text-slate-700 border-slate-300',
         badgeText: 'MISSING CONTENT'
       };
     }
     if (issue.type === 'issue') {
       return {
         bgColor: 'bg-yellow-100',
+        icon: <AlertTriangle className="w-5 h-5 text-yellow-600" />,
         badgeColor: 'bg-yellow-100 text-yellow-700 border-yellow-300',
         badgeText: 'ISSUE'
       };
     }
     return {
       bgColor: 'bg-black/50',
+      icon: <Target className="w-5 h-5 text-black-600" />,
       badgeColor: 'bg-blue-100 text-blue-700 border-blue-300',
       badgeText: 'IMPROVEMENT'
     };

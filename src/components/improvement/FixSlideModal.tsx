@@ -13,6 +13,67 @@ interface FixSlideModalProps {
   isDeckWideIssue?: boolean;
 }
 
+function formatText(text: string) {
+  return text
+    .split('\n')
+    .map((line, idx) => {
+      const trimmedLine = line.trim();
+
+      if (trimmedLine.startsWith('- ')) {
+        const content = formatInlineMarkdown(trimmedLine.substring(2));
+        return (
+          <li key={idx} className="ml-4">
+            {content}
+          </li>
+        );
+      }
+
+      if (trimmedLine) {
+        return <p key={idx}>{formatInlineMarkdown(trimmedLine)}</p>;
+      }
+
+      return <br key={idx} />;
+    });
+}
+
+function formatInlineMarkdown(text: string) {
+  const parts: (string | JSX.Element)[] = [];
+  let currentText = '';
+  let i = 0;
+
+  while (i < text.length) {
+    if (text[i] === '*' && text[i + 1] === '*') {
+      if (currentText) {
+        parts.push(currentText);
+        currentText = '';
+      }
+
+      i += 2;
+      let boldText = '';
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '*')) {
+        boldText += text[i];
+        i++;
+      }
+
+      if (i < text.length) {
+        parts.push(<strong key={parts.length} className="font-bold">{boldText}</strong>);
+        i += 2;
+      } else {
+        currentText += '**' + boldText;
+      }
+    } else {
+      currentText += text[i];
+      i++;
+    }
+  }
+
+  if (currentText) {
+    parts.push(currentText);
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
 export function FixSlideModal({
   fix,
   fixId,
@@ -61,14 +122,14 @@ export function FixSlideModal({
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-600">{isDeckWideIssue ? 'Overall Score:' : 'Current Score:'}</span>
                 <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg font-bold text-sm">
-                  {currentScore.toFixed(1)}{isDeckWideIssue ? '/100' : '/10'}
+                  {currentScore.toFixed(1)}/10
                 </span>
               </div>
               <ArrowRight className="w-4 h-4 text-slate-400" />
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-600">After Fix:</span>
                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold text-sm">
-                  {newScore.toFixed(1)}{isDeckWideIssue ? '/100' : '/10'}
+                  {newScore.toFixed(1)}/10
                 </span>
               </div>
               <div className="flex items-center gap-1 text-green-600 ml-2">
@@ -91,9 +152,9 @@ export function FixSlideModal({
               <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
               Issue Identified: {fix.issueType}
             </h3>
-            <p className="text-red-800 text-sm leading-relaxed">
-              {fix.issueDescription}
-            </p>
+            <div className="text-red-800 text-sm leading-relaxed space-y-2">
+              {formatText(fix.issueDescription)}
+            </div>
           </div>
 
           <div className="bg-slate-50 border border-blue-200 rounded-xl p-6">
@@ -102,9 +163,9 @@ export function FixSlideModal({
                 Why This Works
               </h3>
             </div>
-            <p className="text-slate-700 leading-relaxed">
-              {fix.explanation}
-            </p>
+            <div className="text-slate-700 leading-relaxed space-y-2">
+              {formatText(fix.explanation)}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -113,9 +174,9 @@ export function FixSlideModal({
                 Before
               </h4>
               <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <p className="text-slate-600 text-sm italic whitespace-pre-wrap">
-                  {fix.beforeExample}
-                </p>
+                <div className="text-slate-600 text-sm italic space-y-2">
+                  {formatText(fix.beforeExample)}
+                </div>
               </div>
             </div>
 
@@ -124,9 +185,9 @@ export function FixSlideModal({
                 After (Use This)
               </h4>
               <div className="bg-white border border-green-300 rounded-lg p-4">
-                <p className="text-slate-900 text-sm font-medium whitespace-pre-wrap">
-                  {fix.afterExample}
-                </p>
+                <div className="text-slate-900 text-sm font-medium space-y-2">
+                  {formatText(fix.afterExample)}
+                </div>
               </div>
             </div>
           </div>
@@ -155,9 +216,9 @@ export function FixSlideModal({
               </button>
             </div>
             <div className="bg-slate-50 border rounded-lg p-4">
-              <p className="text-slate-900 leading-relaxed whitespace-pre-wrap font-medium">
-                {fix.exactReplacementText}
-              </p>
+              <div className="text-slate-900 leading-relaxed font-medium space-y-2">
+                {formatText(fix.exactReplacementText)}
+              </div>
             </div>
             <p className="text-xs text-slate-500 mt-3">
               Copy this text and paste it directly into your slide. This is production-ready content.
@@ -179,7 +240,9 @@ export function FixSlideModal({
                     <div className="flex-shrink-0 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
                       <ImageIcon className="w-4 h-4 text-[#000]" />
                     </div>
-                    <p className="text-slate-700 flex-1">{rec}</p>
+                    <div className="text-slate-700 flex-1 space-y-1">
+                      {formatText(rec)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -199,7 +262,9 @@ export function FixSlideModal({
                   <div className="flex-shrink-0 w-8 h-8 bg-slate-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
                     {idx + 1}
                   </div>
-                  <p className="text-slate-700 flex-1 pt-1">{step}</p>
+                  <div className="text-slate-700 flex-1 pt-1 space-y-1">
+                    {formatText(step)}
+                  </div>
                 </div>
               ))}
             </div>

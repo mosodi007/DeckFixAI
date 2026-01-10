@@ -169,7 +169,7 @@ export function FixSlideModal({
           {fix.visualRecommendations && fix.visualRecommendations.length > 0 && (
             <div className="border rounded-xl p-6">
               <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-purple-600" />
+                <ImageIcon className="w-5 h-5 text-[#000]" />
                 Visual Elements to Add
               </h3>
               <div className="space-y-3">

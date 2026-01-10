@@ -21,7 +21,7 @@ interface AnalysisViewProps {
 
 const sections = [
   { id: 'summary', label: 'Summary' },
-  { id: 'general-review', label: 'General Review' },
+  // { id: 'general-review', label: 'General Review' },
   { id: 'key-metrics', label: 'Key Metrics' },
   { id: 'stage-assessment', label: 'Stage Assessment' },
   { id: 'investment-readiness', label: 'Investment Readiness' },

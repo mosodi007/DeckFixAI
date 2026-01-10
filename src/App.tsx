@@ -133,6 +133,13 @@ function App() {
 
     if (!analysisData?.id) return;
 
+    // Check if slides have already been analyzed
+    if (analysisData.slidesAnalyzedAt) {
+      console.log('Slides already analyzed at:', analysisData.slidesAnalyzedAt);
+      setView('improvement');
+      return;
+    }
+
     setIsAnalyzingSlides(true);
     setView('improvement');
 

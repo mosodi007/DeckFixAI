@@ -200,6 +200,18 @@ Provide your analysis in the following JSON format:
 
     console.log(`Analysis complete: ${successCount}/${slidesWithImages.length} slides analyzed successfully`);
 
+    // Mark the analysis as having completed slide analysis
+    const { error: updateAnalysisError } = await supabase
+      .from('analyses')
+      .update({ slides_analyzed_at: new Date().toISOString() })
+      .eq('id', analysisId);
+
+    if (updateAnalysisError) {
+      console.error('Failed to update slides_analyzed_at:', updateAnalysisError);
+    } else {
+      console.log('Updated slides_analyzed_at timestamp for analysis:', analysisId);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

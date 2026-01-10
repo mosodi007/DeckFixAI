@@ -18,6 +18,7 @@ export interface AnalysisData {
   totalPages: number;
   summary: string;
   createdAt: string;
+  slidesAnalyzedAt: string | null;
   fundingStage: string | null;
   investmentReady: boolean;
   wordDensity: string;
@@ -284,6 +285,7 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     totalPages: analysis.total_pages,
     summary: analysis.summary,
     createdAt: analysis.created_at,
+    slidesAnalyzedAt: analysis.slides_analyzed_at || null,
     fundingStage: analysis.funding_stage,
     investmentReady: analysis.investment_ready || false,
     wordDensity: analysis.word_density || 'Not analyzed',

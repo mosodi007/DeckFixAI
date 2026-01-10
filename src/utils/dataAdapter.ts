@@ -11,6 +11,7 @@ export function adaptAnalysisData(data: AnalysisData) {
     id: data.id,
     fileName: data.fileName,
     uploadDate: data.createdAt,
+    slidesAnalyzedAt: data.slidesAnalyzedAt || null,
     overallScore: data.overallScore / 10,
     investmentGrade: getInvestmentGrade(data.overallScore),
     fundingOdds: getFundingOdds(data.investmentReadiness?.readinessScore || data.overallScore),

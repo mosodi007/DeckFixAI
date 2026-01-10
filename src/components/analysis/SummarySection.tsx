@@ -99,7 +99,7 @@ export function SummarySection({
       <div className="flex items-start justify-between mb-6">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-2">
-            PitchDeck for {companyName}
+            {companyName}
           </h2>
           <p className="text-slate-600">{fileName}</p>
         </div>

@@ -5,7 +5,7 @@ import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
 import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
-import { uploadPageImages } from '../services/storageService';
+import { uploadPageImages, deleteAnalysisImages } from '../services/storageService';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DeckAnalysis {
@@ -82,6 +82,8 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
 
     try {
       setDeletingId(analysisId);
+
+      await deleteAnalysisImages(analysisId);
 
       const { error } = await supabase
         .from('analyses')

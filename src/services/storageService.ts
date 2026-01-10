@@ -64,3 +64,29 @@ export async function uploadPageImages(
 
   return urls;
 }
+
+export async function deleteAnalysisImages(analysisId: string): Promise<void> {
+  const { data: files, error: listError } = await supabase.storage
+    .from('slide-images')
+    .list(analysisId);
+
+  if (listError) {
+    console.error('Error listing files for deletion:', listError);
+    throw listError;
+  }
+
+  if (!files || files.length === 0) {
+    return;
+  }
+
+  const filePaths = files.map(file => `${analysisId}/${file.name}`);
+
+  const { error: deleteError } = await supabase.storage
+    .from('slide-images')
+    .remove(filePaths);
+
+  if (deleteError) {
+    console.error('Error deleting images:', deleteError);
+    throw deleteError;
+  }
+}

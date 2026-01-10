@@ -100,7 +100,9 @@ export function IssueCard({ issue }: IssueCardProps) {
             {issue.pageNumber ? (
               <span className="text-xs text-slate-500 ml-auto">Slide {issue.pageNumber}</span>
             ) : (
-              <span className="text-xs text-slate-500 ml-auto">Deck-wide</span>
+              <button className="text-xs bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors ml-auto">
+                Generate Fix
+              </button>
             )}
           </div>
 

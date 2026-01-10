@@ -60,48 +60,62 @@ Deno.serve(async (req: Request) => {
 
     const systemPrompt = `You are an elite pitch deck consultant who has helped founders raise over $500M in venture capital. Your expertise includes working with Y Combinator companies, Sequoia-backed startups, and successful Series A-D companies.
 
-Your task is to provide EXACT, IMPLEMENTATION-READY fixes for pitch deck slides - not vague advice. When you identify an issue, you provide:
+You are analyzing the ACTUAL slide image provided. Your task is to:
 
-1. EXACT TEXT REPLACEMENTS - Word-for-word what to write, not "consider adding" or "you should"
-2. SPECIFIC VISUAL RECOMMENDATIONS - Exact images/graphics to add with descriptions
-3. PRECISE FORMATTING CHANGES - Bullet points, layout adjustments with exact specifications
-4. CONCRETE EXAMPLES - Show before/after with actual text
+1. DESCRIBE EXACTLY WHAT YOU SEE on the current slide (this is the "BEFORE")
+2. Provide EXACT, IMPLEMENTATION-READY fixes based on what's actually there
+3. Show specific improvements to the existing content, not generic advice
 
-For example:
-- BAD: "Add more details about your team's experience"
-- GOOD: "Replace 'Experienced team' with 'Team with 10+ years at Google, Meta, and Tesla. Previously scaled products to 50M+ users.'"
+When you identify an issue, you provide:
 
-- BAD: "Include a visual"
-- GOOD: "Add a growth chart showing MRR progression: Jan $10K → Jun $50K (5x in 6 months). Use a line graph with green upward trend."
+1. EXACT TEXT REPLACEMENTS - Word-for-word improvements to what's currently on the slide
+2. SPECIFIC VISUAL RECOMMENDATIONS - Concrete changes to existing layout/graphics
+3. PRECISE FORMATTING CHANGES - Based on the current design
+4. CONCRETE BEFORE/AFTER - Show what's there NOW vs. what it should say
 
-- BAD: "Make it more concise"
-- GOOD: "Replace paragraph with bullets:\n• Serves 500+ enterprise customers\n• $2M ARR, growing 20% MoM\n• Team of 12, including 4 ex-Stripe engineers"
+CRITICAL:
+- "beforeExample" must describe what you ACTUALLY SEE on the slide image
+- Don't make up content that isn't there
+- Fix what exists, don't propose entirely new content
+- Quote actual text from the slide in your before example
 
-Your fixes should bring slides from their current score to 10/10 if implemented correctly. Be specific, actionable, and results-oriented.`;
+Examples:
+- BAD beforeExample: "Generic team description"
+- GOOD beforeExample: "Current slide shows: 'Experienced team with background in tech' with no specific details or credentials"
 
-    const userPrompt = `Analyze this pitch deck slide and provide a complete, implementation-ready fix.
+- BAD: "Add a growth chart"
+- GOOD: "Replace the static bullet points with a visual growth chart showing the MRR data already mentioned on the slide"
+
+Your fixes should improve what's CURRENTLY on the slide, bringing it from its current score to 10/10.`;
+
+    const userPromptText = `Analyze the slide image provided and provide a complete, implementation-ready fix.
 
 SLIDE DETAILS:
 - Title: ${slideTitle}
 - Current Score: ${currentScore}/10 (needs ${scoreGap.toFixed(1)} point improvement)
-- Content: ${slideContent || 'Not available'}
+- Extracted Text: ${slideContent || 'Not available'}
 
-CURRENT ISSUES:
+CURRENT ISSUES IDENTIFIED:
 ${slideFeedback || 'General improvement needed'}
 
-RECOMMENDATIONS:
+EXPERT RECOMMENDATIONS:
 ${slideRecommendations?.join('\n') || 'None provided'}
 
-${imageUrl ? `The slide has an image at: ${imageUrl}` : 'The slide currently has no visual elements.'}
+INSTRUCTIONS:
+1. First, describe EXACTLY what you see on the slide image (text, layout, visuals, design)
+2. Identify the main issue preventing this from being a 10/10 slide
+3. Provide specific, implementation-ready fixes that improve what's currently there
+4. In "beforeExample", quote the actual text/content from the slide
+5. In "afterExample", show exactly what it should say instead
 
 Provide a JSON response with this exact structure:
 {
   "issueType": "Brief category (e.g., 'Weak Team Credentials', 'Missing Traction Data', 'Poor Visual Design')",
-  "issueDescription": "2-3 sentence description of the main problem",
+  "issueDescription": "2-3 sentence description of the main problem based on what you see",
   "exactReplacementText": "The EXACT text to use on the slide. Be specific and complete. Use \\n for line breaks.",
   "visualRecommendations": [
-    "Specific visual element 1 with details",
-    "Specific visual element 2 with details"
+    "Specific change to current layout/design",
+    "Specific visual element to add/modify"
   ],
   "implementationSteps": [
     "Step 1: Specific action",
@@ -110,11 +124,39 @@ Provide a JSON response with this exact structure:
   ],
   "estimatedScoreImprovement": 3.5,
   "explanation": "Why this fix works and how it addresses VC concerns",
-  "beforeExample": "What the slide currently says (or the problem)",
-  "afterExample": "What the slide should say after the fix"
+  "beforeExample": "EXACTLY what the slide currently shows (quote actual text from the image)",
+  "afterExample": "What the slide should say after implementing the fix"
 }
 
-Be extremely specific. This is a premium feature - deliver expert-level, implementation-ready guidance.`;
+Be extremely specific. This is a premium feature - deliver expert-level, implementation-ready guidance based on the actual slide content.`;
+
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    if (imageUrl) {
+      messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: userPromptText
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: imageUrl,
+              detail: 'high'
+            }
+          }
+        ]
+      });
+    } else {
+      messages.push({
+        role: 'user',
+        content: userPromptText
+      });
+    }
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -124,12 +166,10 @@ Be extremely specific. This is a premium feature - deliver expert-level, impleme
       },
       body: JSON.stringify({
         model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+        messages: messages,
         temperature: 0.7,
         response_format: { type: 'json_object' },
+        max_tokens: 2000,
       }),
     });
 

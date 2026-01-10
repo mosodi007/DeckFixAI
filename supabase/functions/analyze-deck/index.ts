@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
 
       perPageWordCounts = result.pages.map(page => ({
         pageNumber: page.pageNumber,
-        wordCount: page.text.trim().split(/\s+/).filter(w => w.length > 0).length
+        wordCount: page.text.trim().split(/\\s+/).filter(w => w.length > 0).length
       }));
 
       console.log(`✓ PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
@@ -457,29 +457,34 @@ Return ONLY valid JSON matching this exact structure:
 
     if (analysis.stage) {
       console.log('Inserting stage assessment...');
-      await supabase.from('stage_assessments').insert({
+      await supabase.from('analysis_stage_assessment').insert({
         analysis_id: analysisId,
         detected_stage: analysis.stage.detected_stage || 'Unknown',
         stage_confidence: analysis.stage.stage_confidence || 'low',
         stage_appropriateness_score: analysis.stage.stage_appropriateness_score || 0,
+        stage_specific_feedback: '',
       });
     }
 
     if (analysis.investmentReadiness) {
       console.log('Inserting investment readiness...');
       const ir = analysis.investmentReadiness;
-      await supabase.from('investment_readiness').insert({
+      await supabase.from('analysis_investment_readiness').insert({
         analysis_id: analysisId,
+        is_investment_ready: false,
+        readiness_score: analysis.overallScore || 0,
+        readiness_summary: analysis.summary || '',
+        critical_blockers: [],
         team_score: ir.teamScore || 0,
         team_feedback: ir.teamFeedback || '',
-        market_score: ir.marketScore || 0,
+        market_opportunity_score: ir.marketScore || 0,
         market_opportunity_feedback: ir.marketOpportunityFeedback || '',
         product_score: ir.productScore || 0,
-        product_solution_feedback: ir.productSolutionFeedback || '',
+        product_feedback: ir.productSolutionFeedback || '',
         traction_score: ir.tractionScore || 0,
         traction_feedback: ir.tractionFeedback || '',
-        business_model_score: ir.businessModelScore || 0,
-        business_model_feedback: ir.businessModelFeedback || '',
+        financials_score: ir.businessModelScore || 0,
+        financials_feedback: ir.businessModelFeedback || '',
       });
     }
 
@@ -578,20 +583,26 @@ Return ONLY valid JSON matching this exact structure:
 
     if (analysis.redFlags && analysis.redFlags.length > 0) {
       console.log(`Inserting ${analysis.redFlags.length} red flags...`);
-      const redFlagRecords = analysis.redFlags.map((flag: string) => ({
+      const redFlagRecords = analysis.redFlags.map((flag: string, index: number) => ({
         analysis_id: analysisId,
+        category: 'other',
+        severity: 'major',
+        title: `Red Flag ${index + 1}`,
         description: flag,
+        impact: 'May significantly reduce funding chances',
       }));
-      await supabase.from('red_flags').insert(redFlagRecords);
+      await supabase.from('analysis_red_flags').insert(redFlagRecords);
     }
 
     if (analysis.dealBreakers && analysis.dealBreakers.length > 0) {
       console.log(`Inserting ${analysis.dealBreakers.length} deal breakers...`);
-      const dealBreakerRecords = analysis.dealBreakers.map((breaker: string) => ({
+      const dealBreakerRecords = analysis.dealBreakers.map((breaker: string, index: number) => ({
         analysis_id: analysisId,
+        title: `Deal Breaker ${index + 1}`,
         description: breaker,
+        recommendation: 'Address this fundamental issue before seeking funding',
       }));
-      await supabase.from('deal_breakers').insert(dealBreakerRecords);
+      await supabase.from('analysis_deal_breakers').insert(dealBreakerRecords);
     }
 
     console.log('Creating analysis_pages records...');

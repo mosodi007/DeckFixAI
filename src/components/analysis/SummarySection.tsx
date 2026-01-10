@@ -172,7 +172,7 @@ export function SummarySection({
 
       <div className="flex gap-3">
         <Button variant="primary" icon={Wand2} className="flex-1" onClick={onOpenImprovementFlow}>
-          Improve & Fix Issues
+          Fix Issues
         </Button>
         <Button variant="secondary" icon={FileUp} className="flex-1" onClick={onNewAnalysis}>
           Analyze New Deck

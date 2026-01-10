@@ -218,9 +218,17 @@ export function CreditHistoryView({ onBack }: CreditHistoryViewProps) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-slate-300 text-sm">
-              <Calendar className="w-4 h-4" />
-              <span>Next credit refill: <strong className="text-white">{nextRefillDate}</strong></span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-slate-300 text-sm">
+                <Calendar className="w-4 h-4" />
+                <span>Next credit refill: <strong className="text-white">{nextRefillDate}</strong></span>
+              </div>
+              <button
+                onClick={() => setShowTransactions(!showTransactions)}
+                className="text-sm text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
+              >
+                Usage History
+              </button>
             </div>
           </div>
 

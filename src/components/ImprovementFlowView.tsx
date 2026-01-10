@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, Filter } from 'lucide-react';
+import { ArrowLeft, Filter, Sparkles } from 'lucide-react';
 import { DeckPageCard } from './improvement/DeckPageCard';
 import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
 import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
+import { FixSlideModal } from './improvement/FixSlideModal';
+import { generateSlideFix, GeneratedFix } from '../services/aiFixService';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -15,6 +17,10 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
   const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
+  const [isGeneratingFix, setIsGeneratingFix] = useState(false);
+  const [generatedFix, setGeneratedFix] = useState<{ fix: GeneratedFix; fixId: string } | null>(null);
+  const [showFixModal, setShowFixModal] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
@@ -94,6 +100,46 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
     issue: sortedIssues.filter(i => i.type === 'issue').length,
     improvement: sortedIssues.filter(i => i.type === 'improvement').length,
     missing_slide: sortedIssues.filter(i => i.type === 'missing_slide').length,
+  };
+
+  const handleGenerateFix = async () => {
+    if (selectedPage === 0 || !data?.id) return;
+
+    const currentPage = deckPages.find((p: any) => p.page_number === selectedPage);
+    if (!currentPage) return;
+
+    setIsGeneratingFix(true);
+    setFixError(null);
+
+    try {
+      const result = await generateSlideFix(
+        data.id,
+        currentPage.page_number,
+        currentPage.title,
+        currentPage.score,
+        currentPage.content,
+        currentPage.feedback,
+        currentPage.recommendations,
+        currentPage.image_url
+      );
+
+      if (result.success && result.fix && result.fixId) {
+        setGeneratedFix({ fix: result.fix, fixId: result.fixId });
+        setShowFixModal(true);
+      } else {
+        setFixError(result.error || 'Failed to generate fix');
+      }
+    } catch (error) {
+      console.error('Error generating fix:', error);
+      setFixError('An unexpected error occurred');
+    } finally {
+      setIsGeneratingFix(false);
+    }
+  };
+
+  const handleCloseFixModal = () => {
+    setShowFixModal(false);
+    setGeneratedFix(null);
   };
 
   return (
@@ -186,10 +232,6 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                     isSelected={selectedPage === page.page_number}
                     issueCount={sortedIssues.filter(i => i.pageNumber === page.page_number).length}
                     onClick={() => setSelectedPage(page.page_number)}
-                    onFixClick={(e) => {
-                      e.stopPropagation();
-                      setFeedbackModalPage(page);
-                    }}
                   />
                 ))}
               </div>
@@ -229,6 +271,44 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                 </div>
               </div>
 
+              {selectedPage > 0 && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-blue-600" />
+                        AI Expert Fix Available
+                      </h3>
+                      <p className="text-sm text-slate-600">
+                        Get implementation-ready fixes from our AI pitch deck expert to bring this slide to 10/10
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleGenerateFix}
+                      disabled={isGeneratingFix}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      {isGeneratingFix ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5" />
+                          Fix This
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {fixError && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-800">{fixError}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {filteredIssues.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🎉</div>
@@ -258,6 +338,18 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
         <SlideFeedbackModal
           page={feedbackModalPage}
           onClose={() => setFeedbackModalPage(null)}
+        />
+      )}
+
+      {showFixModal && generatedFix && (
+        <FixSlideModal
+          fix={generatedFix.fix}
+          fixId={generatedFix.fixId}
+          slideTitle={deckPages.find((p: any) => p.page_number === selectedPage)?.title || `Slide ${selectedPage}`}
+          slideNumber={selectedPage}
+          currentScore={deckPages.find((p: any) => p.page_number === selectedPage)?.score / 10 || 0}
+          onClose={handleCloseFixModal}
+          onMarkApplied={() => {}}
         />
       )}
     </div>

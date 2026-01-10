@@ -1,4 +1,4 @@
-import { FileText, AlertCircle, Wrench } from 'lucide-react';
+import { FileText, AlertCircle } from 'lucide-react';
 
 interface DeckPageCardProps {
   page: {
@@ -10,10 +10,9 @@ interface DeckPageCardProps {
   isSelected: boolean;
   issueCount: number;
   onClick: () => void;
-  onFixClick?: (e: React.MouseEvent) => void;
 }
 
-export function DeckPageCard({ page, isSelected, issueCount, onClick, onFixClick }: DeckPageCardProps) {
+export function DeckPageCard({ page, isSelected, issueCount, onClick }: DeckPageCardProps) {
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600 bg-green-50';
     if (score >= 60) return 'text-yellow-600 bg-yellow-50';
@@ -32,7 +31,6 @@ export function DeckPageCard({ page, isSelected, issueCount, onClick, onFixClick
         isSelected ? 'border-blue-500' : 'border-slate-200/60'
       }`}>
         <div className="flex items-start gap-3">
-          {/* Thumbnail */}
           <button
             onClick={onClick}
             className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex items-center justify-center overflow-hidden"
@@ -44,7 +42,6 @@ export function DeckPageCard({ page, isSelected, issueCount, onClick, onFixClick
             )}
           </button>
 
-          {/* Page Info */}
           <div className="flex-1 text-left min-w-0">
             <button onClick={onClick} className="w-full text-left">
               <div className="flex items-center justify-between mb-1">
@@ -65,17 +62,6 @@ export function DeckPageCard({ page, isSelected, issueCount, onClick, onFixClick
                 </div>
               )}
             </button>
-
-            {/* Fix Button */}
-            {onFixClick && (
-              <button
-                onClick={onFixClick}
-                className="mt-3 w-full px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-              >
-                <Wrench className="w-3.5 h-3.5" />
-                <span>Fix This Slide</span>
-              </button>
-            )}
           </div>
         </div>
       </div>

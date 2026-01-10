@@ -117,7 +117,7 @@ export function FixSlideModal({
               </div>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+            <div className="bg-slate-50 border border-green-200 rounded-xl p-5">
               <h4 className="font-bold text-green-900 mb-3 text-sm uppercase tracking-wide">
                 After (Use This)
               </h4>

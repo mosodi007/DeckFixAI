@@ -609,17 +609,22 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             Generating...
                           </>
-                        ) : isEstimatingCost ? (
-                          <>
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Estimating cost...
-                          </>
                         ) : (
                           <>
-                            Generate {existingFixes[selectedPage] && existingFixes[selectedPage].length > 0 ? 'New' : 'Instant'} Fix
-                            {slideCostEstimates[selectedPage] && (
-                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-sm font-bold">
+                            <Sparkles className="w-5 h-5" />
+                            <span>Generate {existingFixes[selectedPage] && existingFixes[selectedPage].length > 0 ? 'New' : 'Instant'} Fix</span>
+                            {isEstimatingCost ? (
+                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-xs font-bold flex items-center gap-1">
+                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Calculating...
+                              </span>
+                            ) : slideCostEstimates[selectedPage] ? (
+                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-xs font-bold">
                                 {slideCostEstimates[selectedPage]} credits
+                              </span>
+                            ) : (
+                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-xs font-bold">
+                                4-6 credits
                               </span>
                             )}
                           </>

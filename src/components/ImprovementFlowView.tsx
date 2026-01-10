@@ -264,7 +264,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
                       <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
-                        DeckFixAI can fix this for you.
+                        Use DeckFixAI to fix this slide.
                       </h3>
                       <p className="text-sm text-slate-600">
                         Get implementation-ready fixes from our AI pitch deck expert to bring this slide to 10/10

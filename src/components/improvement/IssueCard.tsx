@@ -43,7 +43,6 @@ export function IssueCard({ issue }: IssueCardProps) {
     if (issue.type === 'missing_slide') {
       return {
         bgColor: 'bg-purple-100',
-        icon: <FilePlus className="w-5 h-5 text-purple-600" />,
         badgeColor: 'bg-purple-100 text-purple-700 border-purple-300',
         badgeText: 'MISSING CONTENT'
       };
@@ -51,7 +50,6 @@ export function IssueCard({ issue }: IssueCardProps) {
     if (issue.type === 'issue') {
       return {
         bgColor: 'bg-yellow-100',
-        icon: <AlertCircle className="w-5 h-5 text-yellow-600" />,
         badgeColor: 'bg-yellow-100 text-yellow-700 border-yellow-300',
         badgeText: 'ISSUE'
       };

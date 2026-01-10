@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { getCurrentUser, onAuthStateChange } from '../services/authService';
+import { migrateSessionAnalyses } from '../services/analysisService';
+import { getSessionId, clearSessionId } from '../services/sessionService';
 
 interface AuthContextType {
   user: User | null;
@@ -36,7 +38,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
     });
 
-    const subscription = onAuthStateChange((updatedUser) => {
+    const subscription = onAuthStateChange(async (updatedUser) => {
+      if (updatedUser && !user) {
+        const sessionId = getSessionId();
+        if (sessionId) {
+          try {
+            await migrateSessionAnalyses(sessionId, updatedUser.id);
+            clearSessionId();
+            console.log('Migrated session analyses to user account');
+          } catch (error) {
+            console.error('Failed to migrate session analyses:', error);
+          }
+        }
+      }
+
       setUser(updatedUser);
       setLoading(false);
     });

@@ -227,7 +227,6 @@ function App() {
           <UploadView
             onAnalysisComplete={handleAnalysisComplete}
             isAuthenticated={isAuthenticated}
-            onSignUpClick={() => setShowSignUpModal(true)}
           />
         ) : view === 'analysis' ? (
           <AnalysisView

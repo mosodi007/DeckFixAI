@@ -115,26 +115,36 @@ export interface AnalysisData {
 export async function analyzeDeck(
   file: File,
   analysisId: string,
-  imageUrls: string[]
+  imageUrls: string[],
+  sessionId?: string
 ): Promise<{ analysisId: string }> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('analysisId', analysisId);
-  // Don't send images during initial analysis - only text analysis for speed and reliability
-  // Images will be used later for detailed improvement suggestions
+
+  if (sessionId) {
+    formData.append('sessionId', sessionId);
+  }
 
   console.log('Uploading file:', file.name, 'Size:', file.size);
   console.log('Analysis ID:', analysisId);
+  console.log('Session ID:', sessionId || 'authenticated user');
   console.log('Image URLs stored:', imageUrls.length, '(not sent to AI during initial analysis)');
+
+  const headers: Record<string, string> = {
+    'apikey': supabaseKey,
+  };
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`;
+  }
 
   const response = await fetch(
     `${supabaseUrl}/functions/v1/analyze-deck`,
     {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-      },
+      headers,
       body: formData,
     }
   );
@@ -172,6 +182,21 @@ export async function getMostRecentAnalysis(): Promise<AnalysisData | null> {
   if (!analysis) return null;
 
   return getAnalysis(analysis.id);
+}
+
+export async function migrateSessionAnalyses(sessionId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('analyses')
+    .update({ user_id: userId, session_id: null })
+    .eq('session_id', sessionId)
+    .is('user_id', null);
+
+  if (error) {
+    console.error('Failed to migrate analyses:', error);
+    throw error;
+  }
+
+  console.log('Successfully migrated analyses from session to user');
 }
 
 export async function getAnalysis(analysisId: string): Promise<AnalysisData> {

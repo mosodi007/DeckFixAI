@@ -41,26 +41,30 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Authentication required. Please sign in to upload and analyze pitch decks.');
+    let user = null;
+
+    if (authHeader) {
+      const supabaseClient = createClient(
+        supabaseUrl,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (!userError && userData?.user) {
+        user = userData.user;
+        console.log('Authenticated user:', user.id);
+      }
     }
 
-    const supabaseClient = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Authentication failed. Please sign in to continue.');
+    if (!user) {
+      console.log('Anonymous user - will use session_id');
     }
-
-    console.log('Authenticated user:', user.id);
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const providedAnalysisId = formData.get('analysisId') as string;
+    const sessionId = formData.get('sessionId') as string;
 
     if (!file) {
       throw new Error('No file provided');
@@ -551,8 +555,13 @@ CRITICAL REQUIREMENTS:
       }
     }
 
+    if (!user && !sessionId) {
+      throw new Error('Either authentication or session ID is required');
+    }
+
     const analysisData: any = {
-      user_id: user.id,
+      user_id: user?.id || null,
+      session_id: !user ? sessionId : null,
       file_name: file.name,
       file_size: file.size,
       overall_score: analysis.overallScore,

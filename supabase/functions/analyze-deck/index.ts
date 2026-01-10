@@ -40,6 +40,24 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Authentication required. Please sign in to upload and analyze pitch decks.');
+    }
+
+    const supabaseClient = createClient(
+      supabaseUrl,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      throw new Error('Authentication failed. Please sign in to continue.');
+    }
+
+    console.log('Authenticated user:', user.id);
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const providedAnalysisId = formData.get('analysisId') as string;
@@ -534,6 +552,7 @@ CRITICAL REQUIREMENTS:
     }
 
     const analysisData: any = {
+      user_id: user.id,
       file_name: file.name,
       file_size: file.size,
       overall_score: analysis.overallScore,

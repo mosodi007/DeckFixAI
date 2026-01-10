@@ -22,10 +22,21 @@ function App() {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
-    loadPersistedAnalysis();
-  }, []);
+    if (isAuthenticated) {
+      loadPersistedAnalysis();
+    } else {
+      setIsLoading(false);
+      setView('upload');
+      setAnalysisData(null);
+    }
+  }, [isAuthenticated]);
 
   const loadPersistedAnalysis = async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const storedAnalysisId = localStorage.getItem('currentAnalysisId');
@@ -36,10 +47,18 @@ function App() {
           analysis = await getAnalysis(storedAnalysisId);
         } catch (error) {
           console.error('Failed to load stored analysis, loading most recent:', error);
-          analysis = await getMostRecentAnalysis();
+          try {
+            analysis = await getMostRecentAnalysis();
+          } catch (recentError) {
+            console.error('Failed to load recent analysis:', recentError);
+          }
         }
       } else {
-        analysis = await getMostRecentAnalysis();
+        try {
+          analysis = await getMostRecentAnalysis();
+        } catch (recentError) {
+          console.error('Failed to load recent analysis:', recentError);
+        }
       }
 
       if (analysis) {
@@ -205,7 +224,11 @@ function App() {
             </div>
           </div>
         ) : view === 'upload' ? (
-          <UploadView onAnalysisComplete={handleAnalysisComplete} />
+          <UploadView
+            onAnalysisComplete={handleAnalysisComplete}
+            isAuthenticated={isAuthenticated}
+            onSignUpClick={() => setShowSignUpModal(true)}
+          />
         ) : view === 'analysis' ? (
           <AnalysisView
             data={analysisData}

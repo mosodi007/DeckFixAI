@@ -57,7 +57,7 @@ export function IssueCard({ issue }: IssueCardProps) {
       };
     }
     return {
-      bgColor: 'bg-blue-100',
+      bgColor: 'bg-black/50',
       badgeColor: 'bg-blue-100 text-blue-700 border-blue-300',
       badgeText: 'IMPROVEMENT'
     };

@@ -184,9 +184,8 @@ export function FixSlideModal({
             </div>
           )}
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <div className="bg-slate-50 border border-blue-200 rounded-xl p-6">
             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <ListOrdered className="w-5 h-5 text-blue-600" />
               Step-by-Step Implementation
             </h3>
             <div className="space-y-3">

@@ -5,7 +5,7 @@ import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
 import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 import { FixSlideModal } from './improvement/FixSlideModal';
-import { generateSlideFix, GeneratedFix } from '../services/aiFixService';
+import { generateSlideFix, generateIssueFix, GeneratedFix } from '../services/aiFixService';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -20,9 +20,10 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [filterType, setFilterType] = useState<string>('all');
   const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
   const [isGeneratingFix, setIsGeneratingFix] = useState(false);
-  const [generatedFix, setGeneratedFix] = useState<{ fix: GeneratedFix; fixId: string } | null>(null);
+  const [generatedFix, setGeneratedFix] = useState<{ fix: GeneratedFix; fixId: string; issueTitle?: string } | null>(null);
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
+  const [generatingIssueIndex, setGeneratingIssueIndex] = useState<number | null>(null);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
@@ -137,6 +138,49 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const handleCloseFixModal = () => {
     setShowFixModal(false);
     setGeneratedFix(null);
+  };
+
+  const handleGenerateIssueFix = async (issue: any, index: number) => {
+    if (!isAuthenticated) {
+      onSignUpClick();
+      return;
+    }
+
+    if (!data?.id) return;
+
+    setGeneratingIssueIndex(index);
+    setFixError(null);
+
+    try {
+      const result = await generateIssueFix(
+        data.id,
+        issue.type,
+        issue.title,
+        issue.description,
+        issue.recommendation,
+        issue.impact,
+        issue.suggestedContent,
+        issue.category,
+        issue.severity,
+        {
+          fileName: data.fileName,
+          overallScore: data.overallScore,
+          keyMetrics: data.keyMetrics,
+        }
+      );
+
+      if (result.success && result.fix && result.fixId) {
+        setGeneratedFix({ fix: result.fix, fixId: result.fixId, issueTitle: issue.title });
+        setShowFixModal(true);
+      } else {
+        setFixError(result.error || 'Failed to generate fix');
+      }
+    } catch (error) {
+      console.error('Error generating issue fix:', error);
+      setFixError('An unexpected error occurred');
+    } finally {
+      setGeneratingIssueIndex(null);
+    }
   };
 
   return (
@@ -371,6 +415,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                       <IssueCard
                         key={index}
                         issue={issue}
+                        onGenerateFix={!issue.pageNumber ? () => handleGenerateIssueFix(issue, index) : undefined}
+                        isGenerating={generatingIssueIndex === index}
                       />
                     ))}
                   </div>
@@ -392,11 +438,12 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         <FixSlideModal
           fix={generatedFix.fix}
           fixId={generatedFix.fixId}
-          slideTitle={deckPages.find((p: any) => p.page_number === selectedPage)?.title || `Slide ${selectedPage}`}
-          slideNumber={selectedPage}
-          currentScore={deckPages.find((p: any) => p.page_number === selectedPage)?.score / 10 || 0}
+          slideTitle={generatedFix.issueTitle || deckPages.find((p: any) => p.page_number === selectedPage)?.title || `Slide ${selectedPage}`}
+          slideNumber={generatedFix.issueTitle ? 0 : selectedPage}
+          currentScore={generatedFix.issueTitle ? (data?.overallScore || 0) / 10 : (deckPages.find((p: any) => p.page_number === selectedPage)?.score / 10 || 0)}
           onClose={handleCloseFixModal}
           onMarkApplied={() => {}}
+          isDeckWideIssue={!!generatedFix.issueTitle}
         />
       )}
     </div>

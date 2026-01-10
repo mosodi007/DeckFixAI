@@ -13,9 +13,11 @@ interface IssueCardProps {
     severity?: string;
     category?: string;
   };
+  onGenerateFix?: () => void;
+  isGenerating?: boolean;
 }
 
-export function IssueCard({ issue }: IssueCardProps) {
+export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps) {
 
   const getPriorityColor = (priority: string) => {
     if (priority === 'High') return 'bg-red-100 text-red-700 border-red-200';
@@ -100,8 +102,19 @@ export function IssueCard({ issue }: IssueCardProps) {
             {issue.pageNumber ? (
               <span className="text-xs text-slate-500 ml-auto">Slide {issue.pageNumber}</span>
             ) : (
-              <button className="text-xs bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors ml-auto">
-                Generate Instant Fix
+              <button
+                onClick={onGenerateFix}
+                disabled={isGenerating}
+                className="text-xs bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors ml-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  'Generate Instant Fix'
+                )}
               </button>
             )}
           </div>

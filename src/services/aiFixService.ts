@@ -150,3 +150,69 @@ export async function deleteFix(fixId: string): Promise<boolean> {
 
   return true;
 }
+
+export async function generateIssueFix(
+  analysisId: string,
+  issueType: 'deal_breaker' | 'red_flag' | 'missing_slide',
+  issueTitle: string,
+  issueDescription: string,
+  issueRecommendation?: string,
+  issueImpact?: string,
+  issueSuggestedContent?: string,
+  issueCategory?: string,
+  issueSeverity?: string,
+  deckContext?: {
+    fileName?: string;
+    overallScore?: number;
+    keyMetrics?: any;
+  }
+): Promise<{ success: boolean; fix?: GeneratedFix; fixId?: string; error?: string }> {
+  try {
+    const headers: Record<string, string> = {
+      'apikey': supabaseKey,
+      'Content-Type': 'application/json',
+    };
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/generate-issue-fix`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          analysisId,
+          issueType,
+          issueTitle,
+          issueDescription,
+          issueRecommendation,
+          issueImpact,
+          issueSuggestedContent,
+          issueCategory,
+          issueSeverity,
+          deckContext,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      return {
+        success: false,
+        error: error.error || 'Failed to generate fix',
+      };
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error generating issue fix:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate fix',
+    };
+  }
+}

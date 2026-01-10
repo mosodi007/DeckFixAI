@@ -10,6 +10,7 @@ interface FixSlideModalProps {
   currentScore: number;
   onClose: () => void;
   onMarkApplied?: () => void;
+  isDeckWideIssue?: boolean;
 }
 
 export function FixSlideModal({
@@ -19,7 +20,8 @@ export function FixSlideModal({
   slideNumber,
   currentScore,
   onClose,
-  onMarkApplied
+  onMarkApplied,
+  isDeckWideIssue = false
 }: FixSlideModalProps) {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -50,23 +52,23 @@ export function FixSlideModal({
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-2xl font-bold text-slate-900">
-                Expert Fix for Slide {slideNumber}
+                {isDeckWideIssue ? 'Expert Fix for Deck Issue' : `Expert Fix for Slide ${slideNumber}`}
               </h2>
             </div>
             <p className="text-slate-600">{slideTitle}</p>
 
             <div className="flex items-center gap-4 mt-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-600">Current Score:</span>
+                <span className="text-sm text-slate-600">{isDeckWideIssue ? 'Overall Score:' : 'Current Score:'}</span>
                 <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg font-bold text-sm">
-                  {currentScore.toFixed(1)}/10
+                  {currentScore.toFixed(1)}{isDeckWideIssue ? '/100' : '/10'}
                 </span>
               </div>
               <ArrowRight className="w-4 h-4 text-slate-400" />
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-600">After Fix:</span>
                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold text-sm">
-                  {newScore.toFixed(1)}/10
+                  {newScore.toFixed(1)}{isDeckWideIssue ? '/100' : '/10'}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-green-600 ml-2">

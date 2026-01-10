@@ -27,7 +27,6 @@ export function IssueCard({ issue }: IssueCardProps) {
     if (issue.type === 'deal_breaker') {
       return {
         bgColor: 'bg-red-100',
-        icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
         badgeColor: 'bg-red-100 text-red-700 border-red-300',
         badgeText: 'DEAL-BREAKER'
       };
@@ -35,7 +34,6 @@ export function IssueCard({ issue }: IssueCardProps) {
     if (issue.type === 'red_flag') {
       return {
         bgColor: 'bg-orange-100',
-        icon: <TrendingDown className="w-5 h-5 text-orange-600" />,
         badgeColor: 'bg-orange-100 text-orange-700 border-orange-300',
         badgeText: 'RED FLAG'
       };

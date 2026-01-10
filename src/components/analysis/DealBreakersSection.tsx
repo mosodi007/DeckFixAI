@@ -48,9 +48,8 @@ export function DealBreakersSection({ dealBreakers }: DealBreakersSectionProps) 
                 <p className="text-sm text-slate-700">{breaker.description}</p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="bg-black/50 border rounded-lg p-3">
                 <div className="flex items-start gap-2">
-                  <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs font-semibold text-blue-900 mb-1">Required Action:</p>
                     <p className="text-sm text-blue-800">{breaker.recommendation}</p>

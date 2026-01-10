@@ -176,7 +176,7 @@ export function FixSlideModal({
                 {fix.visualRecommendations.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-3 bg-white border border-purple-200 rounded-lg p-4"
+                    className="flex items-start gap-3 bg-white border rounded-lg p-4"
                   >
                     <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                       <ImageIcon className="w-4 h-4 text-purple-600" />

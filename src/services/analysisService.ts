@@ -129,6 +129,7 @@ export async function analyzeDeck(
   const formData = new FormData();
   formData.append('file', file);
   formData.append('analysisId', analysisId);
+  formData.append('imageUrls', JSON.stringify(imageUrls));
 
   if (sessionId) {
     formData.append('sessionId', sessionId);
@@ -137,7 +138,7 @@ export async function analyzeDeck(
   console.log('Uploading file:', file.name, 'Size:', file.size);
   console.log('Analysis ID:', analysisId);
   console.log('Session ID:', sessionId || 'authenticated user');
-  console.log('Image URLs stored:', imageUrls.length, '(not sent to AI during initial analysis)');
+  console.log('Image URLs:', imageUrls.length, 'slides');
 
   const headers: Record<string, string> = {
     'apikey': supabaseKey || '',

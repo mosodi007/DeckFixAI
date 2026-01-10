@@ -65,9 +65,21 @@ interface OpenAIAnalysis {
     tractionFeedback: string;
     financialsFeedback: string;
   };
+  keyBusinessMetrics: {
+    companyName: string;
+    industry: string;
+    currentRevenue: string;
+    fundingSought: string;
+    growthRate: string;
+    teamSize: number;
+    marketSize: string;
+    valuation: string;
+    businessModel: string;
+    customerCount: string;
+  };
 }
 
-const ANALYSIS_PROMPT = `You are an expert venture capital pitch deck analyst. Analyze this pitch deck text and provide comprehensive feedback.
+const ANALYSIS_PROMPT = `You are an expert venture capital pitch deck analyst. Analyze this pitch deck and provide comprehensive feedback.
 
 Evaluate using these VC-standard criteria:
 - Problem/Solution clarity and market opportunity
@@ -134,6 +146,18 @@ Respond ONLY with valid JSON in this exact format:
     "productFeedback": "<product feedback>",
     "tractionFeedback": "<traction feedback>",
     "financialsFeedback": "<financials feedback>"
+  },
+  "keyBusinessMetrics": {
+    "companyName": "<company name or 'Not specified'>",
+    "industry": "<industry or 'Not specified'>",
+    "currentRevenue": "<revenue or 'Not specified'>",
+    "fundingSought": "<funding amount or 'Not specified'>",
+    "growthRate": "<growth rate or 'Not specified'>",
+    "teamSize": <number or 0>,
+    "marketSize": "<TAM/SAM/SOM or 'Not specified'>",
+    "valuation": "<valuation or 'Not specified'>",
+    "businessModel": "<business model or 'Not specified'>",
+    "customerCount": "<customer count or 'Not specified'>"
   }
 }
 
@@ -144,7 +168,125 @@ Important guidelines:
 - Include 5-10 issues with specific page references when possible
 - Only include deal breakers for truly critical problems (empty array if none)
 - Include 2-5 red flags that would concern investors
-- Assess the funding stage based on content maturity`;
+- Assess the funding stage based on content maturity
+- Extract any business metrics mentioned (company name, revenue, funding sought, etc.)`;
+
+async function analyzeWithVision(
+  imageUrls: string[],
+  supabaseUrl: string,
+  openaiKey: string,
+  pageCount: number
+): Promise<OpenAIAnalysis> {
+  console.log(`Analyzing ${imageUrls.length} slide images with OpenAI Vision...`);
+
+  const maxImages = Math.min(imageUrls.length, 10);
+  const selectedImages = imageUrls.slice(0, maxImages);
+
+  const imageContent = selectedImages.map((url, index) => ({
+    type: 'image_url' as const,
+    image_url: {
+      url: `${supabaseUrl}/storage/v1/object/public/${url}`,
+      detail: 'high' as const
+    }
+  }));
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: ANALYSIS_PROMPT },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Analyze this ${pageCount}-page pitch deck. I'm showing you ${selectedImages.length} slides. Please provide a comprehensive VC-style analysis.`
+            },
+            ...imageContent
+          ]
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI Vision API error:', errorText);
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('No response from OpenAI Vision');
+  }
+
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('No JSON found in Vision response');
+  }
+
+  return JSON.parse(jsonMatch[0]);
+}
+
+async function analyzeWithText(
+  text: string,
+  openaiKey: string,
+  pageCount: number
+): Promise<OpenAIAnalysis> {
+  console.log('Analyzing text content with OpenAI...');
+
+  const maxChars = 25000;
+  const textToAnalyze = text.substring(0, maxChars);
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: ANALYSIS_PROMPT },
+        {
+          role: 'user',
+          content: `Analyze this ${pageCount}-page pitch deck:\n\n${textToAnalyze}`
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI API error:', errorText);
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('No response from OpenAI');
+  }
+
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('No JSON found in response');
+  }
+
+  return JSON.parse(jsonMatch[0]);
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -197,12 +339,21 @@ Deno.serve(async (req: Request) => {
     const file = formData.get('file') as File;
     const sessionId = formData.get('sessionId') as string;
     const clientAnalysisId = formData.get('analysisId') as string;
+    const imageUrlsJson = formData.get('imageUrls') as string;
+
+    let imageUrls: string[] = [];
+    try {
+      imageUrls = imageUrlsJson ? JSON.parse(imageUrlsJson) : [];
+    } catch (e) {
+      console.warn('Failed to parse imageUrls:', e);
+    }
 
     if (!file) {
       throw new Error('No file provided');
     }
 
     console.log('File received:', file.name, file.type, file.size, 'bytes');
+    console.log('Image URLs received:', imageUrls.length);
 
     if (file.type !== 'application/pdf') {
       throw new Error('Only PDF files are supported');
@@ -220,7 +371,7 @@ Deno.serve(async (req: Request) => {
       text = result.text;
       pageCount = result.pageCount;
       pages = result.pages;
-      console.log(`PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
+      console.log(`PDF extraction: ${text.length} characters from ${pageCount} pages`);
     } catch (pdfError: any) {
       console.error('PDF extraction failed:', pdfError);
       throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
@@ -258,7 +409,7 @@ Deno.serve(async (req: Request) => {
       title: `Slide ${i + 1}`,
       score: 50,
       content: page.text.substring(0, 1000),
-      image_url: null,
+      image_url: imageUrls[i] || null,
     }));
 
     const { error: pagesError } = await supabase
@@ -269,58 +420,27 @@ Deno.serve(async (req: Request) => {
       console.error('Failed to insert pages:', pagesError);
     }
 
-    console.log('Calling OpenAI for analysis...');
-    const maxChars = 25000;
-    const textToAnalyze = text.substring(0, maxChars);
+    const contentTextLength = text.replace(/--- PAGE \d+ ---/g, '').replace(/--- END PAGE \d+ ---/g, '').replace(/--- PDF METADATA ---[\s\S]*?--- END METADATA ---/g, '').trim().length;
+    const isImageBasedPDF = contentTextLength < 500;
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: ANALYSIS_PROMPT },
-          {
-            role: 'user',
-            content: `Analyze this ${pageCount}-page pitch deck:\n\n${textToAnalyze}`
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      console.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${openaiResponse.status}`);
-    }
-
-    const openaiResult = await openaiResponse.json();
-    const content = openaiResult.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No response from OpenAI');
-    }
-
-    console.log('OpenAI response received, parsing...');
+    console.log(`Content text length: ${contentTextLength} chars, isImageBased: ${isImageBasedPDF}`);
 
     let analysis: OpenAIAnalysis;
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
-      analysis = JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', content);
-      throw new Error('Failed to parse analysis response');
+
+    if (isImageBasedPDF && imageUrls.length > 0) {
+      console.log('Using OpenAI Vision for image-based PDF analysis...');
+      analysis = await analyzeWithVision(imageUrls, supabaseUrl, openaiKey, pageCount);
+    } else if (text.length > 100) {
+      console.log('Using text-based analysis...');
+      analysis = await analyzeWithText(text, openaiKey, pageCount);
+    } else if (imageUrls.length > 0) {
+      console.log('Minimal text, falling back to Vision analysis...');
+      analysis = await analyzeWithVision(imageUrls, supabaseUrl, openaiKey, pageCount);
+    } else {
+      throw new Error('Unable to analyze: No text content and no slide images available');
     }
 
-    console.log('Analysis parsed, overall score:', analysis.overallScore);
+    console.log('Analysis complete, overall score:', analysis.overallScore);
 
     const { error: updateError } = await supabase
       .from('analyses')
@@ -352,6 +472,31 @@ Deno.serve(async (req: Request) => {
 
     if (metricsError) {
       console.error('Failed to insert metrics:', metricsError);
+    }
+
+    if (analysis.keyBusinessMetrics) {
+      const kbm = analysis.keyBusinessMetrics;
+      const keyMetricsRecord = {
+        analysis_id: analysisId,
+        company_name: kbm.companyName || 'Not specified',
+        industry: kbm.industry || 'Not specified',
+        current_revenue: kbm.currentRevenue || 'Not specified',
+        funding_sought: kbm.fundingSought || 'Not specified',
+        growth_rate: kbm.growthRate || 'Not specified',
+        team_size: kbm.teamSize || 0,
+        market_size: kbm.marketSize || 'Not specified',
+        valuation: kbm.valuation || 'Not specified',
+        business_model: kbm.businessModel || 'Not specified',
+        customer_count: kbm.customerCount || 'Not specified',
+      };
+
+      const { error: keyMetricsError } = await supabase
+        .from('key_business_metrics')
+        .insert(keyMetricsRecord);
+
+      if (keyMetricsError) {
+        console.error('Failed to insert key business metrics:', keyMetricsError);
+      }
     }
 
     if (analysis.issues?.length > 0) {

@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { extractTextFromPDF } from './pdfExtractor.ts';
 
 const corsHeaders = {
@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
         wordCount: page.text.trim().split(/\s+/).filter(w => w.length > 0).length
       }));
 
-      console.log(`✓ PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
+      console.log(`PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
       console.log('PDF metadata:', pdfMetadata ? JSON.stringify(pdfMetadata.info) : 'None');
       console.log('Word counts per page:', perPageWordCounts.map(p => `Page ${p.pageNumber}: ${p.wordCount} words`).join(', '));
     } catch (pdfError: any) {
@@ -142,7 +142,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to save analysis: ${analysisError.message}`);
     }
 
-    console.log('✓ Analysis record inserted');
+    console.log('Analysis record inserted');
 
     console.log('Creating analysis_pages records...');
     const pageRecords = Array.from({ length: pageCount }, (_, i) => ({
@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
     if (pagesError) {
       console.error('Failed to insert pages:', pagesError);
     } else {
-      console.log(`✓ Created ${pageCount} page records`);
+      console.log(`Created ${pageCount} page records`);
     }
 
     const result: AnalysisResult = {

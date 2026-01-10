@@ -79,7 +79,7 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
       let limitedText = formattedText || '';
 
       if (contentLength === 0) {
-        limitedText = `${metadataText}\n\n⚠️ IMAGE-BASED DECK: This PDF contains ${totalPages} slides that appear to be image-based (graphics/screenshots). ` +
+        limitedText = `${metadataText}\n\nIMAGE-BASED DECK: This PDF contains ${totalPages} slides that appear to be image-based (graphics/screenshots). ` +
           `Text extraction yielded minimal content. Visual analysis through slide images is required for comprehensive feedback. ` +
           `The AI will provide preliminary analysis based on available metadata and any extractable text, but detailed feedback ` +
           `requires the analyze-slides function to process uploaded slide images.`;

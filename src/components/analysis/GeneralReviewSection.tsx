@@ -91,18 +91,18 @@ export function GeneralReviewSection({
   };
 
   return (
-    // <GlassCard className="p-6 mb-8">
-    //   <div className="flex items-center gap-3 mb-4">
-    //     <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-    //       <FileText className="w-5 h-5 text-white" />
-    //     </div>
-    //     <h3 className="text-xl font-bold text-slate-900">General Review</h3>
-    //   </div>
-    //   <div className="prose prose-slate max-w-none">
-    //     <p className="text-slate-700 leading-relaxed">
-    //       {generateReview()}
-    //     </p>
-    //   </div>
-    // </GlassCard>
+    <GlassCard className="p-6 mb-8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+          <FileText className="w-5 h-5 text-white" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900">General Review</h3>
+      </div>
+      <div className="prose prose-slate max-w-none">
+        <p className="text-slate-700 leading-relaxed">
+          {generateReview()}
+        </p>
+      </div>
+    </GlassCard>
   );
 }

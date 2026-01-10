@@ -22,7 +22,7 @@ export function BlurredContent({ children, isBlurred, onSignUpClick }: BlurredCo
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 border-2 border-slate-200">
           <div className="text-center">
             <h3 className="text-xl font-bold text-slate-900 mb-3">
-              Hidden Information
+              Hidden Insight
             </h3>
             <p className="text-slate-600 mb-6">
               Sign up for free to unlock detailed insights and take action on improvements

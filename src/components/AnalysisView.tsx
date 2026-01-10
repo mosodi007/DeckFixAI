@@ -24,7 +24,7 @@ const sections = [
   { id: 'general-review', label: 'General Review' },
   { id: 'key-metrics', label: 'Business Information' },
   { id: 'stage-assessment', label: 'Stage Assessment' },
-  { id: 'investment-readiness', label: 'Investment Readiness' },
+  { id: 'investment-readiness', label: 'Investor Readiness' },
   { id: 'deal-breakers', label: 'Deal Breakers' },
   { id: 'red-flags', label: 'Red Flags' },
   { id: 'missing-pages', label: 'Missing Pages' },

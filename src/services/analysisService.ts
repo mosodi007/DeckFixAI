@@ -3,7 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase environment variables:', {
+    url: supabaseUrl ? 'set' : 'missing',
+    key: supabaseKey ? 'set' : 'missing'
+  });
+}
+
+export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 function getPublicImageUrl(storagePath: string | null): string | null {
   if (!storagePath) return null;
@@ -18,6 +25,7 @@ export interface AnalysisData {
   totalPages: number;
   summary: string;
   createdAt: string;
+  slidesAnalyzedAt: string | null;
   fundingStage: string | null;
   investmentReady: boolean;
   wordDensity: string;
@@ -121,6 +129,7 @@ export async function analyzeDeck(
   const formData = new FormData();
   formData.append('file', file);
   formData.append('analysisId', analysisId);
+  formData.append('imageUrls', JSON.stringify(imageUrls));
 
   if (sessionId) {
     formData.append('sessionId', sessionId);
@@ -129,11 +138,15 @@ export async function analyzeDeck(
   console.log('Uploading file:', file.name, 'Size:', file.size);
   console.log('Analysis ID:', analysisId);
   console.log('Session ID:', sessionId || 'authenticated user');
-  console.log('Image URLs stored:', imageUrls.length, '(not sent to AI during initial analysis)');
+  console.log('Image URLs:', imageUrls.length, 'slides');
 
   const headers: Record<string, string> = {
-    'apikey': supabaseKey,
+    'apikey': supabaseKey || '',
+    'Accept': 'application/json',
   };
+
+  console.log('API URL:', `${supabaseUrl}/functions/v1/analyze-deck`);
+  console.log('API key present:', supabaseKey ? `Yes (${supabaseKey.substring(0, 20)}...)` : 'No - MISSING');
 
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
@@ -284,6 +297,7 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     totalPages: analysis.total_pages,
     summary: analysis.summary,
     createdAt: analysis.created_at,
+    slidesAnalyzedAt: analysis.slides_analyzed_at || null,
     fundingStage: analysis.funding_stage,
     investmentReady: analysis.investment_ready || false,
     wordDensity: analysis.word_density || 'Not analyzed',

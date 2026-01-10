@@ -17,6 +17,13 @@ interface IssueCardProps {
   isGenerating?: boolean;
 }
 
+const getIssueCreditCost = (issueType: string): number => {
+  if (issueType === 'deal_breaker') return 10;
+  if (issueType === 'red_flag') return 5;
+  if (issueType === 'missing_slide') return 5;
+  return 5;
+};
+
 export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps) {
 
   const getPriorityColor = (priority: string) => {
@@ -113,7 +120,12 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
                     Generating...
                   </>
                 ) : (
-                  'Generate Instant Fix'
+                  <>
+                    Generate Instant Fix
+                    <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-[10px] font-bold">
+                      {getIssueCreditCost(issue.type)} credits
+                    </span>
+                  </>
                 )}
               </button>
             ) : null}

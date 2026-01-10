@@ -1,6 +1,8 @@
 import { supabase } from './analysisService';
 import type { User, Session } from '@supabase/supabase-js';
 
+export { supabase };
+
 export interface AuthUser {
   id: string;
   email: string;

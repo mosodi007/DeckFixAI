@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, LogOut, LayoutDashboard } from 'lucide-react';
+import { ChevronDown, LogOut, LayoutDashboard, CreditCard, DollarSign } from 'lucide-react';
 import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
 import { ImprovementFlowView } from './components/ImprovementFlowView';
 import { DashboardView } from './components/DashboardView';
+import { PricingView } from './components/PricingView';
+import { CreditHistoryView } from './components/CreditHistoryView';
+import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoginModal } from './components/auth/LoginModal';
 import { SignUpModal } from './components/auth/SignUpModal';
 import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
@@ -14,7 +17,7 @@ import { logout } from './services/authService';
 
 function App() {
   const { user, isAuthenticated } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement'>('upload');
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
@@ -130,6 +133,13 @@ function App() {
 
     if (!analysisData?.id) return;
 
+    // Check if slides have already been analyzed
+    if (analysisData.slidesAnalyzedAt) {
+      console.log('Slides already analyzed at:', analysisData.slidesAnalyzedAt);
+      setView('improvement');
+      return;
+    }
+
     setIsAnalyzingSlides(true);
     setView('improvement');
 
@@ -197,6 +207,7 @@ function App() {
                     <LayoutDashboard className="w-4 h-4" />
                     My Decks
                   </button>
+                  <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
                   <div className="relative">
                     <button
                       onClick={() => setShowUserMenu(!showUserMenu)}
@@ -220,8 +231,28 @@ function App() {
                             <p className="text-sm font-medium text-slate-900">{user?.email}</p>
                           </div>
                           <button
-                            onClick={handleLogout}
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              setView('pricing');
+                            }}
                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            Pricing & Plans
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              setView('credits');
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            Credit History
+                          </button>
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors border-t border-slate-200 mt-1 pt-2"
                           >
                             <LogOut className="w-4 h-4" />
                             Sign Out
@@ -260,6 +291,10 @@ function App() {
               <p className="text-slate-600">Loading...</p>
             </div>
           </div>
+        ) : view === 'pricing' ? (
+          <PricingView />
+        ) : view === 'credits' ? (
+          <CreditHistoryView onBack={handleGoToDashboard} />
         ) : view === 'dashboard' ? (
           <DashboardView
             onViewAnalysis={handleViewAnalysis}

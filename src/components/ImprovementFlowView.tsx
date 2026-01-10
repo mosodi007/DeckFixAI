@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { ArrowLeft, Filter, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Filter, Sparkles, CheckCircle2 } from 'lucide-react';
 import { DeckPageCard } from './improvement/DeckPageCard';
 import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
 import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 import { FixSlideModal } from './improvement/FixSlideModal';
-import { generateSlideFix, generateIssueFix, GeneratedFix } from '../services/aiFixService';
+import { generateSlideFix, generateIssueFix, GeneratedFix, getSlideFixes, SlideFix } from '../services/aiFixService';
+import { getUserCreditBalance } from '../services/creditService';
+import { useCredits } from '../contexts/CreditContext';
+import { supabase } from '../services/authService';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -16,6 +19,7 @@ interface ImprovementFlowViewProps {
 }
 
 export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick }: ImprovementFlowViewProps) {
+  const { refreshCredits } = useCredits();
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
   const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
@@ -24,6 +28,11 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
   const [generatingIssueIndex, setGeneratingIssueIndex] = useState<number | null>(null);
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [slideCostEstimates, setSlideCostEstimates] = useState<Record<number, number>>({});
+  const [isEstimatingCost, setIsEstimatingCost] = useState(false);
+  const [existingFixes, setExistingFixes] = useState<Record<number, SlideFix[]>>({});
+  const [isLoadingFixes, setIsLoadingFixes] = useState(false);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
@@ -95,6 +104,64 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     missing_slide: sortedIssues.filter(i => i.type === 'missing_slide').length,
   };
 
+  const calculateCreditCost = (score: number): number => {
+    if (score <= 35) return 10;
+    if (score <= 80) return 5;
+    return 2;
+  };
+
+  const estimateSlideCost = async (pageNumber: number) => {
+    if (!isAuthenticated || pageNumber === 0 || slideCostEstimates[pageNumber]) {
+      return;
+    }
+
+    const currentPage = deckPages.find((p: any) => p.page_number === pageNumber);
+    if (!currentPage) return;
+
+    const creditCost = calculateCreditCost(currentPage.score || 0);
+
+    setSlideCostEstimates(prev => ({
+      ...prev,
+      [pageNumber]: creditCost,
+    }));
+  };
+
+  useEffect(() => {
+    if (selectedPage > 0) {
+      estimateSlideCost(selectedPage);
+    }
+  }, [selectedPage, isAuthenticated]);
+
+  // Load existing fixes when component mounts or analysis changes
+  useEffect(() => {
+    const loadExistingFixes = async () => {
+      if (!data?.id || !isAuthenticated) return;
+
+      setIsLoadingFixes(true);
+      try {
+        const fixes = await getSlideFixes(data.id);
+
+        // Group fixes by page number
+        const fixesByPage: Record<number, SlideFix[]> = {};
+        fixes.forEach(fix => {
+          if (!fixesByPage[fix.pageNumber]) {
+            fixesByPage[fix.pageNumber] = [];
+          }
+          fixesByPage[fix.pageNumber].push(fix);
+        });
+
+        setExistingFixes(fixesByPage);
+        console.log('Loaded existing fixes:', fixesByPage);
+      } catch (error) {
+        console.error('Error loading existing fixes:', error);
+      } finally {
+        setIsLoadingFixes(false);
+      }
+    };
+
+    loadExistingFixes();
+  }, [data?.id, isAuthenticated]);
+
   const handleGenerateFix = async () => {
     if (!isAuthenticated) {
       onSignUpClick();
@@ -110,6 +177,25 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     setFixError(null);
 
     try {
+      const credits = await getUserCreditBalance();
+      if (!credits) {
+        setFixError('Unable to fetch credit balance');
+        setIsGeneratingFix(false);
+        return;
+      }
+
+      setCurrentBalance(credits.creditsBalance);
+
+      const slideScore = currentPage.score || 0;
+      const creditCost = calculateCreditCost(slideScore);
+
+      const issueCount = [
+        currentPage.feedback,
+        ...(currentPage.recommendations || [])
+      ].filter(Boolean).length || 1;
+
+      const complexityScore = Math.min(50 + (issueCount * 10), 100);
+
       const result = await generateSlideFix(
         data.id,
         currentPage.page_number,
@@ -118,14 +204,39 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         currentPage.content,
         currentPage.feedback,
         currentPage.recommendations,
-        currentPage.image_url
+        currentPage.image_url,
+        creditCost,
+        complexityScore
       );
 
       if (result.success && result.fix && result.fixId) {
         setGeneratedFix({ fix: result.fix, fixId: result.fixId });
         setShowFixModal(true);
+
+        await refreshCredits();
+
+        const updatedCredits = await getUserCreditBalance();
+        if (updatedCredits) {
+          setCurrentBalance(updatedCredits.creditsBalance);
+        }
+
+        const fixes = await getSlideFixes(data.id);
+        const fixesByPage: Record<number, SlideFix[]> = {};
+        fixes.forEach(fix => {
+          if (!fixesByPage[fix.pageNumber]) {
+            fixesByPage[fix.pageNumber] = [];
+          }
+          fixesByPage[fix.pageNumber].push(fix);
+        });
+        setExistingFixes(fixesByPage);
       } else {
-        setFixError(result.error || 'Failed to generate fix');
+        if (result.requiresAuth) {
+          onSignUpClick();
+        } else if (result.requiresUpgrade) {
+          setFixError(`Insufficient credits. You need ${result.requiredCredits} credits but only have ${result.currentBalance}.`);
+        } else {
+          setFixError(result.error || 'Failed to generate fix');
+        }
       }
     } catch (error) {
       console.error('Error generating fix:', error);
@@ -172,6 +283,19 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
       if (result.success && result.fix && result.fixId) {
         setGeneratedFix({ fix: result.fix, fixId: result.fixId, issueTitle: issue.title });
         setShowFixModal(true);
+
+        await refreshCredits();
+
+        // Refresh the existing fixes list
+        const fixes = await getSlideFixes(data.id);
+        const fixesByPage: Record<number, SlideFix[]> = {};
+        fixes.forEach(fix => {
+          if (!fixesByPage[fix.pageNumber]) {
+            fixesByPage[fix.pageNumber] = [];
+          }
+          fixesByPage[fix.pageNumber].push(fix);
+        });
+        setExistingFixes(fixesByPage);
       } else {
         setFixError(result.error || 'Failed to generate fix');
       }
@@ -246,35 +370,53 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                   : data?.fileName?.replace('.pdf', '') || 'Deck Pages'}
               </h2>
 
-              <button
-                onClick={() => setSelectedPage(0)}
-                className={`w-full text-left px-4 py-3 rounded-xl mb-3 transition-all duration-300 ${
-                  selectedPage === 0
-                    ? 'bg-slate-600 text-white shadow-md'
-                    : 'bg-red-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold">All Issues & Recommendations</span>
-                  <span className="text-sm opacity-90">{sortedIssues.length} items</span>
-                </div>
-              </button>
+              <div className="relative mb-3">
+                <button
+                  onClick={() => setSelectedPage(0)}
+                  className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-300 ${
+                    selectedPage === 0
+                      ? 'bg-slate-600 text-white shadow-md'
+                      : 'bg-red-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">All Issues & Recommendations</span>
+                    <span className="text-sm opacity-90">{sortedIssues.length} items</span>
+                  </div>
+                </button>
+                {existingFixes[0] && existingFixes[0].length > 0 && (
+                  <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {existingFixes[0].length}
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                {deckPages.map((page: any) => (
-                  <DeckPageCard
-                    key={page.page_number}
-                    page={{
-                      pageNumber: page.page_number,
-                      title: page.title,
-                      score: page.score,
-                      thumbnail: page.thumbnail
-                    }}
-                    isSelected={selectedPage === page.page_number}
-                    issueCount={sortedIssues.filter(i => i.pageNumber === page.page_number).length}
-                    onClick={() => setSelectedPage(page.page_number)}
-                  />
-                ))}
+                {deckPages.map((page: any) => {
+                  const hasExistingFixes = existingFixes[page.page_number] && existingFixes[page.page_number].length > 0;
+                  return (
+                    <div key={page.page_number} className="relative">
+                      <DeckPageCard
+                        page={{
+                          pageNumber: page.page_number,
+                          title: page.title,
+                          score: page.score,
+                          thumbnail: page.thumbnail
+                        }}
+                        isSelected={selectedPage === page.page_number}
+                        issueCount={sortedIssues.filter(i => i.pageNumber === page.page_number).length}
+                        onClick={() => setSelectedPage(page.page_number)}
+                      />
+                      {hasExistingFixes && (
+                        <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {existingFixes[page.page_number].length}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -311,39 +453,98 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
               </div>
 
               {selectedPage > 0 && (
-                <div className="mb-6 p-4 border border-blue-200 rounded-xl">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
-                        Use DeckFixAI to fix this slide.
-                      </h3>
-                      <p className="text-sm text-slate-600">
-                        Get implementation-ready fixes from our AI pitch deck expert to bring this slide to 10/10
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleGenerateFix}
-                      disabled={isGeneratingFix}
-                      className="flex items-center gap-2 px-6 py-3 bg-[#000] text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                    >
-                      {isGeneratingFix ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                         Generate Instant Fix
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  {fixError && (
-                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-800">{fixError}</p>
+                <>
+                  {/* Existing Fixes Section */}
+                  {existingFixes[selectedPage] && existingFixes[selectedPage].length > 0 && (
+                    <div className="mb-6 space-y-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <h3 className="font-bold text-slate-900">
+                          Previously Generated Fixes ({existingFixes[selectedPage].length})
+                        </h3>
+                      </div>
+                      {existingFixes[selectedPage].map((fix, index) => (
+                        <div key={fix.id} className="bg-green-50 border border-green-200 rounded-xl p-4">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1">
+                              <h4 className="font-bold text-green-900 mb-1">
+                                Fix #{existingFixes[selectedPage].length - index}: {fix.issueType}
+                              </h4>
+                              <p className="text-sm text-green-800 mb-2">{fix.issueDescription}</p>
+                              <p className="text-xs text-green-700">
+                                Generated {new Date(fix.createdAt).toLocaleDateString()} at {new Date(fix.createdAt).toLocaleTimeString()}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setGeneratedFix({
+                                  fix: fix.generatedFix,
+                                  fixId: fix.id
+                                });
+                                setShowFixModal(true);
+                              }}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
+                            >
+                              View Fix
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </div>
+
+                  {/* Generate New Fix Section */}
+                  <div className="mb-6 p-4 border border-blue-200 rounded-xl">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
+                          {existingFixes[selectedPage] && existingFixes[selectedPage].length > 0
+                            ? 'Generate Another Fix for this Slide'
+                            : 'Use DeckFixAI to fix this slide'}
+                        </h3>
+                        <p className="text-sm text-slate-600">
+                          Get implementation-ready fixes from our AI pitch deck expert to bring this slide to 10/10
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleGenerateFix}
+                        disabled={isGeneratingFix || isEstimatingCost}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#000] text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        {isGeneratingFix ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-5 h-5" />
+                            <span>Generate {existingFixes[selectedPage] && existingFixes[selectedPage].length > 0 ? 'New' : 'Instant'} Fix</span>
+                            {isEstimatingCost ? (
+                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-xs font-bold flex items-center gap-1">
+                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Calculating...
+                              </span>
+                            ) : slideCostEstimates[selectedPage] ? (
+                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-xs font-bold">
+                                {slideCostEstimates[selectedPage]} credits
+                              </span>
+                            ) : (
+                              <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-xs font-bold">
+                                4-6 credits
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {fixError && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-800">{fixError}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
 
               {/* Slide-Specific Feedback and Recommendations */}
@@ -388,6 +589,46 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                 }
                 return null;
               })()}
+
+              {/* Previously Generated Deck-Wide Fixes */}
+              {selectedPage === 0 && existingFixes[0] && existingFixes[0].length > 0 && (
+                <div className="mb-6 space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <h3 className="font-bold text-slate-900">
+                      Previously Generated Deck-Wide Fixes ({existingFixes[0].length})
+                    </h3>
+                  </div>
+                  {existingFixes[0].map((fix, index) => (
+                    <div key={fix.id} className="bg-green-50 border border-green-200 rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-bold text-green-900 mb-1">
+                            Fix #{existingFixes[0].length - index}: {fix.issueType}
+                          </h4>
+                          <p className="text-sm text-green-800 mb-2">{fix.issueDescription}</p>
+                          <p className="text-xs text-green-700">
+                            Generated {new Date(fix.createdAt).toLocaleDateString()} at {new Date(fix.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setGeneratedFix({
+                              fix: fix.generatedFix,
+                              fixId: fix.id,
+                              issueTitle: fix.issueType
+                            });
+                            setShowFixModal(true);
+                          }}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
+                        >
+                          View Fix
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Issues from aggregated data */}
               {filteredIssues.length === 0 ? (
@@ -446,6 +687,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
           isDeckWideIssue={!!generatedFix.issueTitle}
         />
       )}
+
     </div>
   );
 }

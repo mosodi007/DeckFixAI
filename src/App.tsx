@@ -207,7 +207,7 @@ function App() {
                     <LayoutDashboard className="w-4 h-4" />
                     My Decks
                   </button>
-                  <CreditBalanceIndicator />
+                  <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
                   <div className="relative">
                     <button
                       onClick={() => setShowUserMenu(!showUserMenu)}

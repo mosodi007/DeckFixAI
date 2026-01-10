@@ -129,7 +129,7 @@ export function IssueCard({ issue }: IssueCardProps) {
                 <p className="text-sm font-semibold text-blue-900 mb-1 flex items-center gap-1.5">
                   Recommendation:
                 </p>
-                <p className="text-sm text-blue-800 leading-relaxed">
+                <p className="text-sm text-[#000] leading-relaxed">
                   {issue.recommendation}
                 </p>
               </div>

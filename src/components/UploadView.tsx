@@ -51,12 +51,12 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
       setAnalysisProgress(60);
 
-      await analyzeDeck(file, analysisId, imageUrls, sessionId);
+      const result = await analyzeDeck(file, analysisId, imageUrls, sessionId);
 
       setAnalysisProgress(100);
 
       setTimeout(() => {
-        onAnalysisComplete({ analysisId });
+        onAnalysisComplete({ analysisId: result.analysisId });
       }, 500);
     } catch (error) {
       console.error('Analysis failed:', error);

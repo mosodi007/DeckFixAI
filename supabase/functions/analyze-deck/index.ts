@@ -66,6 +66,7 @@ Deno.serve(async (req: Request) => {
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const sessionId = formData.get('sessionId') as string;
+    const clientAnalysisId = formData.get('analysisId') as string;
 
     if (!file) {
       throw new Error('No file provided');
@@ -117,8 +118,8 @@ Deno.serve(async (req: Request) => {
     const avgWordsPerPage = pageCount > 0 ? Math.round(totalWords / pageCount) : 0;
     console.log(`Total words: ${totalWords}, Average per page: ${avgWordsPerPage}`);
 
-    const analysisId = crypto.randomUUID();
-    console.log('Analysis ID created:', analysisId);
+    const analysisId = clientAnalysisId || crypto.randomUUID();
+    console.log('Analysis ID:', analysisId, clientAnalysisId ? '(from client)' : '(generated)');
 
     const analysisRecord = {
       id: analysisId,

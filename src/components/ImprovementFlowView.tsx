@@ -342,19 +342,19 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
 
               {/* Issues from aggregated data */}
               {filteredIssues.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-5xl mb-3">✨</div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    {filterType === 'all' ? (selectedPage > 0 ? 'Check AI Feedback Above' : 'No Critical Deck Issues') : 'No items found'}
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    {filterType === 'all'
-                      ? (selectedPage > 0
-                          ? 'Review the detailed AI feedback and recommendations above, then use "Fix This" to get implementation-ready improvements'
-                          : 'Your deck has no deal-breakers or red flags. Click on individual slides to see detailed feedback and get AI-powered fixes.')
-                      : `No ${filterType.replace('_', ' ')}s found`}
-                  </p>
-                </div>
+                // <div className="text-center py-8">
+                //   <div className="text-5xl mb-3">✨</div>
+                //   <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                //     {filterType === 'all' ? (selectedPage > 0 ? 'Check AI Feedback Above' : 'No Critical Deck Issues') : 'No items found'}
+                //   </h3>
+                //   <p className="text-slate-600 text-sm">
+                //     {filterType === 'all'
+                //       ? (selectedPage > 0
+                //           ? 'Review the detailed AI feedback and recommendations above, then use "Fix This" to get implementation-ready improvements'
+                //           : 'Your deck has no deal-breakers or red flags. Click on individual slides to see detailed feedback and get AI-powered fixes.')
+                //       : `No ${filterType.replace('_', ' ')}s found`}
+                //   </p>
+                // </div>
               ) : (
                 <div>
                   {selectedPage === 0 && (

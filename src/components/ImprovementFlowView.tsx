@@ -110,7 +110,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                 Analyzing Your Slides
               </h3>
               <p className="text-slate-600 mb-2">
-                Using OpenAI Vision to provide in-depth analysis and recommendations for each slide...
+                Using DeckFix AI Vision to provide in-depth analysis and recommendations for each slide...
               </p>
               <p className="text-sm text-slate-500">
                 This may take a minute
@@ -129,7 +129,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
         </button>
 
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Improve & Fix Issues</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Fix Issues</h1>
           <p className="text-slate-600">Review and address critical issues, red flags, and improvement opportunities</p>
         </div>
 

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, Target, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
+import { analyzeDeck } from '../services/analysisService';
 
 interface DeckAnalysis {
   id: string;
@@ -25,6 +26,10 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   const [analyses, setAnalyses] = useState<DeckAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadAnalyses();
@@ -94,6 +99,44 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     }
   }
 
+  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setSelectedFile(file);
+      handleUpload(file);
+    } else {
+      alert('Please select a PDF file');
+    }
+  }
+
+  function handleChooseFile() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      setUploadProgress(30);
+
+      const result = await analyzeDeck(file);
+
+      setUploadProgress(100);
+
+      setTimeout(() => {
+        onViewAnalysis(result.analysisId);
+      }, 500);
+    } catch (error: any) {
+      console.error('Upload failed:', error);
+      alert(error.message || 'Failed to analyze deck. Please try again.');
+      setSelectedFile(null);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  }
+
   function formatDate(dateString: string) {
     const date = new Date(dateString);
     const now = new Date();
@@ -144,29 +187,27 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         {/* Header */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900 mb-2">
-                My Pitch Decks
-              </h1>
-              <p className="text-lg text-slate-600">
-                {analyses.length === 0
-                  ? 'Upload your first pitch deck to get started'
-                  : `${analyses.length} ${analyses.length === 1 ? 'deck' : 'decks'} analyzed`}
-              </p>
+        {analyses.length > 0 && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-4xl font-bold text-slate-900 mb-2">
+                  My Pitch Decks
+                </h1>
+                <p className="text-lg text-slate-600">
+                  {`${analyses.length} ${analyses.length === 1 ? 'deck' : 'decks'} analyzed`}
+                </p>
+              </div>
+              <button
+                onClick={onNewUpload}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
+              >
+                <Upload className="w-5 h-5" />
+                Upload New Deck
+              </button>
             </div>
-            <button
-              onClick={onNewUpload}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
-            >
-              <Upload className="w-5 h-5" />
-              Upload New Deck
-            </button>
-          </div>
 
-          {/* Stats Overview */}
-          {analyses.length > 0 && (
+            {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center gap-4">
@@ -213,29 +254,111 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Deck List */}
         {analyses.length === 0 ? (
-          <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-10 h-10 text-slate-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                No pitch decks yet
-              </h3>
-              <p className="text-slate-600 mb-8">
-                Upload your first pitch deck to get instant AI-powered analysis and feedback from a VC perspective.
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h1 className="text-5xl font-bold text-slate-900 mb-4 leading-tight">
+                Make your Pitch Deck<br />Investor-Ready in Minutes
+              </h1>
+              <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+                Get instant AI-powered analysis and actionable feedback from a VC perspective
               </p>
-              <button
-                onClick={onNewUpload}
-                className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
-              >
-                <Upload className="w-5 h-5" />
-                Upload Your First Deck
-              </button>
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
+              <div className="p-12">
+                <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-slate-400 transition-all">
+                  <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Upload className="w-12 h-12 text-white" />
+                  </div>
+
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                    Upload Your Pitch Deck
+                  </h3>
+
+                  <p className="text-slate-600 mb-8 max-w-md mx-auto">
+                    {uploading
+                      ? 'Analyzing your deck with AI...'
+                      : 'Upload your PDF pitch deck to receive comprehensive analysis and improvement suggestions'}
+                  </p>
+
+                  {uploading ? (
+                    <div className="max-w-md mx-auto">
+                      <div className="flex items-center justify-between mb-2 text-sm">
+                        <span className="text-slate-600">Analyzing...</span>
+                        <span className="text-slate-900 font-semibold">{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="h-full bg-slate-900 transition-all duration-500 ease-out rounded-full"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-sm text-slate-500 mt-4">
+                        This may take 30-60 seconds depending on deck size
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={handleChooseFile}
+                        className="inline-flex items-center gap-3 px-10 py-4 bg-slate-900 text-white text-lg font-semibold rounded-xl hover:bg-slate-800 transition-all hover:shadow-xl hover:scale-105"
+                      >
+                        <Upload className="w-6 h-6" />
+                        Choose File
+                      </button>
+                      <p className="text-sm text-slate-500 mt-4">
+                        PDF files only, max 50MB
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border-t border-slate-200 px-12 py-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="text-center">
+                    <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                      <Sparkles className="w-7 h-7 text-slate-700" />
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Analysis</h4>
+                    <p className="text-sm text-slate-600">
+                      Advanced AI evaluates every aspect of your deck
+                    </p>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                      <Target className="w-7 h-7 text-slate-700" />
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">VC Perspective</h4>
+                    <p className="text-sm text-slate-600">
+                      Feedback based on what investors look for
+                    </p>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                      <Zap className="w-7 h-7 text-slate-700" />
+                    </div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Instant Results</h4>
+                    <p className="text-sm text-slate-600">
+                      Get actionable insights in under a minute
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : (

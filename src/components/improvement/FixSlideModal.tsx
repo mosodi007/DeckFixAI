@@ -129,7 +129,7 @@ export function FixSlideModal({
             </div>
           </div>
 
-          <div className="bg-white border-2 border-slate-500 rounded-xl p-6 shadow-lg">
+          <div className="bg-white border-2 border-slate-50 rounded-xl p-6 shadow-lg">
             <div className="flex items-start justify-between mb-4">
               <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
                 <Copy className="w-5 h-5 text-green-600" />

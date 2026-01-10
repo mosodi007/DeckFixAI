@@ -5,7 +5,6 @@ import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
 import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 import { FixSlideModal } from './improvement/FixSlideModal';
-import { CostEstimationModal } from './CostEstimationModal';
 import { generateSlideFix, generateIssueFix, GeneratedFix, getSlideFixes, SlideFix } from '../services/aiFixService';
 import { getUserCreditBalance } from '../services/creditService';
 import { useCredits } from '../contexts/CreditContext';
@@ -19,13 +18,6 @@ interface ImprovementFlowViewProps {
   onSignUpClick: () => void;
 }
 
-interface CostEstimation {
-  estimatedCost: number;
-  complexityScore: number;
-  complexityLevel: 'low' | 'medium' | 'high';
-  explanation: string;
-}
-
 export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick }: ImprovementFlowViewProps) {
   const { refreshCredits } = useCredits();
   const [selectedPage, setSelectedPage] = useState(0);
@@ -36,10 +28,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
   const [generatingIssueIndex, setGeneratingIssueIndex] = useState<number | null>(null);
-  const [showCostModal, setShowCostModal] = useState(false);
-  const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
   const [currentBalance, setCurrentBalance] = useState(0);
-  const [pendingFixData, setPendingFixData] = useState<any>(null);
   const [slideCostEstimates, setSlideCostEstimates] = useState<Record<number, number>>({});
   const [isEstimatingCost, setIsEstimatingCost] = useState(false);
   const [existingFixes, setExistingFixes] = useState<Record<number, SlideFix[]>>({});
@@ -207,58 +196,17 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
 
       const complexityScore = Math.min(50 + (issueCount * 10), 100);
 
-      let complexityLevel = 'low';
-      if (slideScore <= 35) complexityLevel = 'high';
-      else if (slideScore <= 80) complexityLevel = 'medium';
-
-      setCostEstimation({
-        estimatedCost: creditCost,
-        complexityScore,
-        complexityLevel,
-        explanation: `Score: ${slideScore.toFixed(1)}/10 - ${issueCount} issue${issueCount > 1 ? 's' : ''} to fix`,
-      });
-
-      setPendingFixData({
-        analysisId: data.id,
-        pageNumber: currentPage.page_number,
-        title: currentPage.title,
-        score: currentPage.score,
-        content: currentPage.content,
-        feedback: currentPage.feedback,
-        recommendations: currentPage.recommendations,
-        imageUrl: currentPage.image_url,
-        estimatedCost: creditCost,
-        complexityScore,
-      });
-
-      setShowCostModal(true);
-    } catch (error) {
-      console.error('Error preparing fix:', error);
-      setFixError('Failed to prepare fix. Please try again.');
-    } finally {
-      setIsGeneratingFix(false);
-    }
-  };
-
-  const handleConfirmGenerate = async () => {
-    if (!pendingFixData) return;
-
-    setShowCostModal(false);
-    setIsGeneratingFix(true);
-    setFixError(null);
-
-    try {
       const result = await generateSlideFix(
-        pendingFixData.analysisId,
-        pendingFixData.pageNumber,
-        pendingFixData.title,
-        pendingFixData.score,
-        pendingFixData.content,
-        pendingFixData.feedback,
-        pendingFixData.recommendations,
-        pendingFixData.imageUrl,
-        pendingFixData.estimatedCost,
-        pendingFixData.complexityScore
+        data.id,
+        currentPage.page_number,
+        currentPage.title,
+        currentPage.score,
+        currentPage.content,
+        currentPage.feedback,
+        currentPage.recommendations,
+        currentPage.image_url,
+        creditCost,
+        complexityScore
       );
 
       if (result.success && result.fix && result.fixId) {
@@ -272,7 +220,6 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
           setCurrentBalance(updatedCredits.creditsBalance);
         }
 
-        // Refresh the existing fixes list
         const fixes = await getSlideFixes(data.id);
         const fixesByPage: Record<number, SlideFix[]> = {};
         fixes.forEach(fix => {
@@ -296,7 +243,6 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
       setFixError('An unexpected error occurred');
     } finally {
       setIsGeneratingFix(false);
-      setPendingFixData(null);
     }
   };
 
@@ -742,22 +688,6 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         />
       )}
 
-      {showCostModal && costEstimation && (
-        <CostEstimationModal
-          isOpen={showCostModal}
-          onClose={() => {
-            setShowCostModal(false);
-            setPendingFixData(null);
-            setCostEstimation(null);
-          }}
-          onConfirm={handleConfirmGenerate}
-          estimatedCost={costEstimation.estimatedCost}
-          complexityScore={costEstimation.complexityScore}
-          complexityLevel={costEstimation.complexityLevel}
-          explanation={costEstimation.explanation}
-          currentBalance={currentBalance}
-        />
-      )}
     </div>
   );
 }

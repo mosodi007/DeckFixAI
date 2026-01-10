@@ -39,21 +39,26 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Authentication required');
+    let user = null;
+
+    if (authHeader) {
+      const supabaseClient = createClient(
+        supabaseUrl!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (!userError && userData?.user) {
+        user = userData.user;
+        console.log('Authenticated user:', user.id);
+      }
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseClient = createClient(
-      supabaseUrl!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Authentication failed');
+    if (!user) {
+      console.log('Anonymous user - generating slide fix');
     }
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');

@@ -27,23 +27,28 @@ Deno.serve(async (req: Request) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Authentication required');
-    }
-
-    const supabaseClient = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Authentication failed');
-    }
-
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const authHeader = req.headers.get('Authorization');
+    let user = null;
+
+    if (authHeader) {
+      const supabaseClient = createClient(
+        supabaseUrl,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (!userError && userData?.user) {
+        user = userData.user;
+        console.log('Authenticated user:', user.id);
+      }
+    }
+
+    if (!user) {
+      console.log('Anonymous user - analyzing slides');
+    }
     const { analysisId } = await req.json();
 
     if (!analysisId) {

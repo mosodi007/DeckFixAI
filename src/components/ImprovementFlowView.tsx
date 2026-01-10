@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Filter, Sparkles } from 'lucide-react';
 import { DeckPageCard } from './improvement/DeckPageCard';
 import { IssueCard } from './improvement/IssueCard';
@@ -38,6 +38,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
   const [currentBalance, setCurrentBalance] = useState(0);
   const [pendingFixData, setPendingFixData] = useState<any>(null);
+  const [slideCostEstimates, setSlideCostEstimates] = useState<Record<number, number>>({});
+  const [isEstimatingCost, setIsEstimatingCost] = useState(false);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
@@ -108,6 +110,56 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     red_flag: sortedIssues.filter(i => i.type === 'red_flag').length,
     missing_slide: sortedIssues.filter(i => i.type === 'missing_slide').length,
   };
+
+  const estimateSlideCost = async (pageNumber: number) => {
+    if (!isAuthenticated || pageNumber === 0 || slideCostEstimates[pageNumber]) {
+      return;
+    }
+
+    const currentPage = deckPages.find((p: any) => p.page_number === pageNumber);
+    if (!currentPage) return;
+
+    setIsEstimatingCost(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/estimate-fix-cost`;
+      const estimateResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slideContent: currentPage.content || '',
+          slideFeedback: currentPage.feedback || '',
+          slideRecommendations: currentPage.recommendations || [],
+        }),
+      });
+
+      if (estimateResponse.ok) {
+        const estimateData = await estimateResponse.json();
+        if (estimateData.success) {
+          setSlideCostEstimates(prev => ({
+            ...prev,
+            [pageNumber]: estimateData.creditCost,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error estimating slide cost:', error);
+    } finally {
+      setIsEstimatingCost(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedPage > 0) {
+      estimateSlideCost(selectedPage);
+    }
+  }, [selectedPage, isAuthenticated]);
 
   const handleGenerateFix = async () => {
     if (!isAuthenticated) {
@@ -428,7 +480,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                     </div>
                     <button
                       onClick={handleGenerateFix}
-                      disabled={isGeneratingFix}
+                      disabled={isGeneratingFix || isEstimatingCost}
                       className="flex items-center gap-2 px-6 py-3 bg-[#000] text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                       {isGeneratingFix ? (
@@ -436,9 +488,19 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                           Generating...
                         </>
+                      ) : isEstimatingCost ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Estimating cost...
+                        </>
                       ) : (
                         <>
-                         Generate Instant Fix
+                          Generate Instant Fix
+                          {slideCostEstimates[selectedPage] && (
+                            <span className="ml-2 px-2 py-1 bg-white/20 rounded-lg text-sm">
+                              {slideCostEstimates[selectedPage]} credits
+                            </span>
+                          )}
                         </>
                       )}
                     </button>

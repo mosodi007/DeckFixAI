@@ -279,7 +279,7 @@ Respond with JSON:
       },
       body: JSON.stringify({
         analysis_id: analysisId,
-        page_number: 0, // 0 indicates deck-wide issue
+        page_number: 0,
         issue_type: generatedFix.issueType,
         issue_description: generatedFix.issueDescription,
         generated_fix: generatedFix,

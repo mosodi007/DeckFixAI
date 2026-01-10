@@ -149,7 +149,6 @@ Provide your analysis in the following JSON format:
             score: analysis.score || page.score,
             feedback: analysis.keyInsights || null,
             recommendations: analysis.recommendations || null,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', page.id);
 

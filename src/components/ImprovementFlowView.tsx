@@ -323,7 +323,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                           <ul className="space-y-2">
                             {currentSlide.recommendations.map((rec: string, idx: number) => (
                               <li key={idx} className="flex items-start gap-3">
-                                <span className="flex-shrink-0 w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
+                                <span className="flex-shrink-0 w-5 h-5 bg-slate-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
                                   {idx + 1}
                                 </span>
                                 <span className="text-slate-700 flex-1">{rec}</span>

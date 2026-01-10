@@ -101,7 +101,7 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
             )}
             {issue.pageNumber ? (
               <span className="text-xs text-slate-500 ml-auto">Slide {issue.pageNumber}</span>
-            ) : (
+            ) : onGenerateFix ? (
               <button
                 onClick={onGenerateFix}
                 disabled={isGenerating}
@@ -116,7 +116,7 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
                   'Generate Instant Fix'
                 )}
               </button>
-            )}
+            ) : null}
           </div>
 
           <h4 className="font-bold text-slate-900 mb-2 text-base">

@@ -5,6 +5,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+function getPublicImageUrl(storagePath: string | null): string | null {
+  if (!storagePath) return null;
+  return `${supabaseUrl}/storage/v1/object/public/${storagePath}`;
+}
+
 export interface AnalysisData {
   id: string;
   fileName: string;
@@ -272,8 +277,8 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       feedback: p.feedback,
       recommendations: p.recommendations,
       idealVersion: p.ideal_version,
-      imageUrl: p.image_url,
-      thumbnailUrl: p.thumbnail_url,
+      imageUrl: getPublicImageUrl(p.image_url),
+      thumbnailUrl: getPublicImageUrl(p.thumbnail_url),
     })) || [],
     metrics: {
       clarityScore: metrics?.clarity_score || 0,

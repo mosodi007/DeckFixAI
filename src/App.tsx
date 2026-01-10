@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, LogOut, LayoutDashboard } from 'lucide-react';
 import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
 import { ImprovementFlowView } from './components/ImprovementFlowView';
+import { DashboardView } from './components/DashboardView';
 import { LoginModal } from './components/auth/LoginModal';
 import { SignUpModal } from './components/auth/SignUpModal';
 import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
@@ -13,7 +14,7 @@ import { logout } from './services/authService';
 
 function App() {
   const { user, isAuthenticated } = useAuth();
-  const [view, setView] = useState<'upload' | 'analysis' | 'improvement'>('upload');
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
@@ -23,7 +24,8 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadPersistedAnalysis();
+      setView('dashboard');
+      setIsLoading(false);
     } else {
       setIsLoading(false);
       setView('upload');
@@ -91,7 +93,32 @@ function App() {
   };
 
   const handleNewAnalysis = () => {
-    setView('upload');
+    if (isAuthenticated) {
+      setView('dashboard');
+    } else {
+      setView('upload');
+    }
+    setAnalysisData(null);
+  };
+
+  const handleViewAnalysis = async (analysisId: string) => {
+    setIsLoading(true);
+    try {
+      const analysis = await getAnalysis(analysisId);
+      const adaptedData = adaptAnalysisData(analysis);
+      setAnalysisData(adaptedData);
+      setView('analysis');
+      localStorage.setItem('currentAnalysisId', analysisId);
+    } catch (error) {
+      console.error('Failed to load analysis:', error);
+      alert('Failed to load analysis. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoToDashboard = () => {
+    setView('dashboard');
     setAnalysisData(null);
   };
 
@@ -134,6 +161,7 @@ function App() {
     setShowUserMenu(false);
     setView('upload');
     setAnalysisData(null);
+    localStorage.removeItem('currentAnalysisId');
   };
 
   const handleOpenSignUp = () => {
@@ -161,39 +189,48 @@ function App() {
 
             <div className="flex items-center gap-3">
               {isAuthenticated ? (
-                <div className="relative">
+                <>
                   <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    onClick={handleGoToDashboard}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                   >
-                    <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold">
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </div>
-                    <span>{user?.email}</span>
-                    <ChevronDown className="w-4 h-4" />
+                    <LayoutDashboard className="w-4 h-4" />
+                    My Decks
                   </button>
-
-                  {showUserMenu && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setShowUserMenu(false)}
-                      />
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-20">
-                        <div className="px-4 py-3 border-b border-slate-200">
-                          <p className="text-sm font-medium text-slate-900">{user?.email}</p>
-                        </div>
-                        <button
-                          onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Sign Out
-                        </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowUserMenu(!showUserMenu)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold">
+                        {user?.email?.charAt(0).toUpperCase()}
                       </div>
-                    </>
-                  )}
-                </div>
+                      <span>{user?.email}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+
+                    {showUserMenu && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowUserMenu(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-20">
+                          <div className="px-4 py-3 border-b border-slate-200">
+                            <p className="text-sm font-medium text-slate-900">{user?.email}</p>
+                          </div>
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Sign Out
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
               ) : (
                 <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
                   <button
@@ -220,9 +257,14 @@ function App() {
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading analysis...</p>
+              <p className="text-slate-600">Loading...</p>
             </div>
           </div>
+        ) : view === 'dashboard' ? (
+          <DashboardView
+            onViewAnalysis={handleViewAnalysis}
+            onNewUpload={() => setView('upload')}
+          />
         ) : view === 'upload' ? (
           <UploadView
             onAnalysisComplete={handleAnalysisComplete}

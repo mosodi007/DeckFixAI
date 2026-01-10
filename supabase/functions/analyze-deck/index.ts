@@ -182,13 +182,17 @@ async function analyzeWithVision(
   const maxImages = Math.min(imageUrls.length, 10);
   const selectedImages = imageUrls.slice(0, maxImages);
 
-  const imageContent = selectedImages.map((url, index) => ({
-    type: 'image_url' as const,
-    image_url: {
-      url: `${supabaseUrl}/storage/v1/object/public/${url}`,
-      detail: 'high' as const
-    }
-  }));
+  const imageContent = selectedImages.map((url) => {
+    const fullUrl = url.startsWith('http') ? url : `${supabaseUrl}/storage/v1/object/public/${url}`;
+    console.log(`Image URL: ${fullUrl}`);
+    return {
+      type: 'image_url' as const,
+      image_url: {
+        url: fullUrl,
+        detail: 'high' as const
+      }
+    };
+  });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -403,14 +407,23 @@ Deno.serve(async (req: Request) => {
 
     console.log('Initial analysis record created');
 
-    const pageRecords = pages.map((page, i) => ({
-      analysis_id: analysisId,
-      page_number: i + 1,
-      title: `Slide ${i + 1}`,
-      score: 50,
-      content: page.text.substring(0, 1000),
-      image_url: imageUrls[i] || null,
-    }));
+    const pageRecords = pages.map((page, i) => {
+      let storagePath = imageUrls[i] || null;
+      if (storagePath && storagePath.startsWith('http')) {
+        const match = storagePath.match(/\/storage\/v1\/object\/public\/(.+)$/);
+        if (match) {
+          storagePath = match[1];
+        }
+      }
+      return {
+        analysis_id: analysisId,
+        page_number: i + 1,
+        title: `Slide ${i + 1}`,
+        score: 50,
+        content: page.text.substring(0, 1000),
+        image_url: storagePath,
+      };
+    });
 
     const { error: pagesError } = await supabase
       .from('analysis_pages')

@@ -5,7 +5,7 @@ export interface PageText {
   text: string;
 }
 
-export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number; pages: PageText[] }> {
+export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number; pages: PageText[]; metadata?: any }> {
   try {
     console.log('Starting PDF extraction with unpdf...');
     const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
@@ -14,9 +14,33 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
     const totalPages = pdf.numPages;
     console.log(`PDF has ${totalPages} pages`);
 
+    let metadata;
+    try {
+      metadata = await pdf.getMetadata();
+      console.log('PDF metadata:', JSON.stringify(metadata, null, 2));
+    } catch (metaError) {
+      console.warn('Failed to extract PDF metadata:', metaError);
+    }
+
     const pages: PageText[] = [];
     let formattedText = '';
     let totalTextLength = 0;
+
+    let metadataText = '';
+    if (metadata?.info) {
+      const info = metadata.info;
+      if (info.Title) metadataText += `Title: ${info.Title}\n`;
+      if (info.Author) metadataText += `Author: ${info.Author}\n`;
+      if (info.Subject) metadataText += `Subject: ${info.Subject}\n`;
+      if (info.Keywords) metadataText += `Keywords: ${info.Keywords}\n`;
+      if (info.Creator) metadataText += `Creator: ${info.Creator}\n`;
+
+      if (metadataText) {
+        formattedText += `\n--- PDF METADATA ---\n${metadataText}--- END METADATA ---\n`;
+        totalTextLength += metadataText.length;
+        console.log('Added PDF metadata:', metadataText);
+      }
+    }
 
     for (let i = 1; i <= totalPages; i++) {
       try {
@@ -42,30 +66,38 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
       }
     }
 
-    console.log(`Total extraction: ${totalTextLength} characters from ${totalPages} pages`);
+    console.log(`Total extraction: ${totalTextLength} characters from ${totalPages} pages (including metadata)`);
 
-    if (totalTextLength < 10) {
-      console.warn('PDF appears to be image-based with minimal extractable text. Will proceed with visual analysis.');
+    const hasMinimalText = totalTextLength < 100;
 
-      const imagePlaceholderText = Array.from({ length: totalPages }, (_, i) => {
-        const pageNum = i + 1;
-        return `\n\n--- PAGE ${pageNum} ---\nThis slide appears to be image-based and requires visual analysis.\n--- END PAGE ${pageNum} ---\n`;
-      }).join('');
+    if (hasMinimalText) {
+      console.warn('PDF appears to be image-based with minimal extractable text. Will proceed with limited text analysis.');
+
+      let limitedText = formattedText || '';
+
+      if (!limitedText.trim() || limitedText.trim().length < 20) {
+        limitedText = `${metadataText}\n\n⚠️ IMAGE-BASED DECK: This PDF contains ${totalPages} slides that appear to be image-based (graphics/screenshots). ` +
+          `Text extraction yielded minimal content. Visual analysis through slide images is required for comprehensive feedback. ` +
+          `The AI will provide preliminary analysis based on available metadata and any extractable text, but detailed feedback ` +
+          `requires the analyze-slides function to process uploaded slide images.`;
+      }
 
       return {
-        text: imagePlaceholderText.trim(),
+        text: limitedText.trim(),
         pageCount: totalPages,
-        pages: Array.from({ length: totalPages }, (_, i) => ({
+        pages: pages.length > 0 ? pages : Array.from({ length: totalPages }, (_, i) => ({
           pageNumber: i + 1,
-          text: 'This slide appears to be image-based and requires visual analysis.'
-        }))
+          text: ''
+        })),
+        metadata
       };
     }
 
     return {
       text: formattedText.trim(),
       pageCount: totalPages,
-      pages
+      pages,
+      metadata
     };
   } catch (error) {
     console.error('PDF extraction error:', error);

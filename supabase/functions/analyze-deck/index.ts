@@ -80,11 +80,13 @@ Deno.serve(async (req: Request) => {
     let text: string;
     let pageCount: number;
     let perPageWordCounts: { pageNumber: number; wordCount: number }[];
+    let pdfMetadata: any;
 
     try {
       const result = await extractTextFromPDF(arrayBuffer);
       text = result.text;
       pageCount = result.pageCount;
+      pdfMetadata = result.metadata;
 
       // Calculate word count per page
       perPageWordCounts = result.pages.map(page => ({
@@ -93,6 +95,7 @@ Deno.serve(async (req: Request) => {
       }));
 
       console.log(`✓ PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
+      console.log('PDF metadata:', pdfMetadata ? JSON.stringify(pdfMetadata.info) : 'None');
       console.log('Word counts per page:', perPageWordCounts.map(p => `Page ${p.pageNumber}: ${p.wordCount} words`).join(', '));
     } catch (pdfError) {
       console.error('PDF extraction failed:', pdfError);
@@ -109,7 +112,15 @@ Deno.serve(async (req: Request) => {
 
     const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be brutally honest and direct. No sugar-coating. Call out weaknesses plainly.
 
-${isImageBased ? '⚠️ NOTE: This deck appears to be IMAGE-BASED (slides are images/graphics, not text). Most pages have minimal extractable text. Analyze what text is available, but note that full visual analysis will be performed separately.' : ''}
+${isImageBased ? `⚠️ NOTE: This deck appears to be IMAGE-BASED (slides are images/graphics, not text). Most pages have minimal extractable text.
+
+**IMPORTANT FOR IMAGE-BASED DECKS:**
+- Try to extract the company name from PDF metadata (Title, Author fields) or any available text
+- If metadata has "XYZ Pitch Deck" or "XYZ Company", extract "XYZ" as the company name
+- Look for company names in Author, Creator, or Title fields
+- Even with minimal text, try to identify: company name, funding stage indicators, key metrics if mentioned
+- For fields you cannot determine, mark as "Not specified - requires visual analysis"
+- DO NOT mark company name as "Not specified" if it appears ANYWHERE in metadata or extractable text` : ''}
 
 ## WORD COUNT PER PAGE:
 ${wordCountSummary}
@@ -118,7 +129,7 @@ ${wordCountSummary}
 ${textToAnalyze}
 
 ## INSTRUCTIONS:
-Provide analysis in strict JSON format. Be concise and specific.${isImageBased ? ' Since this is an image-based deck, base your analysis on the limited text available and note that visual elements cannot be assessed at this stage.' : ''}
+Provide analysis in strict JSON format. Be concise and specific.${isImageBased ? ' Since this is an image-based deck, extract whatever information is available (especially company name from metadata), and note that visual elements cannot be assessed at this stage. Mark unavailable fields as "Not specified - requires visual analysis".' : ''}
 
 ### STEP 1: DETECT FUNDING STAGE
 
@@ -264,7 +275,7 @@ List critical missing content:
 
 ### EXTRACT KEY BUSINESS METRICS:
 Extract the following business metrics from the deck content. If a metric is not explicitly stated, write "Not specified":
-- companyName: Company name (string)
+- companyName: Company name (string). **IMPORTANT: Check PDF metadata fields (Title, Author, Subject, Creator) FIRST. If metadata contains "XYZ Pitch Deck" or "XYZ Company" or "XYZ - Series A", extract "XYZ" as the company name. Also look in the first page content. Only mark as "Not specified" if truly no company identifier exists anywhere.**
 - industry: Industry/sector (string)
 - currentRevenue: Current revenue/ARR (string with units, e.g., "$2M ARR", "Not specified")
 - fundingSought: Amount of funding sought (string with units, e.g., "$5M Series A", "Not specified")

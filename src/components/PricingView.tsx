@@ -140,7 +140,7 @@ export function PricingView() {
                   } ${isFree ? 'opacity-50 cursor-not-allowed' : ''}`}
                   disabled={isFree}
                 >
-                  {isFree ? 'Current Plan' : 'Get Started'}
+                  {isFree ? 'Current Plan' : 'Upgrade'}
                 </button>
               </div>
             );

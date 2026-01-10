@@ -152,7 +152,7 @@ export function FixSlideModal({
                 )}
               </button>
             </div>
-            <div className="bg-slate-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-slate-50 border rounded-lg p-4">
               <p className="text-slate-900 leading-relaxed whitespace-pre-wrap font-medium">
                 {fix.exactReplacementText}
               </p>

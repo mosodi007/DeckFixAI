@@ -102,7 +102,7 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
       pages,
       metadata
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('PDF extraction error:', error);
     if (error instanceof Error) {
       throw new Error(`PDF extraction failed: ${error.message}`);

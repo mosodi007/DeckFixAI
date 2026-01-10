@@ -115,16 +115,25 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     missing_slide: sortedIssues.filter(i => i.type === 'missing_slide').length,
   };
 
+  const calculateCreditCost = (score: number): number => {
+    if (score <= 3.5) return 10;
+    if (score <= 8.0) return 5;
+    return 2;
+  };
+
   const estimateSlideCost = async (pageNumber: number) => {
     if (!isAuthenticated || pageNumber === 0 || slideCostEstimates[pageNumber]) {
       return;
     }
 
-    const FIXED_CREDIT_COST = 5;
+    const currentPage = deckPages.find((p: any) => p.page_number === pageNumber);
+    if (!currentPage) return;
+
+    const creditCost = calculateCreditCost(currentPage.score || 0);
 
     setSlideCostEstimates(prev => ({
       ...prev,
-      [pageNumber]: FIXED_CREDIT_COST,
+      [pageNumber]: creditCost,
     }));
   };
 
@@ -188,7 +197,9 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
 
       setCurrentBalance(credits.creditsBalance);
 
-      const FIXED_CREDIT_COST = 5;
+      const slideScore = currentPage.score || 0;
+      const creditCost = calculateCreditCost(slideScore);
+
       const issueCount = [
         currentPage.feedback,
         ...(currentPage.recommendations || [])
@@ -196,11 +207,15 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
 
       const complexityScore = Math.min(50 + (issueCount * 10), 100);
 
+      let complexityLevel = 'low';
+      if (slideScore <= 3.5) complexityLevel = 'high';
+      else if (slideScore <= 8.0) complexityLevel = 'medium';
+
       setCostEstimation({
-        estimatedCost: FIXED_CREDIT_COST,
+        estimatedCost: creditCost,
         complexityScore,
-        complexityLevel: 'medium',
-        explanation: `${issueCount} issue${issueCount > 1 ? 's' : ''} to fix`,
+        complexityLevel,
+        explanation: `Score: ${slideScore.toFixed(1)}/10 - ${issueCount} issue${issueCount > 1 ? 's' : ''} to fix`,
       });
 
       setPendingFixData({
@@ -212,7 +227,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         feedback: currentPage.feedback,
         recommendations: currentPage.recommendations,
         imageUrl: currentPage.image_url,
-        estimatedCost: FIXED_CREDIT_COST,
+        estimatedCost: creditCost,
         complexityScore,
       });
 

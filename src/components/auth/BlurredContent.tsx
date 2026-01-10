@@ -25,7 +25,7 @@ export function BlurredContent({ children, isBlurred, onSignUpClick }: BlurredCo
               Hidden Insight
             </h3>
             <p className="text-slate-600 mb-6">
-              Sign up for free to unlock detailed insights and take action on improvements
+              Sign up for free to unlock this insight and take action on fix and improvements
             </p>
             <button
               onClick={onSignUpClick}

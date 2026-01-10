@@ -27,7 +27,7 @@ const sections = [
   { id: 'investment-readiness', label: 'Investor Readiness' },
   { id: 'deal-breakers', label: 'Deal Breakers' },
   { id: 'red-flags', label: 'Red Flags' },
-  { id: 'missing-pages', label: 'Missing Pages' },
+  // { id: 'missing-pages', label: 'Missing Pages' },
   { id: 'strengths-issues', label: 'Strengths & Issues' },
   { id: 'improvements', label: 'Improvements' },
 ];
@@ -183,9 +183,9 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         <RedFlagsSection redFlags={data.redFlags || []} />
       </div>
 
-      <div id="missing-pages">
+      {/* <div id="missing-pages">
         <MissingPagesSection missingSlides={data.missingSlides || []} />
-      </div>
+      </div> */}
 
       <div id="strengths-issues" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <StrengthsSection strengths={data.strengths} />

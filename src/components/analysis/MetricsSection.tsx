@@ -227,7 +227,7 @@ export function MetricsSection({ metrics }: MetricsSectionProps) {
             <span className="font-semibold text-slate-900">Scoring Context:</span> 5.0-6.5 = Average | 7.0+ = Good | 8.0+ = Excellent
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        {/* <div className="grid grid-cols-2 gap-4">
           <MetricCard
             label="Content Score"
             value={metrics.contentScore}
@@ -256,7 +256,7 @@ export function MetricsSection({ metrics }: MetricsSectionProps) {
             color="purple"
             onClick={() => openModal('design')}
           />
-        </div>
+        </div> */}
         <div className="mt-4 pt-4 border-t border-slate-200">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-slate-900">Average Score</span>

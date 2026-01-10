@@ -94,17 +94,57 @@ Provide: detected_stage, stage_confidence (high/medium/low), stage_appropriatene
 
 ### STEP 2: INVESTMENT READINESS
 
-Score 5 dimensions (0-100 each) and provide detailed feedback for EACH:
+Score 5 dimensions (0-100 each) and provide COMPREHENSIVE detailed feedback for EACH. Each feedback should be 6-8 sentences covering multiple angles with brutal honesty:
+
 - **Team**: Founder quality, experience, completeness
-  - Provide teamFeedback: 3-4 sentences of brutally honest assessment covering founder backgrounds, team composition, gaps, relevant experience, and credibility. If the team is weak or incomplete, say so directly.
+  - Provide teamFeedback: 6-8 sentences covering:
+    1. Founder backgrounds (names, previous roles, relevant experience, years in industry)
+    2. Team completeness (is there a full C-suite? missing key roles?)
+    3. Domain expertise (do they deeply understand this market/problem?)
+    4. Execution track record (have they built/scaled companies before?)
+    5. Red flags (first-time founders? solo founder? team conflicts mentioned?)
+    6. Overall assessment of whether this team can execute at scale
+  - Be brutally honest. If team is incomplete or inexperienced, state it plainly with specifics.
+
 - **Market**: TAM size, growth, accessibility
-  - Provide marketOpportunityFeedback: 3-4 sentences evaluating market size, growth trajectory, competitive landscape, and market timing. If the market is crowded or too small, be blunt about it.
+  - Provide marketOpportunityFeedback: 6-8 sentences covering:
+    1. Market size (TAM, SAM, SOM with specific numbers if provided)
+    2. Market growth rate and trajectory (is it growing? declining? stagnant?)
+    3. Competitive landscape (who are the major players? how crowded is it?)
+    4. Market accessibility (can a startup realistically capture share here?)
+    5. Timing (why now? is this too early or too late?)
+    6. Market validation (is the problem real and urgent?)
+  - Be blunt about market reality. If it's oversaturated or too small, say so with data.
+
 - **Product**: Solution strength, differentiation, moat
-  - Provide productFeedback: 3-4 sentences assessing product differentiation, technical moat, competitive advantages, and defensibility. If it's a commodity product with no moat, say so plainly.
+  - Provide productFeedback: 6-8 sentences covering:
+    1. Solution clarity (is it clear what the product does and how?)
+    2. Differentiation (what makes this unique vs. competitors?)
+    3. Technical moat (patents, proprietary tech, network effects, data advantages?)
+    4. Competitive advantages (why can't incumbents replicate this easily?)
+    5. Product-market fit evidence (do customers actually want this?)
+    6. Defensibility long-term (can they maintain advantage as market evolves?)
+  - Be direct. If it's just another SaaS tool with no moat, call it out explicitly.
+
 - **Traction**: Revenue, users, partnerships, metrics
-  - Provide tractionFeedback: 3-4 sentences analyzing customer traction, revenue metrics, growth trajectory, and validation signals. If traction is weak or non-existent, be direct about the implications.
+  - Provide tractionFeedback: 6-8 sentences covering:
+    1. Current metrics (revenue, ARR, MRR, users, customers with specific numbers)
+    2. Growth trajectory (MoM, YoY growth rates, acceleration or deceleration?)
+    3. Customer acquisition (how are they getting customers? CAC metrics?)
+    4. Customer retention (churn rate, NRR, customer satisfaction signals)
+    5. Key partnerships or validation signals (enterprise customers, pilots, LOIs)
+    6. Quality of traction (is it real revenue or just vanity metrics?)
+  - Be honest about traction quality. Weak or fake traction must be called out.
+
 - **Financials**: Projections quality, burn rate, use of funds
-  - Provide financialsFeedback: 3-4 sentences evaluating financial projections, unit economics, burn rate, runway, and capital efficiency. If projections are unrealistic or missing, call it out clearly.
+  - Provide financialsFeedback: 6-8 sentences covering:
+    1. Financial projections quality (realistic? based on data? hockey stick?)
+    2. Unit economics (CAC, LTV, LTV:CAC ratio, gross margins, contribution margin)
+    3. Current burn rate and runway (months of cash left)
+    4. Path to profitability (when and how will they be cash-flow positive?)
+    5. Use of funds clarity (is ask amount justified? clear deployment plan?)
+    6. Capital efficiency (are they using money wisely? can they do more with less?)
+  - Be harsh on unrealistic projections or missing critical financial data.
 
 **Readiness Score** = average of 5 scores
 **is_investment_ready** = true if score >= 70 AND no deal-breakers
@@ -235,15 +275,15 @@ REMINDER: The pages array below MUST contain ALL ${pageCount} pages. Every page 
     "readinessSummary": "<direct assessment of investment readiness>",
     "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
     "teamScore": <0-100>,
-    "teamFeedback": "<3-4 sentences of brutal team assessment>",
+    "teamFeedback": "<6-8 comprehensive sentences covering all team aspects>",
     "marketOpportunityScore": <0-100>,
-    "marketOpportunityFeedback": "<3-4 sentences of brutal market assessment>",
+    "marketOpportunityFeedback": "<6-8 comprehensive sentences covering all market aspects>",
     "productScore": <0-100>,
-    "productFeedback": "<3-4 sentences of brutal product assessment>",
+    "productFeedback": "<6-8 comprehensive sentences covering all product aspects>",
     "tractionScore": <0-100>,
-    "tractionFeedback": "<3-4 sentences of brutal traction assessment>",
+    "tractionFeedback": "<6-8 comprehensive sentences covering all traction aspects>",
     "financialsScore": <0-100>,
-    "financialsFeedback": "<3-4 sentences of brutal financials assessment>"
+    "financialsFeedback": "<6-8 comprehensive sentences covering all financial aspects>"
   },
   "redFlags": [
     {

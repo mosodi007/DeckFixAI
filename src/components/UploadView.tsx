@@ -97,7 +97,7 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
           Make your Pitch Deck Investor-Ready in Minutes.
         </h2>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Upload your pitch deck and receive professional AI analysis based on industry standards and patterns from thousands of successfully funded startups.
+          Receive professional AI analysis based on industry VC standards and patterns from thousands of successfully funded startups.
         </p>
       </div>
 

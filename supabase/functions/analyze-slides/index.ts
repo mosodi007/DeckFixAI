@@ -63,9 +63,10 @@ Deno.serve(async (req: Request) => {
           return { pageNumber: page.page_number, success: false };
         }
 
+        // imageUrl now contains the storage path like "slide-images/analysisId/page_X.jpg"
         const publicImageUrl = `${supabaseUrl}/storage/v1/object/public/${imageUrl}`;
 
-        console.log(`Analyzing slide ${page.page_number} with OpenAI Vision...`);
+        console.log(`Analyzing slide ${page.page_number} with image URL: ${publicImageUrl}`);
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',

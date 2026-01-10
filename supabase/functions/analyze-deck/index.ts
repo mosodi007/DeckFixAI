@@ -511,14 +511,10 @@ CRITICAL REQUIREMENTS:
     const analysisId = analysisRecord.id;
     console.log('Analysis created with ID:', analysisId);
 
-    const { data: { publicUrl: storageBaseUrl } } = supabase.storage
-      .from('slide-images')
-      .getPublicUrl('dummy');
-    const baseUrl = storageBaseUrl.replace('/dummy', '');
-
     if (analysis.pages && analysis.pages.length > 0) {
       let pagesData = analysis.pages.map((page: any) => {
-        const imageUrl = `${baseUrl}/${analysisId}/page_${page.pageNumber}.jpg`;
+        // Store only the storage path, not the full URL
+        const imagePath = `slide-images/${analysisId}/page_${page.pageNumber}.jpg`;
         return {
           analysis_id: analysisId,
           page_number: page.pageNumber,
@@ -528,8 +524,8 @@ CRITICAL REQUIREMENTS:
           feedback: page.feedback || null,
           recommendations: page.recommendations || [],
           ideal_version: page.idealVersion || null,
-          image_url: imageUrl,
-          thumbnail_url: imageUrl,
+          image_url: imagePath,
+          thumbnail_url: imagePath,
         };
       });
 
@@ -540,7 +536,7 @@ CRITICAL REQUIREMENTS:
 
         for (let i = 1; i <= pageCount; i++) {
           if (!returnedPageNumbers.has(i)) {
-            const imageUrl = `${baseUrl}/${analysisId}/page_${i}.jpg`;
+            const imagePath = `slide-images/${analysisId}/page_${i}.jpg`;
             pagesData.push({
               analysis_id: analysisId,
               page_number: i,
@@ -550,8 +546,8 @@ CRITICAL REQUIREMENTS:
               feedback: 'This page will be analyzed when you upload slide images',
               recommendations: ['Upload slide images for detailed visual analysis'],
               ideal_version: null,
-              image_url: imageUrl,
-              thumbnail_url: imageUrl,
+              image_url: imagePath,
+              thumbnail_url: imagePath,
             });
           }
         }
@@ -568,7 +564,7 @@ CRITICAL REQUIREMENTS:
       console.warn('No pages returned by OpenAI, creating placeholders for all pages');
       const pagesData = [];
       for (let i = 1; i <= pageCount; i++) {
-        const imageUrl = `${baseUrl}/${analysisId}/page_${i}.jpg`;
+        const imagePath = `slide-images/${analysisId}/page_${i}.jpg`;
         pagesData.push({
           analysis_id: analysisId,
           page_number: i,
@@ -578,8 +574,8 @@ CRITICAL REQUIREMENTS:
           feedback: 'This page will be analyzed when you upload slide images',
           recommendations: ['Upload slide images for detailed visual analysis'],
           ideal_version: null,
-          image_url: imageUrl,
-          thumbnail_url: imageUrl,
+          image_url: imagePath,
+          thumbnail_url: imagePath,
         });
       }
       console.log(`Inserting ${pagesData.length} placeholder pages`);

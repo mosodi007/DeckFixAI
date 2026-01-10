@@ -46,6 +46,7 @@ export async function generateSlideFix(
     const headers: Record<string, string> = {
       'apikey': supabaseKey,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
 
     const { data: { session } } = await supabase.auth.getSession();
@@ -193,6 +194,7 @@ export async function generateIssueFix(
     const headers: Record<string, string> = {
       'apikey': supabaseKey,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
 
     const { data: { session } } = await supabase.auth.getSession();

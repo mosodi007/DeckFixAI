@@ -134,6 +134,7 @@ export async function analyzeDeck(
 
   const headers: Record<string, string> = {
     'apikey': supabaseKey,
+    'Accept': 'application/json',
   };
 
   const { data: { session } } = await supabase.auth.getSession();

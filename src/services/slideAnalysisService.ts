@@ -10,6 +10,7 @@ export async function analyzeSlides(analysisId: string): Promise<{ success: bool
     const headers: Record<string, string> = {
       'apikey': supabaseKey,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
 
     const { data: { session } } = await supabase.auth.getSession();

@@ -4,6 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
 import { analyzeDeck } from '../services/analysisService';
+import { extractPageImages } from '../services/pdfImageExtractor';
+import { uploadPageImages } from '../services/storageService';
+import { v4 as uuidv4 } from 'uuid';
 
 interface DeckAnalysis {
   id: string;
@@ -43,12 +46,10 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
         .from('analyses')
         .select(`
           id,
-          deck_name,
+          file_name,
           overall_score,
           total_pages,
-          created_at,
-          general_strengths,
-          critical_issues_count
+          created_at
         `)
         .order('created_at', { ascending: false });
 
@@ -58,13 +59,12 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
 
       const formattedAnalyses: DeckAnalysis[] = (data || []).map(item => ({
         id: item.id,
-        deck_name: item.deck_name || 'Untitled Deck',
+        deck_name: item.file_name || 'Untitled Deck',
         overall_score: item.overall_score || 0,
         total_pages: item.total_pages || 0,
         created_at: item.created_at,
         status: 'completed',
-        key_strengths: item.general_strengths,
-        critical_issues_count: item.critical_issues_count || 0,
+        critical_issues_count: 0,
       }));
 
       setAnalyses(formattedAnalyses);
@@ -118,14 +118,30 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     setUploadProgress(0);
 
     try {
-      setUploadProgress(30);
+      const analysisId = uuidv4();
 
-      const result = await analyzeDeck(file);
+      setUploadProgress(10);
+
+      const images = await extractPageImages(file, (progress) => {
+        const extractionProgress = 10 + (progress.currentPage / progress.totalPages) * 30;
+        setUploadProgress(Math.round(extractionProgress));
+      });
+
+      setUploadProgress(40);
+
+      const imageUrls = await uploadPageImages(images, analysisId, (progress) => {
+        const uploadProgress = 40 + (progress.currentPage / progress.totalPages) * 20;
+        setUploadProgress(Math.round(uploadProgress));
+      });
+
+      setUploadProgress(60);
+
+      await analyzeDeck(file, analysisId, imageUrls);
 
       setUploadProgress(100);
 
       setTimeout(() => {
-        onViewAnalysis(result.analysisId);
+        onViewAnalysis(analysisId);
       }, 500);
     } catch (error: any) {
       console.error('Upload failed:', error);

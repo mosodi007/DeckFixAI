@@ -3,6 +3,10 @@ import { AnalysisData } from '../services/analysisService';
 export function adaptAnalysisData(data: AnalysisData) {
   const criticalIssuesCount = data.metrics.weaknesses.length;
 
+  const criticalIssuesFeedback = criticalIssuesCount > 0
+    ? `Your pitch deck has ${criticalIssuesCount} key ${criticalIssuesCount === 1 ? 'issue' : 'issues'} that need attention:\n\n${data.metrics.weaknesses.map((w, i) => `${i + 1}. ${w}`).join('\n\n')}`
+    : 'No critical issues identified. Your pitch deck demonstrates strong execution across all key areas.';
+
   return {
     id: data.id,
     fileName: data.fileName,
@@ -20,7 +24,7 @@ export function adaptAnalysisData(data: AnalysisData) {
     investmentGradeFeedback: data.investmentGradeFeedback,
     fundingOddsFeedback: data.fundingOddsFeedback,
     wordDensityFeedback: data.wordDensityFeedback,
-    criticalIssuesFeedback: data.disruptionSignalFeedback,
+    criticalIssuesFeedback,
     pageCountFeedback: data.pageCountFeedback,
     keyMetrics: {
       companyName: data.keyMetrics.companyName,

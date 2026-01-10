@@ -207,7 +207,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                 className={`w-full text-left px-4 py-3 rounded-xl mb-3 transition-all duration-300 ${
                   selectedPage === 0
                     ? 'bg-slate-600 text-white shadow-md'
-                    : 'bg-slate-100 text-red-700 hover:bg-slate-200'
+                    : 'bg-red-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
                 <div className="flex justify-between items-center">

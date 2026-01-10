@@ -137,7 +137,7 @@ export function FixSlideModal({
               </h3>
               <button
                 onClick={() => handleCopy(fix.exactReplacementText, 'replacement')}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm"
               >
                 {copiedSection === 'replacement' ? (
                   <>

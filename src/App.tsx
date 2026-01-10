@@ -248,7 +248,7 @@ function App() {
                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                           >
                             <CreditCard className="w-4 h-4" />
-                            Credit History
+                            Subscription & Credits
                           </button>
                           <button
                             onClick={handleLogout}

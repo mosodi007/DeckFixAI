@@ -120,45 +120,12 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
       return;
     }
 
-    const currentPage = deckPages.find((p: any) => p.page_number === pageNumber);
-    if (!currentPage) return;
+    const FIXED_CREDIT_COST = 5;
 
-    setIsEstimatingCost(true);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/estimate-fix-cost`;
-      const estimateResponse = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          slideContent: currentPage.content || '',
-          slideFeedback: currentPage.feedback || '',
-          slideRecommendations: currentPage.recommendations || [],
-        }),
-      });
-
-      const estimateData = await estimateResponse.json();
-
-      if (estimateResponse.ok && estimateData.success) {
-        setSlideCostEstimates(prev => ({
-          ...prev,
-          [pageNumber]: estimateData.creditCost,
-        }));
-      } else {
-        console.error('Failed to estimate cost for slide:', { status: estimateResponse.status, data: estimateData });
-      }
-    } catch (error) {
-      console.error('Error estimating slide cost:', error);
-    } finally {
-      setIsEstimatingCost(false);
-    }
+    setSlideCostEstimates(prev => ({
+      ...prev,
+      [pageNumber]: FIXED_CREDIT_COST,
+    }));
   };
 
   useEffect(() => {
@@ -221,41 +188,19 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
 
       setCurrentBalance(credits.creditsBalance);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setFixError('Authentication required');
-        setIsGeneratingFix(false);
-        return;
-      }
+      const FIXED_CREDIT_COST = 5;
+      const issueCount = [
+        currentPage.feedback,
+        ...(currentPage.recommendations || [])
+      ].filter(Boolean).length || 1;
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/estimate-fix-cost`;
-      const estimateResponse = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          slideContent: currentPage.content || '',
-          slideFeedback: currentPage.feedback || '',
-          slideRecommendations: currentPage.recommendations || [],
-        }),
-      });
-
-      const estimateData = await estimateResponse.json();
-
-      if (!estimateResponse.ok || !estimateData.success) {
-        const errorMsg = estimateData.error || estimateData.message || 'Failed to estimate cost';
-        console.error('Estimate API error:', { status: estimateResponse.status, data: estimateData });
-        throw new Error(errorMsg);
-      }
+      const complexityScore = Math.min(50 + (issueCount * 10), 100);
 
       setCostEstimation({
-        estimatedCost: estimateData.creditCost,
-        complexityScore: estimateData.complexityScore,
-        complexityLevel: estimateData.complexityLevel,
-        explanation: estimateData.explanation,
+        estimatedCost: FIXED_CREDIT_COST,
+        complexityScore,
+        complexityLevel: 'medium',
+        explanation: `${issueCount} issue${issueCount > 1 ? 's' : ''} to fix`,
       });
 
       setPendingFixData({
@@ -267,14 +212,14 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         feedback: currentPage.feedback,
         recommendations: currentPage.recommendations,
         imageUrl: currentPage.image_url,
-        estimatedCost: estimateData.creditCost,
-        complexityScore: estimateData.complexityScore,
+        estimatedCost: FIXED_CREDIT_COST,
+        complexityScore,
       });
 
       setShowCostModal(true);
     } catch (error) {
-      console.error('Error estimating fix cost:', error);
-      setFixError('Failed to estimate fix cost. Please try again.');
+      console.error('Error preparing fix:', error);
+      setFixError('Failed to prepare fix. Please try again.');
     } finally {
       setIsGeneratingFix(false);
     }

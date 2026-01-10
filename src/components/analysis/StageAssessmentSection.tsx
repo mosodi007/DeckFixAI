@@ -62,9 +62,8 @@ export function StageAssessmentSection({ stageAssessment, fundingStage }: StageA
     <GlassCard className="p-6 mb-8">
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-3">
-          <StageIcon className="w-6 h-6 text-slate-700" />
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Funding Stage Assessment</h3>
+            <h3 className="text-xl font-bold text-slate-900">Stage Assessment</h3>
             <p className="text-sm text-slate-600">Stage-specific evaluation and guidance</p>
           </div>
         </div>

@@ -79,13 +79,21 @@ Deno.serve(async (req: Request) => {
 
     let text: string;
     let pageCount: number;
+    let perPageWordCounts: { pageNumber: number; wordCount: number }[];
 
     try {
       const result = await extractTextFromPDF(arrayBuffer);
       text = result.text;
       pageCount = result.pageCount;
+
+      // Calculate word count per page
+      perPageWordCounts = result.pages.map(page => ({
+        pageNumber: page.pageNumber,
+        wordCount: page.text.trim().split(/\s+/).filter(w => w.length > 0).length
+      }));
+
       console.log(`✓ PDF extraction successful: ${text.length} characters from ${pageCount} pages`);
-      console.log('Extracted pages:', result.pages.map(p => `Page ${p.pageNumber}: ${p.text.substring(0, 50)}...`));
+      console.log('Word counts per page:', perPageWordCounts.map(p => `Page ${p.pageNumber}: ${p.wordCount} words`).join(', '));
     } catch (pdfError) {
       console.error('PDF extraction failed:', pdfError);
       throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
@@ -96,7 +104,12 @@ Deno.serve(async (req: Request) => {
     console.log('Preparing OpenAI request (text-only analysis)...');
     console.log('Text length to send:', textToAnalyze.length, 'chars');
 
+    const wordCountSummary = perPageWordCounts.map(p => `Page ${p.pageNumber}: ${p.wordCount} words`).join(', ');
+
     const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be brutally honest and direct. No sugar-coating. Call out weaknesses plainly.
+
+## WORD COUNT PER PAGE:
+${wordCountSummary}
 
 ## DECK CONTENT:
 ${textToAnalyze}
@@ -260,9 +273,10 @@ Extract the following business metrics from the deck content. If a metric is not
 - customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
 
 ### ASSESS DECK QUALITY METRICS:
-Analyze these quality metrics with brutal honesty:
-- wordDensity: Assessment of text density per slide. Return one of: "Low" (minimal text, mostly visuals), "Medium" (balanced text and visuals), "High" (text-heavy but readable), "Very High" (overwhelming text, slides too busy)
-- wordDensityFeedback: 2-3 sentences being brutally honest about text density. Don't sugarcoat - if slides are text walls, say so. If they're too sparse, call it out.
+Analyze these quality metrics with brutal honesty. IMPORTANT: Use the "WORD COUNT PER PAGE" data provided above to inform your word density assessment. DO NOT assume slides are empty just because they have fewer words - slides can be visual-heavy with images, charts, or diagrams.
+
+- wordDensity: Assessment of text density per slide based on the word counts provided. Calculate the average words per page and classify: "Low" (<30 words/page average - minimal text, mostly visuals), "Medium" (30-80 words/page - balanced text and visuals), "High" (80-150 words/page - text-heavy but readable), "Very High" (>150 words/page - overwhelming text, slides too busy)
+- wordDensityFeedback: 2-3 sentences being brutally honest about text density based on the actual word counts per page. Acknowledge the specific distribution (e.g., "Page 1 has 200 words while pages 2-10 average 40 words"). DO NOT claim slides are empty unless word count is literally 0. Low word count can indicate visual-heavy slides (images, charts) which is often GOOD for pitch decks. If distribution is unbalanced (e.g., first slide very text-heavy, rest reasonable), state that specifically.
 - disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting. Be harsh - most ideas are not disruptive.
 - disruptionSignalFeedback: 2-3 sentences of brutal truth about the innovation level. If it's just another SaaS tool or incremental improvement, say so plainly. Don't inflate mediocre ideas.
 - pageCountFeedback: 2-3 sentences being direct about whether page count is appropriate. If it's too long, say it's bloated. If too short, say it's underdeveloped.

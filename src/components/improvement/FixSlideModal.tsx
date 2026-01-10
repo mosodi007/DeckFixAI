@@ -202,32 +202,6 @@ export function FixSlideModal({
               ))}
             </div>
           </div>
-
-          <div className="flex gap-3 pt-4 border-t border-slate-200">
-            <button
-              onClick={handleMarkAsApplied}
-              disabled={isApplying}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#000] hover:from-green-700 hover:to-green-800 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isApplying ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Marking as Applied...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Mark as Applied
-                </>
-              )}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors"
-            >
-              Close
-            </button>
-          </div>
         </div>
       </div>
     </div>

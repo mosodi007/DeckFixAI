@@ -116,8 +116,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   };
 
   const calculateCreditCost = (score: number): number => {
-    if (score <= 3.5) return 10;
-    if (score <= 8.0) return 5;
+    if (score <= 35) return 10;
+    if (score <= 80) return 5;
     return 2;
   };
 
@@ -208,8 +208,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
       const complexityScore = Math.min(50 + (issueCount * 10), 100);
 
       let complexityLevel = 'low';
-      if (slideScore <= 3.5) complexityLevel = 'high';
-      else if (slideScore <= 8.0) complexityLevel = 'medium';
+      if (slideScore <= 35) complexityLevel = 'high';
+      else if (slideScore <= 80) complexityLevel = 'medium';
 
       setCostEstimation({
         estimatedCost: creditCost,

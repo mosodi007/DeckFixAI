@@ -260,7 +260,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
               </div>
 
               {selectedPage > 0 && (
-                <div className="mb-6 p-4 bg-[#000] border border-blue-200 rounded-xl">
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
                       <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2">

@@ -145,8 +145,26 @@ For EACH page (1 to ${pageCount}):
 - recommendations: Array of 1-2 actions (each max 5 words)
 - idealVersion: 1 very short sentence (max 10 words)
 
-### IDENTIFY ISSUES:
-List specific problems found (diagnostic):
+### KEY STRENGTHS:
+List 3-8 major strengths of the deck. Each strength should be a detailed, specific statement (10-20 words) that includes:
+- WHAT the strength is
+- WHY it matters to investors
+- Specific metrics, names, or details when available
+- Example: Instead of "Strong team" write "Experienced founding team with 15+ years at Google and Tesla, proven track record in autonomous systems"
+- Example: Instead of "Good traction" write "Strong early traction with 5K paying users and $200K MRR after 8 months, 25% MoM growth"
+- Example: Instead of "Large market" write "Targeting $85B financial services market with clear wedge in underbanked Nigerian SME segment (15M businesses)"
+
+### KEY ISSUES TO ADDRESS:
+List 3-8 critical issues that must be fixed. Each issue should be a detailed, specific statement (10-20 words) that includes:
+- WHAT the problem is
+- WHY it's concerning to investors
+- Specific examples or page references when relevant
+- Example: Instead of "Weak financials" write "Financials page lacks critical unit economics - CAC, LTV, and payback period missing, making ROI unclear"
+- Example: Instead of "Poor design" write "Slides 4-7 are text-heavy with 200+ words per slide, making key points hard to grasp quickly"
+- Example: Instead of "Missing information" write "No clear go-to-market strategy - customer acquisition channels, costs, and timeline completely absent"
+
+### DETAILED DIAGNOSTIC ISSUES:
+List specific problems found for improvement tracking:
 - pageNumber: which page has the issue (or null if deck-wide)
 - priority: "high", "medium", or "low"
 - title: brief issue name
@@ -294,9 +312,9 @@ REMINDER: The pages array below MUST contain ALL ${pageCount} pages. Every page 
     "investmentGradeFeedback": "<2-3 brutal sentences explaining the grade>",
     "fundingOddsFeedback": "<2-3 brutal sentences about funding reality>"
   },
-  "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
-  "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
-  "issues": [
+  "strengths": ["<detailed specific strength 1 (10-20 words)>", "<detailed specific strength 2 (10-20 words)>", ...],
+  "issues": ["<detailed specific issue 1 (10-20 words)>", "<detailed specific issue 2 (10-20 words)>", ...],
+  "detailedIssues": [
     {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<title>", "description": "<details>"},
     ...
   ],
@@ -513,7 +531,6 @@ CRITICAL REQUIREMENTS:
 
     if (analysis.pages && analysis.pages.length > 0) {
       let pagesData = analysis.pages.map((page: any) => {
-        // Store only the storage path, not the full URL
         const imagePath = `slide-images/${analysisId}/page_${page.pageNumber}.jpg`;
         return {
           analysis_id: analysisId,
@@ -529,7 +546,6 @@ CRITICAL REQUIREMENTS:
         };
       });
 
-      // If OpenAI didn't return all pages (due to token limits), create placeholder pages for missing ones
       if (analysis.pages.length < pageCount) {
         console.warn(`Creating placeholder pages for ${pageCount - analysis.pages.length} missing pages`);
         const returnedPageNumbers = new Set(analysis.pages.map((p: any) => p.pageNumber));
@@ -552,7 +568,6 @@ CRITICAL REQUIREMENTS:
           }
         }
 
-        // Sort by page number
         pagesData.sort((a, b) => a.page_number - b.page_number);
       }
 
@@ -560,7 +575,6 @@ CRITICAL REQUIREMENTS:
       console.log('Page numbers:', pagesData.map((p: any) => p.page_number));
       await supabase.from('analysis_pages').insert(pagesData);
     } else {
-      // If no pages at all, create placeholders for all pages
       console.warn('No pages returned by OpenAI, creating placeholders for all pages');
       const pagesData = [];
       for (let i = 1; i <= pageCount; i++) {
@@ -587,7 +601,7 @@ CRITICAL REQUIREMENTS:
       await supabase.from('analysis_metrics').insert({
         analysis_id: analysisId,
         strengths: analysis.strengths || [],
-        weaknesses: analysis.weaknesses || [],
+        weaknesses: analysis.issues || [],
         clarity_score: analysis.metrics.clarityScore,
         design_score: analysis.metrics.designScore,
         content_score: analysis.metrics.contentScore,
@@ -612,10 +626,10 @@ CRITICAL REQUIREMENTS:
       });
     }
 
-    if (analysis.issues && analysis.issues.length > 0) {
-      console.log(`Inserting ${analysis.issues.length} issues`);
+    if (analysis.detailedIssues && analysis.detailedIssues.length > 0) {
+      console.log(`Inserting ${analysis.detailedIssues.length} detailed issues`);
       await supabase.from('analysis_issues').insert(
-        analysis.issues.map((issue: any) => ({
+        analysis.detailedIssues.map((issue: any) => ({
           analysis_id: analysisId,
           page_number: issue.pageNumber || null,
           priority: issue.priority,

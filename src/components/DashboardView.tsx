@@ -380,94 +380,98 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {analyses.map((analysis) => (
               <div
                 key={analysis.id}
-                className="group bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden"
+                className="group bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden flex flex-col cursor-pointer"
+                onClick={() => onViewAnalysis(analysis.id)}
               >
-                <div className="flex flex-col sm:flex-row">
-                  {/* Cover Image */}
-                  <div className="sm:w-48 sm:h-64 h-48 flex-shrink-0 bg-slate-100 relative overflow-hidden">
-                    <img
-                      src={getCoverImageUrl(analysis.id)}
-                      alt={`${analysis.deck_name} cover`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-slate-100"><svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>';
-                      }}
-                    />
+                {/* Cover Image - Full Width */}
+                <div className="w-full aspect-[16/9] bg-slate-100 relative overflow-hidden">
+                  <img
+                    src={getCoverImageUrl(analysis.id)}
+                    alt={`${analysis.deck_name} cover`}
+                    className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100"><svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>';
+                    }}
+                  />
+
+                  {/* Score Badge Overlay */}
+                  <div className="absolute top-3 right-3">
+                    <ScoreCircle score={analysis.overall_score} size="sm" />
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-5 flex flex-col flex-1">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 truncate group-hover:text-slate-700 transition-colors">
+                        {analysis.deck_name}
+                      </h3>
+                      <div className="flex items-center gap-3 text-xs text-slate-600">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {formatDate(analysis.created_at)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-3.5 h-3.5" />
+                          {analysis.total_pages} slides
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 p-6 flex flex-col">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-xl font-bold text-slate-900 mb-2 truncate group-hover:text-slate-700 transition-colors">
-                          {analysis.deck_name}
-                        </h3>
-                        <div className="flex items-center gap-4 text-sm text-slate-600">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(analysis.created_at)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <FileText className="w-4 h-4" />
-                            {analysis.total_pages} slides
-                          </span>
-                        </div>
-                      </div>
+                  {/* Score Badge */}
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs mb-3 ${getScoreBgColor(analysis.overall_score)}`}>
+                    <span className={`font-semibold ${getScoreColor(analysis.overall_score)}`}>
+                      {analysis.overall_score >= 80 && 'Investment Ready'}
+                      {analysis.overall_score >= 60 && analysis.overall_score < 80 && 'Strong Foundation'}
+                      {analysis.overall_score >= 40 && analysis.overall_score < 60 && 'Needs Improvement'}
+                      {analysis.overall_score < 40 && 'Major Issues'}
+                    </span>
+                  </div>
 
-                      <div className="ml-4 flex-shrink-0">
-                        <div className="relative">
-                          <ScoreCircle score={analysis.overall_score} size="md" />
-                        </div>
-                      </div>
+                  {/* Quick Stats */}
+                  {analysis.critical_issues_count !== undefined && analysis.critical_issues_count > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{analysis.critical_issues_count} critical {analysis.critical_issues_count === 1 ? 'issue' : 'issues'}</span>
                     </div>
+                  )}
 
-                    {/* Score Badge */}
-                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border mb-4 ${getScoreBgColor(analysis.overall_score)}`}>
-                      <span className={`text-sm font-semibold ${getScoreColor(analysis.overall_score)}`}>
-                        {analysis.overall_score >= 80 && 'Investment Ready'}
-                        {analysis.overall_score >= 60 && analysis.overall_score < 80 && 'Strong Foundation'}
-                        {analysis.overall_score >= 40 && analysis.overall_score < 60 && 'Needs Improvement'}
-                        {analysis.overall_score < 40 && 'Major Issues'}
-                      </span>
-                    </div>
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-auto">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewAnalysis(analysis.id);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-all hover:shadow-md"
+                    >
+                      View Analysis
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
 
-                    {/* Quick Stats */}
-                    {analysis.critical_issues_count !== undefined && analysis.critical_issues_count > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
-                        <AlertCircle className="w-4 h-4" />
-                        <span>{analysis.critical_issues_count} critical {analysis.critical_issues_count === 1 ? 'issue' : 'issues'} found</span>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 pt-4 border-t border-slate-100 mt-auto">
-                      <button
-                        onClick={() => onViewAnalysis(analysis.id)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all hover:shadow-md group-hover:scale-[1.02]"
-                      >
-                        View Analysis
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => handleDelete(analysis.id, analysis.deck_name)}
-                        disabled={deletingId === analysis.id}
-                        className="p-3 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all disabled:opacity-50"
-                        title="Delete analysis"
-                      >
-                        {deletingId === analysis.id ? (
-                          <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                        ) : (
-                          <Trash2 className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(analysis.id, analysis.deck_name);
+                      }}
+                      disabled={deletingId === analysis.id}
+                      className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                      title="Delete analysis"
+                    >
+                      {deletingId === analysis.id ? (
+                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>

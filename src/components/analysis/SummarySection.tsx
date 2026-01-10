@@ -109,8 +109,6 @@ export function SummarySection({
       </div>
       <div className="border-t border-slate-200 pt-6 mb-6">
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-          </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900">Business Summary</h3>
             <p className="text-sm text-slate-600">Executive overview of your pitch deck</p>

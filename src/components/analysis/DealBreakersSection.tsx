@@ -52,7 +52,7 @@ export function DealBreakersSection({ dealBreakers }: DealBreakersSectionProps) 
                 <div className="flex items-start gap-2">
                   <div>
                     <p className="text-xs font-semibold text-blue-900 mb-1">Required Action:</p>
-                    <p className="text-sm text-blue-800">{breaker.recommendation}</p>
+                    <p className="text-sm text-black-800">{breaker.recommendation}</p>
                   </div>
                 </div>
               </div>

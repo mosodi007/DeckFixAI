@@ -90,3 +90,11 @@ export async function deleteAnalysisImages(analysisId: string): Promise<void> {
     throw deleteError;
   }
 }
+
+export function getCoverImageUrl(analysisId: string): string {
+  const { data: { publicUrl } } = supabase.storage
+    .from('slide-images')
+    .getPublicUrl(`${analysisId}/page_1.jpg`);
+
+  return publicUrl;
+}

@@ -39,10 +39,10 @@ export function ScoreCircle({ score, size }: ScoreCircleProps) {
           className="transition-all duration-1000"
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      {/* <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold text-slate-900">{score}%</span>
         <span className="text-sm text-slate-600">Overall Score</span>
-      </div>
+      </div> */}
     </div>
   );
 }

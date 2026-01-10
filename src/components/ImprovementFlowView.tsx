@@ -107,7 +107,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                 <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                Analyzing Your Slides
+                Analyzing all Issues in your Pitch Deck
               </h3>
               <p className="text-slate-600 mb-2">
                 Using DeckFix AI Vision to provide in-depth analysis and recommendations for each slide...

@@ -144,7 +144,7 @@ Provide your analysis in the following JSON format:
                 ]
               }
             ],
-            max_tokens: 1500,
+            max_tokens: 2000,
             temperature: 0.7,
           }),
         });
@@ -162,13 +162,22 @@ Provide your analysis in the following JSON format:
           throw new Error('No content returned from OpenAI');
         }
 
+        console.log(`Slide ${page.page_number} response length:`, content.length);
+
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          console.error('Could not extract JSON from response:', content);
+          console.error(`Could not extract JSON from slide ${page.page_number} response:`, content);
           throw new Error('Invalid JSON response from OpenAI');
         }
 
-        const analysis = JSON.parse(jsonMatch[0]);
+        let analysis;
+        try {
+          analysis = JSON.parse(jsonMatch[0]);
+        } catch (parseError) {
+          console.error(`JSON parse error for slide ${page.page_number}:`, parseError);
+          console.error('Matched JSON string:', jsonMatch[0]);
+          throw new Error('Invalid JSON format in OpenAI response');
+        }
 
         const { error: updateError } = await supabase
           .from('analysis_pages')

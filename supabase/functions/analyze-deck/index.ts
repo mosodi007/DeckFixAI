@@ -243,7 +243,7 @@ async function analyzeWithVision(
           ]
         }
       ],
-      max_tokens: 4000,
+      max_tokens: 8000,
       temperature: 0.7,
     }),
   });
@@ -261,12 +261,22 @@ async function analyzeWithVision(
     throw new Error('No response from OpenAI Vision');
   }
 
+  console.log('OpenAI Vision response length:', content.length);
+  console.log('First 500 chars:', content.substring(0, 500));
+
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('No JSON found in Vision response');
+    console.error('Failed to extract JSON. Full response:', content);
+    throw new Error('No JSON found in Vision response. Check function logs for details.');
   }
 
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError);
+    console.error('Matched JSON string:', jsonMatch[0]);
+    throw new Error('Invalid JSON in Vision response. Check function logs for details.');
+  }
 }
 
 async function analyzeWithText(
@@ -294,7 +304,7 @@ async function analyzeWithText(
           content: `Analyze this ${pageCount}-page pitch deck:\n\n${textToAnalyze}`
         }
       ],
-      max_tokens: 4000,
+      max_tokens: 8000,
       temperature: 0.7,
     }),
   });
@@ -312,12 +322,22 @@ async function analyzeWithText(
     throw new Error('No response from OpenAI');
   }
 
+  console.log('OpenAI Text response length:', content.length);
+  console.log('First 500 chars:', content.substring(0, 500));
+
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('No JSON found in response');
+    console.error('Failed to extract JSON. Full response:', content);
+    throw new Error('No JSON found in response. Check function logs for details.');
   }
 
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError);
+    console.error('Matched JSON string:', jsonMatch[0]);
+    throw new Error('Invalid JSON in response. Check function logs for details.');
+  }
 }
 
 Deno.serve(async (req: Request) => {

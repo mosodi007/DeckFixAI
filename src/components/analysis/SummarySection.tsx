@@ -107,6 +107,22 @@ export function SummarySection({
           Export Report
         </Button>
       </div>
+      <div className="border-t border-slate-200 pt-6 mb-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-slate-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Business Summary</h3>
+            <p className="text-sm text-slate-600">Executive overview of your pitch deck</p>
+          </div>
+        </div>
+        <div className="prose prose-slate max-w-none">
+          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+            {businessSummary}
+          </p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <StatCard
@@ -156,22 +172,7 @@ export function SummarySection({
         />
       </div>
 
-      <div className="border-t border-slate-200 pt-6 mb-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-            <FileText className="w-5 h-5 text-slate-700" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-900">Business Summary</h3>
-            <p className="text-sm text-slate-600">Executive overview of your pitch deck</p>
-          </div>
-        </div>
-        <div className="prose prose-slate max-w-none">
-          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-            {businessSummary}
-          </p>
-        </div>
-      </div>
+      
 
       <div className="flex gap-3">
         <Button variant="primary" icon={Wand2} className="flex-1" onClick={onOpenImprovementFlow}>

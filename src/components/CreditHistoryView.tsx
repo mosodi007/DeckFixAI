@@ -28,9 +28,10 @@ import {
 
 interface CreditHistoryViewProps {
   onBack: () => void;
+  onViewUsageHistory: () => void;
 }
 
-export function CreditHistoryView({ onBack }: CreditHistoryViewProps) {
+export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryViewProps) {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
@@ -224,7 +225,7 @@ export function CreditHistoryView({ onBack }: CreditHistoryViewProps) {
                 <span>Next credit refill: <strong className="text-white">{nextRefillDate}</strong></span>
               </div>
               <button
-                onClick={() => setShowTransactions(!showTransactions)}
+                onClick={onViewUsageHistory}
                 className="text-sm text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
               >
                 Usage History

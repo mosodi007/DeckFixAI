@@ -6,6 +6,7 @@ import { ImprovementFlowView } from './components/ImprovementFlowView';
 import { DashboardView } from './components/DashboardView';
 import { PricingView } from './components/PricingView';
 import { CreditHistoryView } from './components/CreditHistoryView';
+import { UsageHistoryView } from './components/UsageHistoryView';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoginModal } from './components/auth/LoginModal';
 import { SignUpModal } from './components/auth/SignUpModal';
@@ -17,7 +18,7 @@ import { logout } from './services/authService';
 
 function App() {
   const { user, isAuthenticated } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits'>('upload');
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
@@ -294,7 +295,12 @@ function App() {
         ) : view === 'pricing' ? (
           <PricingView />
         ) : view === 'credits' ? (
-          <CreditHistoryView onBack={handleGoToDashboard} />
+          <CreditHistoryView
+            onBack={handleGoToDashboard}
+            onViewUsageHistory={() => setView('usage-history')}
+          />
+        ) : view === 'usage-history' ? (
+          <UsageHistoryView onBack={() => setView('credits')} />
         ) : view === 'dashboard' ? (
           <DashboardView
             onViewAnalysis={handleViewAnalysis}

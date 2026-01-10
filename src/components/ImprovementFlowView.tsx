@@ -306,7 +306,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                     <div className="space-y-4 mb-6">
                       {hasFeedback && (
                         <div className="border border-blue-200 rounded-xl p-5">
-                          <h3 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wide">
+                          <h3 className="font-bold text-blue-900 mb-3 text-sm tracking-wide">
                             Slide Feedback
                           </h3>
                           <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
@@ -317,7 +317,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
 
                       {hasRecommendations && (
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                          <h3 className="font-bold text-[#000] mb-3 text-sm uppercase tracking-wide">
+                          <h3 className="font-bold text-[#000] mb-3 text-sm tracking-wide">
                             Recommendations
                           </h3>
                           <ul className="space-y-2">

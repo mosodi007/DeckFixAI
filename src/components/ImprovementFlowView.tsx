@@ -309,24 +309,77 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                 </div>
               )}
 
+              {/* Slide-Specific Feedback and Recommendations */}
+              {selectedPage > 0 && (() => {
+                const currentSlide = deckPages.find((p: any) => p.page_number === selectedPage);
+                const hasFeedback = currentSlide?.feedback && currentSlide.feedback.trim();
+                const hasRecommendations = currentSlide?.recommendations && currentSlide.recommendations.length > 0;
+
+                if (hasFeedback || hasRecommendations) {
+                  return (
+                    <div className="space-y-4 mb-6">
+                      {hasFeedback && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                          <h3 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wide">
+                            AI Feedback
+                          </h3>
+                          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                            {currentSlide.feedback}
+                          </p>
+                        </div>
+                      )}
+
+                      {hasRecommendations && (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+                          <h3 className="font-bold text-green-900 mb-3 text-sm uppercase tracking-wide">
+                            Recommendations
+                          </h3>
+                          <ul className="space-y-2">
+                            {currentSlide.recommendations.map((rec: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-3">
+                                <span className="flex-shrink-0 w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
+                                  {idx + 1}
+                                </span>
+                                <span className="text-slate-700 flex-1">{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Issues from aggregated data */}
               {filteredIssues.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🎉</div>
-                  <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                    {filterType === 'all' ? 'Looking Great!' : 'No items found'}
+                <div className="text-center py-8">
+                  <div className="text-5xl mb-3">🎉</div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    {filterType === 'all' ? 'No Additional Issues' : 'No items found'}
                   </h3>
-                  <p className="text-slate-600">
-                    {filterType === 'all' ? 'No issues found for this selection' : `No ${filterType.replace('_', ' ')}s found`}
+                  <p className="text-slate-600 text-sm">
+                    {filterType === 'all'
+                      ? (selectedPage > 0 ? 'Check the feedback above for ways to improve this slide' : 'No critical issues found')
+                      : `No ${filterType.replace('_', ' ')}s found`}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredIssues.map((issue, index) => (
-                    <IssueCard
-                      key={index}
-                      issue={issue}
-                    />
-                  ))}
+                <div>
+                  {selectedPage > 0 && (
+                    <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wide">
+                      Additional Issues
+                    </h3>
+                  )}
+                  <div className="space-y-4">
+                    {filteredIssues.map((issue, index) => (
+                      <IssueCard
+                        key={index}
+                        issue={issue}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

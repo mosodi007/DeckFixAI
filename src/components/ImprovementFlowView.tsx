@@ -305,7 +305,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                   return (
                     <div className="space-y-4 mb-6">
                       {hasFeedback && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                        <div className="border border-blue-200 rounded-xl p-5">
                           <h3 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wide">
                             Slide Feedback
                           </h3>

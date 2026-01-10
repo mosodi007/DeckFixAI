@@ -1,3 +1,5 @@
+import { supabase } from './analysisService';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -5,15 +7,21 @@ export async function analyzeSlides(analysisId: string): Promise<{ success: bool
   try {
     console.log('Starting slide analysis for:', analysisId);
 
+    const headers: Record<string, string> = {
+      'apikey': supabaseKey,
+      'Content-Type': 'application/json',
+    };
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
     const response = await fetch(
       `${supabaseUrl}/functions/v1/analyze-slides`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ analysisId }),
       }
     );

@@ -41,15 +41,21 @@ export async function generateSlideFix(
   imageUrl: string | null
 ): Promise<{ success: boolean; fix?: GeneratedFix; fixId?: string; error?: string }> {
   try {
+    const headers: Record<string, string> = {
+      'apikey': supabaseKey,
+      'Content-Type': 'application/json',
+    };
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
     const response = await fetch(
       `${supabaseUrl}/functions/v1/generate-slide-fix`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           analysisId,
           pageNumber,

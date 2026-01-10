@@ -221,7 +221,7 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAut
       {/* Floating Fix All Issues Button */}
       <button
         onClick={onOpenImprovementFlow}
-        className="fixed bottom-8 right-15 bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl z-50 group"
+        className="fixed bottom-8 right-10 bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl z-50 group"
       >
         <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform" />
         <span>Fix All Issues</span>

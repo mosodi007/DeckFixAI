@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Target, Users, TrendingUp, Package, DollarSign, Globe, CheckCircle2, XCircle } from 'lucide-react';
+import { Target, Users, TrendingUp, Package, DollarSign, Globe, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { ProgressBar } from '../ui/ProgressBar';
 import { VCCriteriaModal } from './VCCriteriaModal';
@@ -31,18 +31,26 @@ interface InvestmentReadinessSectionProps {
 
 function ScoreBar({ label, score, icon: Icon, color, onClick }: { label: string; score: number; icon: any; color: string; onClick: () => void }) {
   return (
-    <div className="border-2 border-slate-200 rounded-lg p-4 space-y-2 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all" onClick={onClick}>
+    <div
+      className="group border-2 border-slate-200 rounded-xl p-4 space-y-2 cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-300 hover:shadow-md transition-all duration-200 active:scale-[0.99]"
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className={`w-4 h-4 ${color}`} />
-          <span className="text-sm font-medium text-slate-900">{label}</span>
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg bg-slate-100 group-hover:bg-white transition-colors ${color}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-slate-900">{label}</span>
+            <div className="text-xs text-slate-500 group-hover:text-blue-600 transition-colors">Click for detailed assessment</div>
+          </div>
         </div>
-        <span className="text-sm font-bold text-slate-900">{score.toFixed(1)}/10</span>
+        <div className="flex items-center gap-3">
+          <span className="text-base font-bold text-slate-900">{score.toFixed(1)}/10</span>
+          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+        </div>
       </div>
       <ProgressBar value={score} max={10} color={score >= 7 ? 'green' : score >= 5 ? 'yellow' : 'red'} />
-      <div className="flex justify-end pt-1">
-        <span className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">See Feedback</span>
-      </div>
     </div>
   );
 }

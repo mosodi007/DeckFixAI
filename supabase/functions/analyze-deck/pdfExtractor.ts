@@ -66,16 +66,19 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
       }
     }
 
-    console.log(`Total extraction: ${totalTextLength} characters from ${totalPages} pages (including metadata)`);
+    const metadataLength = metadataText.length;
+    const contentLength = totalTextLength - metadataLength;
 
-    const hasMinimalText = totalTextLength < 100;
+    console.log(`Total extraction: ${totalTextLength} characters (${metadataLength} metadata, ${contentLength} content) from ${totalPages} pages`);
+
+    const hasMinimalText = contentLength < 50;
 
     if (hasMinimalText) {
-      console.warn('PDF appears to be image-based with minimal extractable text. Will proceed with limited text analysis.');
+      console.warn(`PDF appears to be image-based with minimal extractable text (${contentLength} chars of actual content).`);
 
       let limitedText = formattedText || '';
 
-      if (!limitedText.trim() || limitedText.trim().length < 20) {
+      if (contentLength === 0) {
         limitedText = `${metadataText}\n\n⚠️ IMAGE-BASED DECK: This PDF contains ${totalPages} slides that appear to be image-based (graphics/screenshots). ` +
           `Text extraction yielded minimal content. Visual analysis through slide images is required for comprehensive feedback. ` +
           `The AI will provide preliminary analysis based on available metadata and any extractable text, but detailed feedback ` +

@@ -58,20 +58,22 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!user) {
-      console.log('Anonymous user - will use session_id');
+      console.log('Anonymous user - creating analysis');
     }
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const providedAnalysisId = formData.get('analysisId') as string;
     const sessionId = formData.get('sessionId') as string;
 
     if (!file) {
       throw new Error('No file provided');
     }
 
-    console.log('Processing file:', file.name, 'Size:', file.size);
-    console.log('Analysis ID:', providedAnalysisId || 'will be generated');
+    console.log('File received:', file.name, file.type, file.size, 'bytes');
+
+    if (file.type !== 'application/pdf') {
+      throw new Error('Only PDF files are supported');
+    }
 
     const arrayBuffer = await file.arrayBuffer();
     console.log('File loaded into memory, size:', arrayBuffer.byteLength, 'bytes');
@@ -108,7 +110,11 @@ Deno.serve(async (req: Request) => {
     console.log('Text length to send:', textToAnalyze.length, 'chars');
 
     const wordCountSummary = perPageWordCounts.map(p => `Page ${p.pageNumber}: ${p.wordCount} words`).join(', ');
-    const isImageBased = text.includes('image-based and requires visual analysis');
+    const isImageBased = text.includes('IMAGE-BASED DECK') || text.includes('image-based and requires visual analysis');
+
+    const totalWords = perPageWordCounts.reduce((sum, p) => sum + p.wordCount, 0);
+    const avgWordsPerPage = pageCount > 0 ? Math.round(totalWords / pageCount) : 0;
+    console.log(`Total words: ${totalWords}, Average per page: ${avgWordsPerPage}`);
 
     const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be brutally honest and direct. No sugar-coating. Call out weaknesses plainly.
 
@@ -163,76 +169,43 @@ Score 5 dimensions (0-100 each) and provide COMPREHENSIVE detailed feedback for 
     4. Market accessibility (can a startup realistically capture share here?)
     5. Timing (why now? is this too early or too late?)
     6. Market validation (is the problem real and urgent?)
-  - Be blunt about market reality. If it's oversaturated or too small, say so with data.
+  - If market size is missing or unclear, call it out explicitly.
 
-- **Product**: Solution strength, differentiation, moat
-  - Provide productFeedback: 6-8 sentences covering:
-    1. Solution clarity (is it clear what the product does and how?)
-    2. Differentiation (what makes this unique vs. competitors?)
-    3. Technical moat (patents, proprietary tech, network effects, data advantages?)
-    4. Competitive advantages (why can't incumbents replicate this easily?)
-    5. Product-market fit evidence (do customers actually want this?)
-    6. Defensibility long-term (can they maintain advantage as market evolves?)
-  - Be direct. If it's just another SaaS tool with no moat, call it out explicitly.
+- **Product**: Solution clarity, innovation, differentiation
+  - Provide productSolutionFeedback: 6-8 sentences covering:
+    1. Problem-solution fit (is the solution clearly addressing the stated problem?)
+    2. Product description clarity (can you visualize what they're building?)
+    3. Innovation level (is this truly novel or just incremental?)
+    4. Differentiation (what makes this better/different from alternatives?)
+    5. Technical feasibility (is this buildable? any major technical risks?)
+    6. Product-market fit evidence (are customers actually using/wanting this?)
+  - If product details are vague or missing, say so directly.
 
-- **Traction**: Revenue, users, partnerships, metrics
+- **Traction**: Revenue, users, growth, metrics
   - Provide tractionFeedback: 6-8 sentences covering:
-    1. Current metrics (revenue, ARR, MRR, users, customers with specific numbers)
-    2. Growth trajectory (MoM, YoY growth rates, acceleration or deceleration?)
-    3. Customer acquisition (how are they getting customers? CAC metrics?)
-    4. Customer retention (churn rate, NRR, customer satisfaction signals)
-    5. Key partnerships or validation signals (enterprise customers, pilots, LOIs)
-    6. Quality of traction (is it real revenue or just vanity metrics?)
-  - Be honest about traction quality. Weak or fake traction must be called out.
+    1. Current metrics (users, revenue, engagement - specific numbers)
+    2. Growth trajectory (MoM/YoY growth rates, trends)
+    3. Customer validation (do people pay? what's retention?)
+    4. Milestone achievement (have they hit stated goals?)
+    5. Red flags (declining growth? poor unit economics? high churn?)
+    6. Stage-appropriate expectations (is this traction right for their stage?)
+  - If traction is weak or missing, state it clearly without softening.
 
-- **Financials**: Projections quality, burn rate, use of funds
-  - Provide financialsFeedback: 6-8 sentences covering:
-    1. Financial projections quality (realistic? based on data? hockey stick?)
-    2. Unit economics (CAC, LTV, LTV:CAC ratio, gross margins, contribution margin)
-    3. Current burn rate and runway (months of cash left)
-    4. Path to profitability (when and how will they be cash-flow positive?)
-    5. Use of funds clarity (is ask amount justified? clear deployment plan?)
-    6. Capital efficiency (are they using money wisely? can they do more with less?)
-  - Be harsh on unrealistic projections or missing critical financial data.
+- **Business Model**: Monetization, unit economics, scalability
+  - Provide businessModelFeedback: 6-8 sentences covering:
+    1. Revenue model clarity (how do they make money?)
+    2. Pricing strategy (is it clear? defensible? tested?)
+    3. Unit economics (CAC, LTV, margins, payback period)
+    4. Scalability (can this model scale efficiently?)
+    5. Defensibility (is this business model replicable or protected?)
+    6. Financial projections reasonableness
+  - If financials are missing or unrealistic, be explicit and harsh.
 
-**Readiness Score** = average of 5 scores
-**is_investment_ready** = true if score >= 70 AND no deal-breakers
-
-### STEP 3: RED FLAGS
-List major concerns (category, severity, title, description, impact)
-
-### STEP 4: DEAL-BREAKERS
-List critical issues that make deck uninvestable (title, description, recommendation)
-
-### STEP 5: STAGE FEEDBACK
-Brief guidance for detected funding stage
-
-### STEP 6: STANDARD SCORING (for UI display)
-
-**Clarity Score (0-100):** Message clarity, flow, ease of understanding
-**Design Score (0-100):** Visual quality, consistency, professionalism
-**Content Score (0-100):** Completeness, data quality, storytelling
-**Structure Score (0-100):** Slide order, narrative flow, pacing
-
-Calculate **Overall Score** as weighted average:
-- Readiness Score: 40%
-- Content: 25%
-- Clarity: 20%
-- Structure: 15%
-
-Be harsh. Average real decks should score 50-65. Only truly excellent, investor-ready decks score 80+.
-
-### PAGE ANALYSIS:
-CRITICAL: You MUST include an entry for EVERY SINGLE PAGE in the deck. The deck has ${pageCount} pages, so your pages array MUST contain exactly ${pageCount} entries numbered 1 through ${pageCount}. Do not skip any pages. Keep ALL feedback EXTREMELY brief to fit within token limits.
-
-For EACH page (1 to ${pageCount}):
-- pageNumber: actual page number (1, 2, 3, ... ${pageCount})
-- title: Slide title/heading (e.g., "Cover", "Problem", "Solution")
-- score: 0-100 (be harsh, most slides score 40-70)
-- content: 1 SHORT sentence (max 10 words)
-- feedback: 1 SHORT sentence only (max 15 words)
-- recommendations: Array of 1-2 actions (each max 5 words)
-- idealVersion: 1 very short sentence (max 10 words)
+### OVERALL SCORE:
+Provide an overall investment readiness score (0-100) based on:
+- How compelling this is as an investment opportunity
+- Whether the deck would get a VC meeting
+- Stage-appropriateness of the content
 
 ### KEY STRENGTHS:
 List 3-8 major strengths of the deck. Each strength should be a detailed, specific statement (10-20 words) that includes:
@@ -257,21 +230,10 @@ List specific problems found for improvement tracking:
 - pageNumber: which page has the issue (or null if deck-wide)
 - priority: "high", "medium", or "low"
 - title: brief issue name
-- description: what's wrong and why it matters
+- description: what's wrong and why it matters (2-3 sentences, specific)
+- category: "content", "design", "structure", "data", or "messaging"
 
-### SUGGEST IMPROVEMENTS:
-Provide 5-8 actionable improvements:
-- pageNumber: which page (or null if deck-wide)
-- priority: "high", "medium", or "low"
-- title: Brief action title
-- description: Specific action to take (1-2 sentences)
-
-### IDENTIFY MISSING SLIDES:
-List critical missing content:
-- priority: "high", "medium", or "low"
-- title: slide name
-- description: why it's needed
-- suggestedContent: what should be included
+Be thorough and find 8-15 specific issues across content quality, design problems, missing information, unclear messaging, and structural problems.
 
 ### EXTRACT KEY BUSINESS METRICS:
 Extract the following business metrics from the deck content. If a metric is not explicitly stated, write "Not specified":
@@ -279,431 +241,260 @@ Extract the following business metrics from the deck content. If a metric is not
 - industry: Industry/sector (string)
 - currentRevenue: Current revenue/ARR (string with units, e.g., "$2M ARR", "Not specified")
 - fundingSought: Amount of funding sought (string with units, e.g., "$5M Series A", "Not specified")
-- growthRate: Growth rate (string with %, e.g., "150% YoY", "Not specified")
-- teamSize: Number of team members (number, use 0 if not specified)
-- marketSize: Total addressable market (string with units, e.g., "$50B TAM", "Not specified")
-- valuation: Current or pre-money valuation (string, e.g., "$15M pre-money", "Not specified")
-- businessModel: Revenue/business model (string, e.g., "SaaS subscription", "Not specified")
-- customerCount: Number of customers/users (string, e.g., "10K users", "500 enterprise customers", "Not specified")
+- teamSize: Current team size (string, e.g., "12 employees", "Not specified")
+- customerCount: Number of customers/users (string, e.g., "5,000 users", "Not specified")
+- growthRate: Growth rate if mentioned (string, e.g., "30% MoM", "Not specified")
+- monthlyRevenue: Monthly recurring revenue if mentioned (string, e.g., "$50K MRR", "Not specified")
 
-### ASSESS DECK QUALITY METRICS:
-Analyze these quality metrics with brutal honesty. IMPORTANT: Use the "WORD COUNT PER PAGE" data provided above to inform your word density assessment. DO NOT assume slides are empty just because they have fewer words - slides can be visual-heavy with images, charts, or diagrams.
+### VC EVALUATION CRITERIA (NEW):
+Score the deck on 8 standard VC criteria (0-100 each) with detailed 4-6 sentence feedback explaining the score:
 
-${isImageBased ? '⚠️ FOR IMAGE-BASED DECKS: If the deck is image-based (minimal extractable text), note this explicitly in your feedback. Score Design as 50 (cannot assess without seeing images), but still assess the limited text content available. Emphasize that full visual analysis is required.' : ''}
+1. **Team Quality & Completeness** (teamQualityScore, teamQualityFeedback)
+   - Founder experience, relevant domain expertise, team gaps, execution capability
 
-- wordDensity: Assessment of text density per slide based on the word counts provided. Calculate the average words per page and classify: "Low" (<30 words/page average - minimal text, mostly visuals), "Medium" (30-80 words/page - balanced text and visuals), "High" (80-150 words/page - text-heavy but readable), "Very High" (>150 words/page - overwhelming text, slides too busy)${isImageBased ? ' If image-based, classify as "Low" and note that visual analysis is needed.' : ''}
-- wordDensityFeedback: 2-3 sentences being brutally honest about text density based on the actual word counts per page. Acknowledge the specific distribution (e.g., "Page 1 has 200 words while pages 2-10 average 40 words"). DO NOT claim slides are empty unless word count is literally 0. Low word count can indicate visual-heavy slides (images, charts) which is often GOOD for pitch decks. If distribution is unbalanced (e.g., first slide very text-heavy, rest reasonable), state that specifically.${isImageBased ? ' For image-based decks, explicitly state that the deck is image-based and requires visual analysis to fully assess.' : ''}
-- disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting. Be harsh - most ideas are not disruptive.
-- disruptionSignalFeedback: 2-3 sentences of brutal truth about the innovation level. If it's just another SaaS tool or incremental improvement, say so plainly. Don't inflate mediocre ideas.
-- pageCountFeedback: 2-3 sentences being direct about whether page count is appropriate. If it's too long, say it's bloated. If too short, say it's underdeveloped.
-- overallScoreFeedback: 2-3 sentences explaining the overall score with brutal honesty. Directly state the core issues dragging the score down. No fluff.
-- investmentGradeFeedback: 2-3 sentences explaining why this grade was assigned. Be direct about what separates this from A-grade decks. If it's mediocre, say so.
-- fundingOddsFeedback: 2-3 sentences of harsh reality about funding chances. If odds are low, explain exactly why VCs would pass. Don't soften the message.
+2. **Market Size & Growth** (marketSizeScore, marketSizeFeedback)
+   - TAM clarity, market growth rate, timing, accessibility
 
-### BUSINESS SUMMARY:
-Write a concise summary (100-150 words) covering:
-- Problem/solution
-- Key metrics
-- Investment readiness verdict
-- Critical gaps
+3. **Product Differentiation** (productDifferentiationScore, productDifferentiationFeedback)
+   - Uniqueness, competitive moat, technical innovation, defensibility
 
-## REQUIRED JSON FORMAT:
+4. **Business Model Viability** (businessModelScore, businessModelFeedback)
+   - Revenue model clarity, unit economics, scalability, margins
 
-REMINDER: The pages array below MUST contain ALL ${pageCount} pages. Every page from 1 to ${pageCount} must be included.
+5. **Go-to-Market Strategy** (gtmStrategyScore, gtmStrategyFeedback)
+   - Customer acquisition plan, distribution channels, CAC, scaling strategy
+
+6. **Competitive Positioning** (competitivePositionScore, competitivePositionFeedback)
+   - Competitive landscape understanding, differentiation, sustainable advantages
+
+7. **Financial Projections** (financialProjectionsScore, financialProjectionsFeedback)
+   - Realism, detail level, assumptions clarity, path to profitability
+
+8. **Use of Funds** (useOfFundsScore, useOfFundsFeedback)
+   - Clarity of ask, allocation rationale, milestone mapping, capital efficiency
+
+### MISSING CRITICAL PAGES:
+Identify which standard pitch deck pages/sections are completely missing:
+- List missing sections from: Cover, Problem, Solution, Product, Market Size, Business Model, Traction, Competition, Go-to-Market, Team, Financials, Use of Funds, Vision/Roadmap, Appendix
+- For each missing section, explain why it's important (1 sentence)
+- Only list truly MISSING sections, not weak ones
+
+### RED FLAGS:
+List 0-5 serious red flags that would make VCs hesitant:
+- Each red flag should be specific and explain the concern
+- Examples: "No technical co-founder despite being a deep-tech company", "Unrealistic 10x revenue projection without justification", "Founders have no equity split mentioned, suggests potential conflict"
+- Leave empty if no major red flags
+
+### DEAL BREAKERS:
+List 0-3 absolute deal breakers that would result in immediate rejection:
+- These should be fundamental flaws, not fixable issues
+- Examples: "No identifiable market need or validation", "Product is illegal in target market", "Founders own <5% equity, no upside"
+- Leave empty if no deal breakers
+
+Return ONLY valid JSON matching this exact structure:
 
 {
-  "overallScore": <number 0-100>,
-  "totalPages": ${pageCount},
-  "summary": "<100-150 word business summary>",
-  "stageAssessment": {
-    "detectedStage": "Pre-Seed|Seed|Series A|Series B+",
-    "stageConfidence": "high|medium|low",
-    "stageAppropriatenessScore": <0-100>,
-    "stageFeedback": "<stage-specific recommendations and expectations>"
+  "stage": {
+    "detected_stage": "<Pre-Seed|Seed|Series A|Series B+>",
+    "stage_confidence": "<high|medium|low>",
+    "stage_appropriateness_score": <0-100>
   },
   "investmentReadiness": {
-    "isInvestmentReady": <boolean>,
-    "readinessScore": <0-100>,
-    "readinessSummary": "<direct assessment of investment readiness>",
-    "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
     "teamScore": <0-100>,
-    "teamFeedback": "<6-8 comprehensive sentences covering all team aspects>",
-    "marketOpportunityScore": <0-100>,
-    "marketOpportunityFeedback": "<6-8 comprehensive sentences covering all market aspects>",
+    "teamFeedback": "<6-8 sentences with brutal honesty>",
+    "marketScore": <0-100>,
+    "marketOpportunityFeedback": "<6-8 sentences>",
     "productScore": <0-100>,
-    "productFeedback": "<6-8 comprehensive sentences covering all product aspects>",
+    "productSolutionFeedback": "<6-8 sentences>",
     "tractionScore": <0-100>,
-    "tractionFeedback": "<6-8 comprehensive sentences covering all traction aspects>",
-    "financialsScore": <0-100>,
-    "financialsFeedback": "<6-8 comprehensive sentences covering all financial aspects>"
+    "tractionFeedback": "<6-8 sentences>",
+    "businessModelScore": <0-100>,
+    "businessModelFeedback": "<6-8 sentences>"
   },
-  "redFlags": [
+  "overallScore": <0-100>,
+  "strengths": [
+    "<detailed 10-20 word strength with specifics>",
+    ...
+  ],
+  "keyIssues": [
+    "<detailed 10-20 word issue with specifics>",
+    ...
+  ],
+  "detailedIssues": [
     {
-      "category": "financial|team|market|product|competition|traction|other",
-      "severity": "critical|major|moderate",
-      "title": "<red flag name>",
-      "description": "<what's wrong>",
-      "impact": "<funding impact>"
+      "pageNumber": <number or null>,
+      "priority": "<high|medium|low>",
+      "title": "<brief title>",
+      "description": "<2-3 specific sentences>",
+      "category": "<content|design|structure|data|messaging>"
     },
     ...
   ],
-  "dealBreakers": [
-    {
-      "title": "<deal-breaker>",
-      "description": "<why this is uninvestable>",
-      "recommendation": "<what must be fixed>"
-    },
-    ...
-  ],
-  "pages": [
-    {
-      "pageNumber": 1,
-      "title": "<title>",
-      "score": <0-100>,
-      "content": "<1 sentence>",
-      "feedback": "<1-2 sentences>",
-      "recommendations": ["<action 1>", "<action 2>"],
-      "idealVersion": "<1 sentence>"
-    },
-    {
-      "pageNumber": 2,
-      "title": "<title>",
-      "score": <0-100>,
-      "content": "<1 sentence>",
-      "feedback": "<1-2 sentences>",
-      "recommendations": ["<action 1>", "<action 2>"],
-      "idealVersion": "<1 sentence>"
-    },
-    ... CONTINUE FOR ALL ${pageCount} PAGES ...
-  ],
-  "metrics": {
-    "clarityScore": <0-100>,
-    "designScore": <0-100>,
-    "contentScore": <0-100>,
-    "structureScore": <0-100>
-  },
   "keyMetrics": {
     "companyName": "<string>",
     "industry": "<string>",
     "currentRevenue": "<string>",
     "fundingSought": "<string>",
+    "teamSize": "<string>",
+    "customerCount": "<string>",
     "growthRate": "<string>",
-    "teamSize": <number>,
-    "marketSize": "<string>",
-    "valuation": "<string>",
-    "businessModel": "<string>",
-    "customerCount": "<string>"
+    "monthlyRevenue": "<string>"
   },
-  "deckQualityMetrics": {
-    "wordDensity": "Low|Medium|High|Very High",
-    "wordDensityFeedback": "<2-3 brutal sentences about text density>",
-    "disruptionSignal": <0-100>,
-    "disruptionSignalFeedback": "<2-3 brutal sentences about innovation level>",
-    "pageCountFeedback": "<2-3 brutal sentences about page count>",
-    "overallScoreFeedback": "<2-3 brutal sentences explaining overall score>",
-    "investmentGradeFeedback": "<2-3 brutal sentences explaining the grade>",
-    "fundingOddsFeedback": "<2-3 brutal sentences about funding reality>"
+  "vcCriteria": {
+    "teamQualityScore": <0-100>,
+    "teamQualityFeedback": "<4-6 sentences>",
+    "marketSizeScore": <0-100>,
+    "marketSizeFeedback": "<4-6 sentences>",
+    "productDifferentiationScore": <0-100>,
+    "productDifferentiationFeedback": "<4-6 sentences>",
+    "businessModelScore": <0-100>,
+    "businessModelFeedback": "<4-6 sentences>",
+    "gtmStrategyScore": <0-100>,
+    "gtmStrategyFeedback": "<4-6 sentences>",
+    "competitivePositionScore": <0-100>,
+    "competitivePositionFeedback": "<4-6 sentences>",
+    "financialProjectionsScore": <0-100>,
+    "financialProjectionsFeedback": "<4-6 sentences>",
+    "useOfFundsScore": <0-100>,
+    "useOfFundsFeedback": "<4-6 sentences>"
   },
-  "strengths": ["<detailed specific strength 1 (10-20 words)>", "<detailed specific strength 2 (10-20 words)>", ...],
-  "issues": ["<detailed specific issue 1 (10-20 words)>", "<detailed specific issue 2 (10-20 words)>", ...],
-  "detailedIssues": [
-    {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<title>", "description": "<details>"},
+  "missingPages": [
+    { "section": "<name>", "importance": "<why it matters>" },
     ...
   ],
-  "improvements": [
-    {"pageNumber": <number or null>, "priority": "high|medium|low", "title": "<title>", "description": "<description>"}
+  "redFlags": [
+    "<specific red flag with explanation>",
+    ...
   ],
-  "missingSlides": [
-    {"priority": "high|medium|low", "title": "<title>", "description": "<description>", "suggestedContent": "<content>"}
-  ]
-}
+  "dealBreakers": [
+    "<fundamental flaw>",
+    ...
+  ],
+  "summary": "<2-3 sentence executive summary of the deck's viability>",
+  "idealInvestor": "<1 sentence: who should invest and why>",
+  "idealVersion": "<1 short sentence max 10 words: what this deck would be if perfect>",
+  "deckQuality": {
+    "clarityScore": <0-100>,
+    "designScore": <0-100>,
+    "completenessScore": <0-100>,
+    "storytellingScore": <0-100>,
+    "dataQualityScore": <0-100>,
+    "structureScore": <0-100>
+  }
+}`;
 
-CRITICAL REQUIREMENTS:
-1. Return ONLY the JSON object above. No explanations, no markdown, no code blocks. Start with { and end with }.
-2. The pages array MUST include ALL ${pageCount} pages. Do not omit any pages.
-3. KEEP ALL FEEDBACK EXTREMELY BRIEF. Each page entry should be minimal to fit all pages.
-4. Priority: Include ALL pages > Detailed feedback. Brief feedback for all pages is better than detailed feedback for some.`;
+    console.log('Sending request to OpenAI...');
 
-    console.log('Calling OpenAI API for text-based analysis...');
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a brutally honest VC analyst. Provide direct, specific feedback. No sugar-coating. Return only valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        response_format: { type: 'json_object' }
+      }),
+    });
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000);
-
-    let openaiResponse;
-    try {
-      openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a brutally honest VC partner with 15+ years of experience. You provide direct, unfiltered feedback without sugarcoating. You call out weaknesses plainly and don\'t inflate scores or praise. Most decks are mediocre - treat them as such. Be thorough, accurate, and ruthlessly honest. Base your analysis strictly on the actual text content provided.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.3,
-        }),
-        signal: controller.signal,
-      });
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        throw new Error('OpenAI request timed out after 3 minutes. Please try again later.');
-      }
-      throw fetchError;
+    if (!openAIResponse.ok) {
+      const errorText = await openAIResponse.text();
+      console.error('OpenAI API error:', openAIResponse.status, errorText);
+      throw new Error(`OpenAI API request failed: ${openAIResponse.status} - ${errorText}`);
     }
 
-    clearTimeout(timeoutId);
+    const openAIData = await openAIResponse.json();
+    console.log('OpenAI response received');
+    console.log('Response tokens:', openAIData.usage);
 
-    console.log('OpenAI response status:', openaiResponse.status);
+    const analysisText = openAIData.choices[0]?.message?.content;
 
-    if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.text();
-      console.error('OpenAI API error:', openaiResponse.status, errorData);
-
-      if (openaiResponse.status === 401) {
-        throw new Error('OpenAI API key is invalid or not configured. Please check the OPENAI_API_KEY secret in Supabase Edge Functions settings.');
-      }
-
-      if (openaiResponse.status === 502 || openaiResponse.status === 503 || openaiResponse.status === 504) {
-        throw new Error('OpenAI API is temporarily unavailable (timeout or overloaded). This usually happens with large decks. Try again in a few moments, or contact support if the issue persists.');
-      }
-
-      if (openaiResponse.status === 429) {
-        throw new Error('OpenAI API rate limit exceeded. Please wait a moment and try again.');
-      }
-
-      throw new Error(`OpenAI API error (${openaiResponse.status}): ${errorData || 'Unknown error'}`);
+    if (!analysisText) {
+      console.error('No content in OpenAI response:', JSON.stringify(openAIData));
+      throw new Error('No analysis content received from OpenAI');
     }
 
-    const openaiResult = await openaiResponse.json();
+    console.log('Parsing analysis JSON...');
+    const analysis = JSON.parse(analysisText);
+    console.log('Analysis parsed successfully');
 
-    if (!openaiResult.choices || !openaiResult.choices[0]) {
-      console.error('Unexpected OpenAI response:', openaiResult);
-      throw new Error('Unexpected response from OpenAI');
-    }
+    const analysisId = crypto.randomUUID();
+    console.log('Creating analysis record with ID:', analysisId);
 
-    const finishReason = openaiResult.choices[0].finish_reason;
-    console.log('OpenAI finish reason:', finishReason);
-
-    if (finishReason === 'length') {
-      console.warn('WARNING: OpenAI response was truncated due to token limit. Response may be incomplete.');
-    }
-
-    const content = openaiResult.choices[0].message.content;
-    console.log('OpenAI response received, parsing...');
-    console.log('Response length:', content.length, 'characters');
-    console.log('Response preview:', content.substring(0, 500));
-    console.log('Response ending:', content.substring(content.length - 500));
-
-    let jsonString = content;
-
-    if (content.includes('```json')) {
-      const jsonBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonBlockMatch) {
-        jsonString = jsonBlockMatch[1];
-        console.log('Extracted JSON from markdown code block');
-      }
-    } else if (content.includes('```')) {
-      const codeBlockMatch = content.match(/```\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        jsonString = codeBlockMatch[1];
-        console.log('Extracted JSON from generic code block');
-      }
-    }
-
-    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('Could not find JSON in response. Full content length:', content.length);
-      console.error('Content sample (first 2000 chars):', content.substring(0, 2000));
-      console.error('Content sample (last 2000 chars):', content.substring(Math.max(0, content.length - 2000)));
-      throw new Error('Could not parse analysis from OpenAI response. The response may be incomplete or in an unexpected format.');
-    }
-
-    let analysis;
-    try {
-      analysis = JSON.parse(jsonMatch[0]);
-      console.log('Analysis parsed successfully');
-      console.log('Overall score:', analysis.overallScore);
-      console.log('Total pages in response:', analysis.totalPages);
-      console.log('Pages array length:', analysis.pages?.length || 0);
-      console.log('Expected page count from PDF:', pageCount);
-
-      if (analysis.pages && analysis.pages.length < pageCount) {
-        console.error(`⚠️ MISSING PAGES: OpenAI returned ${analysis.pages.length} pages but PDF has ${pageCount} pages!`);
-        console.error('Pages returned:', analysis.pages.map((p: any) => p.pageNumber));
-      }
-
-      console.log('Metrics:', analysis.metrics);
-      console.log('Key Metrics:', analysis.keyMetrics);
-    } catch (parseError: any) {
-      console.error('JSON parse error:', parseError.message);
-      console.error('JSON length:', jsonMatch[0].length);
-      console.error('JSON start (500 chars):', jsonMatch[0].substring(0, 500));
-      console.error('JSON end (500 chars):', jsonMatch[0].substring(Math.max(0, jsonMatch[0].length - 500)));
-
-      if (finishReason === 'length') {
-        let fixedJson = jsonMatch[0].trim();
-
-        const openBraces = (fixedJson.match(/\{/g) || []).length;
-        const closeBraces = (fixedJson.match(/\}/g) || []).length;
-        const openBrackets = (fixedJson.match(/\[/g) || []).length;
-        const closeBrackets = (fixedJson.match(/\]/g) || []).length;
-
-        console.log('Attempting to fix truncated JSON...');
-        console.log('Open/Close braces:', openBraces, '/', closeBraces);
-        console.log('Open/Close brackets:', openBrackets, '/', closeBrackets);
-
-        if (fixedJson.endsWith(',')) {
-          fixedJson = fixedJson.slice(0, -1);
-        }
-
-        for (let i = 0; i < (openBrackets - closeBrackets); i++) {
-          fixedJson += ']';
-        }
-        for (let i = 0; i < (openBraces - closeBraces); i++) {
-          fixedJson += '}';
-        }
-
-        try {
-          analysis = JSON.parse(fixedJson);
-          console.log('Successfully fixed and parsed truncated JSON');
-        } catch (fixError) {
-          console.error('Failed to fix JSON:', fixError);
-          throw new Error(`Failed to parse JSON (response was truncated): ${parseError.message}`);
-        }
-      } else {
-        throw new Error(`Failed to parse JSON: ${parseError.message}`);
-      }
-    }
-
-    if (!user && !sessionId) {
-      throw new Error('Either authentication or session ID is required');
-    }
-
-    const analysisData: any = {
+    const analysisRecord = {
+      id: analysisId,
       user_id: user?.id || null,
-      session_id: !user ? sessionId : null,
-      file_name: file.name,
-      file_size: file.size,
-      overall_score: analysis.overallScore,
-      total_pages: analysis.totalPages,
-      summary: analysis.summary,
-      funding_stage: analysis.stageAssessment?.detectedStage || null,
-      investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
-      word_density: analysis.deckQualityMetrics?.wordDensity || 'Not analyzed',
-      disruption_signal: analysis.deckQualityMetrics?.disruptionSignal || 0,
-      overall_score_feedback: analysis.deckQualityMetrics?.overallScoreFeedback || null,
-      investment_grade_feedback: analysis.deckQualityMetrics?.investmentGradeFeedback || null,
-      funding_odds_feedback: analysis.deckQualityMetrics?.fundingOddsFeedback || null,
-      word_density_feedback: analysis.deckQualityMetrics?.wordDensityFeedback || null,
-      disruption_signal_feedback: analysis.deckQualityMetrics?.disruptionSignalFeedback || null,
-      page_count_feedback: analysis.deckQualityMetrics?.pageCountFeedback || null,
+      session_id: !user?.id ? sessionId : null,
+      filename: file.name,
+      overall_score: analysis.overallScore || 0,
+      summary: analysis.summary || 'No summary provided',
+      ideal_investor: analysis.idealInvestor || null,
+      ideal_version: analysis.idealVersion || null,
+      total_pages: pageCount,
+      created_at: new Date().toISOString(),
     };
 
-    if (providedAnalysisId) {
-      analysisData.id = providedAnalysisId;
-    }
-
-    const { data: analysisRecord, error: analysisError } = await supabase
+    console.log('Inserting analysis:', analysisRecord);
+    const { error: analysisError } = await supabase
       .from('analyses')
-      .insert(analysisData)
-      .select()
-      .single();
+      .insert(analysisRecord);
 
     if (analysisError) {
-      console.error('Error creating analysis:', analysisError);
-      throw new Error(`Database error: ${analysisError.message}`);
+      console.error('Failed to insert analysis:', analysisError);
+      throw new Error(`Failed to save analysis: ${analysisError.message}`);
     }
 
-    const analysisId = analysisRecord.id;
-    console.log('Analysis created with ID:', analysisId);
+    console.log('✓ Analysis inserted successfully');
 
-    if (analysis.pages && analysis.pages.length > 0) {
-      let pagesData = analysis.pages.map((page: any) => {
-        const imagePath = `slide-images/${analysisId}/page_${page.pageNumber}.jpg`;
-        return {
-          analysis_id: analysisId,
-          page_number: page.pageNumber,
-          title: page.title,
-          score: page.score,
-          content: page.content || null,
-          feedback: page.feedback || null,
-          recommendations: page.recommendations || [],
-          ideal_version: page.idealVersion || null,
-          image_url: imagePath,
-          thumbnail_url: imagePath,
-        };
-      });
-
-      if (analysis.pages.length < pageCount) {
-        console.warn(`Creating placeholder pages for ${pageCount - analysis.pages.length} missing pages`);
-        const returnedPageNumbers = new Set(analysis.pages.map((p: any) => p.pageNumber));
-
-        for (let i = 1; i <= pageCount; i++) {
-          if (!returnedPageNumbers.has(i)) {
-            const imagePath = `slide-images/${analysisId}/page_${i}.jpg`;
-            pagesData.push({
-              analysis_id: analysisId,
-              page_number: i,
-              title: `Slide ${i}`,
-              score: 50,
-              content: 'Page requires detailed analysis',
-              feedback: 'This page will be analyzed when you upload slide images',
-              recommendations: ['Upload slide images for detailed visual analysis'],
-              ideal_version: null,
-              image_url: imagePath,
-              thumbnail_url: imagePath,
-            });
-          }
-        }
-
-        pagesData.sort((a, b) => a.page_number - b.page_number);
-      }
-
-      console.log(`Inserting ${pagesData.length} pages with detailed feedback and image URLs`);
-      console.log('Page numbers:', pagesData.map((p: any) => p.page_number));
-      await supabase.from('analysis_pages').insert(pagesData);
-    } else {
-      console.warn('No pages returned by OpenAI, creating placeholders for all pages');
-      const pagesData = [];
-      for (let i = 1; i <= pageCount; i++) {
-        const imagePath = `slide-images/${analysisId}/page_${i}.jpg`;
-        pagesData.push({
-          analysis_id: analysisId,
-          page_number: i,
-          title: `Slide ${i}`,
-          score: 50,
-          content: 'Page requires detailed analysis',
-          feedback: 'This page will be analyzed when you upload slide images',
-          recommendations: ['Upload slide images for detailed visual analysis'],
-          ideal_version: null,
-          image_url: imagePath,
-          thumbnail_url: imagePath,
-        });
-      }
-      console.log(`Inserting ${pagesData.length} placeholder pages`);
-      await supabase.from('analysis_pages').insert(pagesData);
-    }
-
-    if (analysis.metrics) {
-      console.log('Inserting metrics:', analysis.metrics);
-      await supabase.from('analysis_metrics').insert({
+    if (analysis.stage) {
+      console.log('Inserting stage assessment...');
+      await supabase.from('stage_assessments').insert({
         analysis_id: analysisId,
-        strengths: analysis.strengths || [],
-        weaknesses: analysis.issues || [],
-        clarity_score: analysis.metrics.clarityScore,
-        design_score: analysis.metrics.designScore,
-        content_score: analysis.metrics.contentScore,
-        structure_score: analysis.metrics.structureScore,
+        detected_stage: analysis.stage.detected_stage || 'Unknown',
+        stage_confidence: analysis.stage.stage_confidence || 'low',
+        stage_appropriateness_score: analysis.stage.stage_appropriateness_score || 0,
+      });
+    }
+
+    if (analysis.investmentReadiness) {
+      console.log('Inserting investment readiness...');
+      const ir = analysis.investmentReadiness;
+      await supabase.from('investment_readiness').insert({
+        analysis_id: analysisId,
+        team_score: ir.teamScore || 0,
+        team_feedback: ir.teamFeedback || '',
+        market_score: ir.marketScore || 0,
+        market_opportunity_feedback: ir.marketOpportunityFeedback || '',
+        product_score: ir.productScore || 0,
+        product_solution_feedback: ir.productSolutionFeedback || '',
+        traction_score: ir.tractionScore || 0,
+        traction_feedback: ir.tractionFeedback || '',
+        business_model_score: ir.businessModelScore || 0,
+        business_model_feedback: ir.businessModelFeedback || '',
+      });
+    }
+
+    if (analysis.deckQuality) {
+      console.log('Inserting deck quality metrics...');
+      await supabase.from('deck_quality_metrics').insert({
+        analysis_id: analysisId,
+        clarity_score: analysis.deckQuality.clarityScore || 0,
+        design_score: analysis.deckQuality.designScore || 0,
+        completeness_score: analysis.deckQuality.completenessScore || 0,
+        storytelling_score: analysis.deckQuality.storytellingScore || 0,
+        data_quality_score: analysis.deckQuality.dataQualityScore || 0,
+        structure_score: analysis.deckQuality.structureScore || 0,
       });
     }
 
@@ -715,142 +506,138 @@ CRITICAL REQUIREMENTS:
         industry: analysis.keyMetrics.industry || 'Not specified',
         current_revenue: analysis.keyMetrics.currentRevenue || 'Not specified',
         funding_sought: analysis.keyMetrics.fundingSought || 'Not specified',
-        growth_rate: analysis.keyMetrics.growthRate || 'Not specified',
-        team_size: analysis.keyMetrics.teamSize || 0,
-        market_size: analysis.keyMetrics.marketSize || 'Not specified',
-        valuation: analysis.keyMetrics.valuation || 'Not specified',
-        business_model: analysis.keyMetrics.businessModel || 'Not specified',
+        team_size: analysis.keyMetrics.teamSize || 'Not specified',
         customer_count: analysis.keyMetrics.customerCount || 'Not specified',
+        growth_rate: analysis.keyMetrics.growthRate || 'Not specified',
+        monthly_revenue: analysis.keyMetrics.monthlyRevenue || 'Not specified',
       });
+    }
+
+    if (analysis.vcCriteria) {
+      console.log('Inserting VC criteria scores...');
+      const vc = analysis.vcCriteria;
+      await supabase.from('vc_criteria_scores').insert({
+        analysis_id: analysisId,
+        team_quality_score: vc.teamQualityScore || 0,
+        team_quality_feedback: vc.teamQualityFeedback || '',
+        market_size_score: vc.marketSizeScore || 0,
+        market_size_feedback: vc.marketSizeFeedback || '',
+        product_differentiation_score: vc.productDifferentiationScore || 0,
+        product_differentiation_feedback: vc.productDifferentiationFeedback || '',
+        business_model_score: vc.businessModelScore || 0,
+        business_model_feedback: vc.businessModelFeedback || '',
+        gtm_strategy_score: vc.gtmStrategyScore || 0,
+        gtm_strategy_feedback: vc.gtmStrategyFeedback || '',
+        competitive_position_score: vc.competitivePositionScore || 0,
+        competitive_position_feedback: vc.competitivePositionFeedback || '',
+        financial_projections_score: vc.financialProjectionsScore || 0,
+        financial_projections_feedback: vc.financialProjectionsFeedback || '',
+        use_of_funds_score: vc.useOfFundsScore || 0,
+        use_of_funds_feedback: vc.useOfFundsFeedback || '',
+      });
+    }
+
+    if (analysis.strengths && analysis.strengths.length > 0) {
+      console.log(`Inserting ${analysis.strengths.length} strengths...`);
+      const strengthRecords = analysis.strengths.map((strength: string) => ({
+        analysis_id: analysisId,
+        description: strength,
+      }));
+      await supabase.from('strengths').insert(strengthRecords);
+    }
+
+    if (analysis.keyIssues && analysis.keyIssues.length > 0) {
+      console.log(`Inserting ${analysis.keyIssues.length} key issues...`);
+      const issueRecords = analysis.keyIssues.map((issue: string) => ({
+        analysis_id: analysisId,
+        description: issue,
+      }));
+      await supabase.from('key_issues').insert(issueRecords);
     }
 
     if (analysis.detailedIssues && analysis.detailedIssues.length > 0) {
-      console.log(`Inserting ${analysis.detailedIssues.length} detailed issues`);
-      await supabase.from('analysis_issues').insert(
-        analysis.detailedIssues.map((issue: any) => ({
-          analysis_id: analysisId,
-          page_number: issue.pageNumber || null,
-          priority: issue.priority,
-          title: issue.title,
-          description: issue.description,
-          type: 'issue',
-        }))
-      );
-    }
-
-    if (analysis.improvements && analysis.improvements.length > 0) {
-      console.log(`Inserting ${analysis.improvements.length} improvements`);
-      await supabase.from('analysis_issues').insert(
-        analysis.improvements.map((improvement: any) => ({
-          analysis_id: analysisId,
-          page_number: improvement.pageNumber || null,
-          priority: improvement.priority,
-          title: improvement.title,
-          description: improvement.description,
-          type: 'improvement',
-        }))
-      );
-    }
-
-    if (analysis.missingSlides && analysis.missingSlides.length > 0) {
-      console.log(`Inserting ${analysis.missingSlides.length} missing slides`);
-      await supabase.from('missing_slides').insert(
-        analysis.missingSlides.map((slide: any) => ({
-          analysis_id: analysisId,
-          priority: slide.priority,
-          title: slide.title,
-          description: slide.description,
-          suggested_content: slide.suggestedContent,
-        }))
-      );
-    }
-
-    if (analysis.stageAssessment) {
-      console.log('Inserting stage assessment:', analysis.stageAssessment);
-      await supabase.from('analysis_stage_assessment').insert({
+      console.log(`Inserting ${analysis.detailedIssues.length} detailed issues...`);
+      const detailedIssueRecords = analysis.detailedIssues.map((issue: any) => ({
         analysis_id: analysisId,
-        detected_stage: analysis.stageAssessment.detectedStage,
-        stage_confidence: analysis.stageAssessment.stageConfidence,
-        stage_appropriateness_score: analysis.stageAssessment.stageAppropriatenessScore,
-        stage_specific_feedback: analysis.stageAssessment.stageFeedback,
-      });
+        page_number: issue.pageNumber,
+        priority: issue.priority || 'medium',
+        title: issue.title || 'Untitled Issue',
+        description: issue.description || '',
+        category: issue.category || 'content',
+      }));
+      await supabase.from('detailed_issues').insert(detailedIssueRecords);
     }
 
-    if (analysis.investmentReadiness) {
-      console.log('Inserting investment readiness:', analysis.investmentReadiness);
-      await supabase.from('analysis_investment_readiness').insert({
+    if (analysis.missingPages && analysis.missingPages.length > 0) {
+      console.log(`Inserting ${analysis.missingPages.length} missing pages...`);
+      const missingPageRecords = analysis.missingPages.map((page: any) => ({
         analysis_id: analysisId,
-        is_investment_ready: analysis.investmentReadiness.isInvestmentReady,
-        readiness_score: analysis.investmentReadiness.readinessScore,
-        readiness_summary: analysis.investmentReadiness.readinessSummary,
-        critical_blockers: analysis.investmentReadiness.criticalBlockers || [],
-        team_score: analysis.investmentReadiness.teamScore,
-        team_feedback: analysis.investmentReadiness.teamFeedback || null,
-        market_opportunity_score: analysis.investmentReadiness.marketOpportunityScore,
-        market_opportunity_feedback: analysis.investmentReadiness.marketOpportunityFeedback || null,
-        product_score: analysis.investmentReadiness.productScore,
-        product_feedback: analysis.investmentReadiness.productFeedback || null,
-        traction_score: analysis.investmentReadiness.tractionScore,
-        traction_feedback: analysis.investmentReadiness.tractionFeedback || null,
-        financials_score: analysis.investmentReadiness.financialsScore,
-        financials_feedback: analysis.investmentReadiness.financialsFeedback || null,
-      });
+        section: page.section || 'Unknown',
+        importance: page.importance || '',
+      }));
+      await supabase.from('missing_pages').insert(missingPageRecords);
     }
 
     if (analysis.redFlags && analysis.redFlags.length > 0) {
-      console.log(`Inserting ${analysis.redFlags.length} red flags`);
-      await supabase.from('analysis_red_flags').insert(
-        analysis.redFlags.map((flag: any) => ({
-          analysis_id: analysisId,
-          category: flag.category,
-          severity: flag.severity,
-          title: flag.title,
-          description: flag.description,
-          impact: flag.impact,
-        }))
-      );
+      console.log(`Inserting ${analysis.redFlags.length} red flags...`);
+      const redFlagRecords = analysis.redFlags.map((flag: string) => ({
+        analysis_id: analysisId,
+        description: flag,
+      }));
+      await supabase.from('red_flags').insert(redFlagRecords);
     }
 
     if (analysis.dealBreakers && analysis.dealBreakers.length > 0) {
-      console.log(`Inserting ${analysis.dealBreakers.length} deal breakers`);
-      await supabase.from('analysis_deal_breakers').insert(
-        analysis.dealBreakers.map((breaker: any) => ({
-          analysis_id: analysisId,
-          title: breaker.title,
-          description: breaker.description,
-          recommendation: breaker.recommendation,
-        }))
-      );
+      console.log(`Inserting ${analysis.dealBreakers.length} deal breakers...`);
+      const dealBreakerRecords = analysis.dealBreakers.map((breaker: string) => ({
+        analysis_id: analysisId,
+        description: breaker,
+      }));
+      await supabase.from('deal_breakers').insert(dealBreakerRecords);
     }
 
-    console.log('Analysis complete:', analysisId);
+    console.log('Creating analysis_pages records...');
+    const pageRecords = Array.from({ length: pageCount }, (_, i) => ({
+      analysis_id: analysisId,
+      page_number: i + 1,
+      image_url: null,
+    }));
+
+    const { error: pagesError } = await supabase
+      .from('analysis_pages')
+      .insert(pageRecords);
+
+    if (pagesError) {
+      console.error('Failed to insert pages:', pagesError);
+    } else {
+      console.log(`✓ Created ${pageCount} page records`);
+    }
 
     const result: AnalysisResult = {
       analysisId,
-      overallScore: analysis.overallScore,
-      summary: analysis.summary,
-      totalPages: analysis.totalPages,
+      overallScore: analysis.overallScore || 0,
+      summary: analysis.summary || 'No summary provided',
+      totalPages: pageCount,
     };
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-    });
+    console.log('Analysis complete:', result);
+
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+
   } catch (error) {
     console.error('Error in analyze-deck function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
-      JSON.stringify({
-        error: error.message || 'Internal server error',
-      }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }

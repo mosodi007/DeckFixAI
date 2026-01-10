@@ -317,7 +317,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
 
                       {hasRecommendations && (
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                          <h3 className="font-bold text-green-900 mb-3 text-sm uppercase tracking-wide">
+                          <h3 className="font-bold text-[#000] mb-3 text-sm uppercase tracking-wide">
                             Recommendations
                           </h3>
                           <ul className="space-y-2">

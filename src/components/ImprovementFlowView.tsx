@@ -40,6 +40,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [pendingFixData, setPendingFixData] = useState<any>(null);
   const [slideCostEstimates, setSlideCostEstimates] = useState<Record<number, number>>({});
   const [isEstimatingCost, setIsEstimatingCost] = useState(false);
+  const [issueCostEstimates, setIssueCostEstimates] = useState<Record<number, number>>({});
+  const [estimatingIssueIndex, setEstimatingIssueIndex] = useState<number | null>(null);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
@@ -160,6 +162,48 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
       estimateSlideCost(selectedPage);
     }
   }, [selectedPage, isAuthenticated]);
+
+  const estimateIssueCost = async (issue: any, index: number) => {
+    if (!isAuthenticated || issue.pageNumber || issueCostEstimates[index]) {
+      return;
+    }
+
+    setEstimatingIssueIndex(index);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/estimate-fix-cost`;
+      const estimateResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          issueTitle: issue.title,
+          issueDescription: issue.description,
+          issueType: issue.type,
+          recommendation: issue.recommendation,
+        }),
+      });
+
+      if (estimateResponse.ok) {
+        const estimateData = await estimateResponse.json();
+        if (estimateData.success) {
+          setIssueCostEstimates(prev => ({
+            ...prev,
+            [index]: estimateData.creditCost,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error estimating issue cost:', error);
+    } finally {
+      setEstimatingIssueIndex(null);
+    }
+  };
 
   const handleGenerateFix = async () => {
     if (!isAuthenticated) {
@@ -497,7 +541,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                         <>
                           Generate Instant Fix
                           {slideCostEstimates[selectedPage] && (
-                            <span className="ml-2 px-2 py-1 bg-white/20 rounded-lg text-sm">
+                            <span className="ml-2 px-2.5 py-1 bg-white/25 rounded-lg text-sm font-bold">
                               {slideCostEstimates[selectedPage]} credits
                             </span>
                           )}
@@ -578,14 +622,21 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                     </h3>
                   )}
                   <div className="space-y-4">
-                    {filteredIssues.map((issue, index) => (
-                      <IssueCard
-                        key={index}
-                        issue={issue}
-                        onGenerateFix={!issue.pageNumber ? () => handleGenerateIssueFix(issue, index) : undefined}
-                        isGenerating={generatingIssueIndex === index}
-                      />
-                    ))}
+                    {filteredIssues.map((issue, index) => {
+                      if (!issue.pageNumber && isAuthenticated && !issueCostEstimates[index]) {
+                        estimateIssueCost(issue, index);
+                      }
+                      return (
+                        <IssueCard
+                          key={index}
+                          issue={issue}
+                          onGenerateFix={!issue.pageNumber ? () => handleGenerateIssueFix(issue, index) : undefined}
+                          isGenerating={generatingIssueIndex === index}
+                          creditCost={issueCostEstimates[index]}
+                          isEstimatingCost={estimatingIssueIndex === index}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}

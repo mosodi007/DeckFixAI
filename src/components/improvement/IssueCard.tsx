@@ -15,9 +15,11 @@ interface IssueCardProps {
   };
   onGenerateFix?: () => void;
   isGenerating?: boolean;
+  creditCost?: number;
+  isEstimatingCost?: boolean;
 }
 
-export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps) {
+export function IssueCard({ issue, onGenerateFix, isGenerating, creditCost, isEstimatingCost }: IssueCardProps) {
 
   const getPriorityColor = (priority: string) => {
     if (priority === 'High') return 'bg-red-100 text-red-700 border-red-200';
@@ -104,7 +106,7 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
             ) : onGenerateFix ? (
               <button
                 onClick={onGenerateFix}
-                disabled={isGenerating}
+                disabled={isGenerating || isEstimatingCost}
                 className="text-xs bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors ml-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
                 {isGenerating ? (
@@ -112,8 +114,20 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
                     <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Generating...
                   </>
+                ) : isEstimatingCost ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Estimating...
+                  </>
                 ) : (
-                  'Generate Instant Fix'
+                  <>
+                    Generate Instant Fix
+                    {creditCost && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-[10px] font-bold">
+                        {creditCost} credits
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
             ) : null}

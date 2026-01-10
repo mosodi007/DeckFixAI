@@ -23,23 +23,48 @@ interface OpenAIAnalysis {
   contentScore: number;
   structureScore: number;
   strengths: string[];
-  keyIssues: string[];
-  detailedIssues: Array<{
+  weaknesses: string[];
+  issues: Array<{
     pageNumber: number | null;
-    priority: 'high' | 'medium' | 'low';
+    priority: 'High' | 'Medium' | 'Low';
     title: string;
     description: string;
-    category: 'content' | 'design' | 'structure' | 'data' | 'messaging';
-  }>;
-  missingPages: Array<{
-    section: string;
-    importance: string;
+    type: 'issue' | 'improvement';
   }>;
   dealBreakers: Array<{
     title: string;
     description: string;
     recommendation: string;
   }>;
+  redFlags: Array<{
+    category: 'financial' | 'team' | 'market' | 'product' | 'competition' | 'traction' | 'other';
+    severity: 'critical' | 'major' | 'moderate';
+    title: string;
+    description: string;
+    impact: string;
+  }>;
+  stageAssessment: {
+    detectedStage: string;
+    stageConfidence: 'high' | 'medium' | 'low';
+    stageAppropriatenessScore: number;
+    stageFeedback: string;
+  };
+  investmentReadiness: {
+    isInvestmentReady: boolean;
+    readinessScore: number;
+    readinessSummary: string;
+    criticalBlockers: string[];
+    teamScore: number;
+    marketOpportunityScore: number;
+    productScore: number;
+    tractionScore: number;
+    financialsScore: number;
+    teamFeedback: string;
+    marketOpportunityFeedback: string;
+    productFeedback: string;
+    tractionFeedback: string;
+    financialsFeedback: string;
+  };
 }
 
 const ANALYSIS_PROMPT = `You are an expert venture capital pitch deck analyst. Analyze this pitch deck text and provide comprehensive feedback.
@@ -62,38 +87,64 @@ Respond ONLY with valid JSON in this exact format:
   "contentScore": <number 0-100>,
   "structureScore": <number 0-100>,
   "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "keyIssues": ["<critical issue 1>", "<critical issue 2>", "<critical issue 3>"],
-  "detailedIssues": [
+  "weaknesses": ["<weakness/issue 1>", "<weakness/issue 2>", "<weakness/issue 3>"],
+  "issues": [
     {
       "pageNumber": <page number or null if general>,
-      "priority": "high" | "medium" | "low",
+      "priority": "High" | "Medium" | "Low",
       "title": "<short issue title>",
-      "description": "<detailed description of the issue and why it matters>",
-      "category": "content" | "design" | "structure" | "data" | "messaging"
-    }
-  ],
-  "missingPages": [
-    {
-      "section": "<missing section name like 'Team', 'Financials', 'Competition'>",
-      "importance": "<why this section is critical for investors>"
+      "description": "<detailed description>",
+      "type": "issue" | "improvement"
     }
   ],
   "dealBreakers": [
     {
       "title": "<deal breaker title>",
-      "description": "<why this is a critical problem>",
-      "recommendation": "<how to fix it>"
+      "description": "<why this is critical>",
+      "recommendation": "<how to fix>"
     }
-  ]
+  ],
+  "redFlags": [
+    {
+      "category": "financial" | "team" | "market" | "product" | "competition" | "traction" | "other",
+      "severity": "critical" | "major" | "moderate",
+      "title": "<red flag title>",
+      "description": "<description>",
+      "impact": "<impact on funding potential>"
+    }
+  ],
+  "stageAssessment": {
+    "detectedStage": "<Pre-seed | Seed | Series A | Series B | Growth>",
+    "stageConfidence": "high" | "medium" | "low",
+    "stageAppropriatenessScore": <0-100>,
+    "stageFeedback": "<feedback on stage appropriateness>"
+  },
+  "investmentReadiness": {
+    "isInvestmentReady": <true | false>,
+    "readinessScore": <0-100>,
+    "readinessSummary": "<summary of investment readiness>",
+    "criticalBlockers": ["<blocker 1>", "<blocker 2>"],
+    "teamScore": <0-100>,
+    "marketOpportunityScore": <0-100>,
+    "productScore": <0-100>,
+    "tractionScore": <0-100>,
+    "financialsScore": <0-100>,
+    "teamFeedback": "<team assessment feedback>",
+    "marketOpportunityFeedback": "<market opportunity feedback>",
+    "productFeedback": "<product feedback>",
+    "tractionFeedback": "<traction feedback>",
+    "financialsFeedback": "<financials feedback>"
+  }
 }
 
-Important:
+Important guidelines:
 - Be critical but constructive - VCs are discerning
 - Score realistically (most decks are 40-70, excellent ones 75-85)
-- Identify 3-5 strengths and 3-5 key issues
-- Include 5-10 detailed issues with specific page references when possible
+- Identify 3-5 strengths and 3-5 weaknesses
+- Include 5-10 issues with specific page references when possible
 - Only include deal breakers for truly critical problems (empty array if none)
-- Missing pages should only include genuinely absent critical sections`;
+- Include 2-5 red flags that would concern investors
+- Assess the funding stage based on content maturity`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -276,6 +327,8 @@ Deno.serve(async (req: Request) => {
       .update({
         overall_score: Math.min(100, Math.max(0, analysis.overallScore)),
         summary: analysis.summary,
+        investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
+        funding_stage: analysis.stageAssessment?.detectedStage || null,
       })
       .eq('id', analysisId);
 
@@ -286,7 +339,7 @@ Deno.serve(async (req: Request) => {
     const metricsRecord = {
       analysis_id: analysisId,
       strengths: analysis.strengths || [],
-      weaknesses: analysis.keyIssues || [],
+      weaknesses: analysis.weaknesses || [],
       clarity_score: Math.min(100, Math.max(0, analysis.clarityScore || 50)),
       design_score: Math.min(100, Math.max(0, analysis.designScore || 50)),
       content_score: Math.min(100, Math.max(0, analysis.contentScore || 50)),
@@ -301,68 +354,22 @@ Deno.serve(async (req: Request) => {
       console.error('Failed to insert metrics:', metricsError);
     }
 
-    if (analysis.strengths?.length > 0) {
-      const strengthRecords = analysis.strengths.map(desc => ({
-        analysis_id: analysisId,
-        description: desc,
-      }));
-
-      const { error: strengthsError } = await supabase
-        .from('strengths')
-        .insert(strengthRecords);
-
-      if (strengthsError) {
-        console.error('Failed to insert strengths:', strengthsError);
-      }
-    }
-
-    if (analysis.keyIssues?.length > 0) {
-      const keyIssueRecords = analysis.keyIssues.map(desc => ({
-        analysis_id: analysisId,
-        description: desc,
-      }));
-
-      const { error: keyIssuesError } = await supabase
-        .from('key_issues')
-        .insert(keyIssueRecords);
-
-      if (keyIssuesError) {
-        console.error('Failed to insert key issues:', keyIssuesError);
-      }
-    }
-
-    if (analysis.detailedIssues?.length > 0) {
-      const detailedIssueRecords = analysis.detailedIssues.map(issue => ({
+    if (analysis.issues?.length > 0) {
+      const issueRecords = analysis.issues.map(issue => ({
         analysis_id: analysisId,
         page_number: issue.pageNumber,
         priority: issue.priority,
         title: issue.title,
         description: issue.description,
-        category: issue.category,
+        type: issue.type,
       }));
 
-      const { error: detailedError } = await supabase
-        .from('detailed_issues')
-        .insert(detailedIssueRecords);
+      const { error: issuesError } = await supabase
+        .from('analysis_issues')
+        .insert(issueRecords);
 
-      if (detailedError) {
-        console.error('Failed to insert detailed issues:', detailedError);
-      }
-    }
-
-    if (analysis.missingPages?.length > 0) {
-      const missingPageRecords = analysis.missingPages.map(page => ({
-        analysis_id: analysisId,
-        section: page.section,
-        importance: page.importance,
-      }));
-
-      const { error: missingError } = await supabase
-        .from('missing_pages')
-        .insert(missingPageRecords);
-
-      if (missingError) {
-        console.error('Failed to insert missing pages:', missingError);
+      if (issuesError) {
+        console.error('Failed to insert issues:', issuesError);
       }
     }
 
@@ -375,11 +382,77 @@ Deno.serve(async (req: Request) => {
       }));
 
       const { error: dealBreakersError } = await supabase
-        .from('deal_breakers')
+        .from('analysis_deal_breakers')
         .insert(dealBreakerRecords);
 
       if (dealBreakersError) {
         console.error('Failed to insert deal breakers:', dealBreakersError);
+      }
+    }
+
+    if (analysis.redFlags?.length > 0) {
+      const redFlagRecords = analysis.redFlags.map(rf => ({
+        analysis_id: analysisId,
+        category: rf.category,
+        severity: rf.severity,
+        title: rf.title,
+        description: rf.description,
+        impact: rf.impact,
+      }));
+
+      const { error: redFlagsError } = await supabase
+        .from('analysis_red_flags')
+        .insert(redFlagRecords);
+
+      if (redFlagsError) {
+        console.error('Failed to insert red flags:', redFlagsError);
+      }
+    }
+
+    if (analysis.stageAssessment) {
+      const stageRecord = {
+        analysis_id: analysisId,
+        detected_stage: analysis.stageAssessment.detectedStage,
+        stage_confidence: analysis.stageAssessment.stageConfidence,
+        stage_appropriateness_score: Math.min(100, Math.max(0, analysis.stageAssessment.stageAppropriatenessScore)),
+        stage_specific_feedback: analysis.stageAssessment.stageFeedback,
+      };
+
+      const { error: stageError } = await supabase
+        .from('analysis_stage_assessment')
+        .insert(stageRecord);
+
+      if (stageError) {
+        console.error('Failed to insert stage assessment:', stageError);
+      }
+    }
+
+    if (analysis.investmentReadiness) {
+      const ir = analysis.investmentReadiness;
+      const readinessRecord = {
+        analysis_id: analysisId,
+        is_investment_ready: ir.isInvestmentReady,
+        readiness_score: Math.min(100, Math.max(0, ir.readinessScore)),
+        readiness_summary: ir.readinessSummary,
+        critical_blockers: ir.criticalBlockers || [],
+        team_score: Math.min(100, Math.max(0, ir.teamScore)),
+        market_opportunity_score: Math.min(100, Math.max(0, ir.marketOpportunityScore)),
+        product_score: Math.min(100, Math.max(0, ir.productScore)),
+        traction_score: Math.min(100, Math.max(0, ir.tractionScore)),
+        financials_score: Math.min(100, Math.max(0, ir.financialsScore)),
+        team_feedback: ir.teamFeedback,
+        market_opportunity_feedback: ir.marketOpportunityFeedback,
+        product_feedback: ir.productFeedback,
+        traction_feedback: ir.tractionFeedback,
+        financials_feedback: ir.financialsFeedback,
+      };
+
+      const { error: readinessError } = await supabase
+        .from('analysis_investment_readiness')
+        .insert(readinessRecord);
+
+      if (readinessError) {
+        console.error('Failed to insert investment readiness:', readinessError);
       }
     }
 

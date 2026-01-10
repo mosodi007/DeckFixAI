@@ -194,7 +194,7 @@ export function FixSlideModal({
                   key={idx}
                   className="flex items-start gap-4 bg-white border border-blue-200 rounded-lg p-4"
                 >
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                  <div className="flex-shrink-0 w-8 h-8 bg-slate-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
                     {idx + 1}
                   </div>
                   <p className="text-slate-700 flex-1 pt-1">{step}</p>

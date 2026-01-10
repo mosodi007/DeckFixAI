@@ -405,9 +405,14 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                 <div className="p-5 flex flex-col flex-1">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-slate-900 mb-2 truncate group-hover:text-slate-700 transition-colors">
-                        {analysis.deck_name}
-                      </h3>
+                      <div className="flex items-baseline justify-between gap-3 mb-2">
+                        <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-slate-700 transition-colors">
+                          {analysis.deck_name}
+                        </h3>
+                        <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
+                          {(analysis.overall_score / 10).toFixed(1)}/10
+                        </span>
+                      </div>
                       <div className="flex items-center gap-3 text-xs text-slate-600">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
@@ -419,16 +424,6 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                         </span>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Score Badge */}
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs mb-3 ${getScoreBgColor(analysis.overall_score)}`}>
-                    <span className={`font-semibold ${getScoreColor(analysis.overall_score)}`}>
-                      {analysis.overall_score >= 80 && 'Investment Ready'}
-                      {analysis.overall_score >= 60 && analysis.overall_score < 80 && 'Strong Foundation'}
-                      {analysis.overall_score >= 40 && analysis.overall_score < 60 && 'Needs Improvement'}
-                      {analysis.overall_score < 40 && 'Major Issues'}
-                    </span>
                   </div>
 
                   {/* Quick Stats */}

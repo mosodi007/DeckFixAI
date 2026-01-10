@@ -45,7 +45,21 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{ te
     console.log(`Total extraction: ${totalTextLength} characters from ${totalPages} pages`);
 
     if (totalTextLength < 10) {
-      throw new Error('Could not extract sufficient text from PDF. The file appears to be image-based.');
+      console.warn('PDF appears to be image-based with minimal extractable text. Will proceed with visual analysis.');
+
+      const imagePlaceholderText = Array.from({ length: totalPages }, (_, i) => {
+        const pageNum = i + 1;
+        return `\n\n--- PAGE ${pageNum} ---\nThis slide appears to be image-based and requires visual analysis.\n--- END PAGE ${pageNum} ---\n`;
+      }).join('');
+
+      return {
+        text: imagePlaceholderText.trim(),
+        pageCount: totalPages,
+        pages: Array.from({ length: totalPages }, (_, i) => ({
+          pageNumber: i + 1,
+          text: 'This slide appears to be image-based and requires visual analysis.'
+        }))
+      };
     }
 
     return {

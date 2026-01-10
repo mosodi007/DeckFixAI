@@ -105,8 +105,11 @@ Deno.serve(async (req: Request) => {
     console.log('Text length to send:', textToAnalyze.length, 'chars');
 
     const wordCountSummary = perPageWordCounts.map(p => `Page ${p.pageNumber}: ${p.wordCount} words`).join(', ');
+    const isImageBased = text.includes('image-based and requires visual analysis');
 
     const prompt = `You are an experienced VC analyzing this ${pageCount}-page pitch deck. Be brutally honest and direct. No sugar-coating. Call out weaknesses plainly.
+
+${isImageBased ? '⚠️ NOTE: This deck appears to be IMAGE-BASED (slides are images/graphics, not text). Most pages have minimal extractable text. Analyze what text is available, but note that full visual analysis will be performed separately.' : ''}
 
 ## WORD COUNT PER PAGE:
 ${wordCountSummary}
@@ -115,7 +118,7 @@ ${wordCountSummary}
 ${textToAnalyze}
 
 ## INSTRUCTIONS:
-Provide analysis in strict JSON format. Be concise and specific.
+Provide analysis in strict JSON format. Be concise and specific.${isImageBased ? ' Since this is an image-based deck, base your analysis on the limited text available and note that visual elements cannot be assessed at this stage.' : ''}
 
 ### STEP 1: DETECT FUNDING STAGE
 
@@ -275,8 +278,10 @@ Extract the following business metrics from the deck content. If a metric is not
 ### ASSESS DECK QUALITY METRICS:
 Analyze these quality metrics with brutal honesty. IMPORTANT: Use the "WORD COUNT PER PAGE" data provided above to inform your word density assessment. DO NOT assume slides are empty just because they have fewer words - slides can be visual-heavy with images, charts, or diagrams.
 
-- wordDensity: Assessment of text density per slide based on the word counts provided. Calculate the average words per page and classify: "Low" (<30 words/page average - minimal text, mostly visuals), "Medium" (30-80 words/page - balanced text and visuals), "High" (80-150 words/page - text-heavy but readable), "Very High" (>150 words/page - overwhelming text, slides too busy)
-- wordDensityFeedback: 2-3 sentences being brutally honest about text density based on the actual word counts per page. Acknowledge the specific distribution (e.g., "Page 1 has 200 words while pages 2-10 average 40 words"). DO NOT claim slides are empty unless word count is literally 0. Low word count can indicate visual-heavy slides (images, charts) which is often GOOD for pitch decks. If distribution is unbalanced (e.g., first slide very text-heavy, rest reasonable), state that specifically.
+${isImageBased ? '⚠️ FOR IMAGE-BASED DECKS: If the deck is image-based (minimal extractable text), note this explicitly in your feedback. Score Design as 50 (cannot assess without seeing images), but still assess the limited text content available. Emphasize that full visual analysis is required.' : ''}
+
+- wordDensity: Assessment of text density per slide based on the word counts provided. Calculate the average words per page and classify: "Low" (<30 words/page average - minimal text, mostly visuals), "Medium" (30-80 words/page - balanced text and visuals), "High" (80-150 words/page - text-heavy but readable), "Very High" (>150 words/page - overwhelming text, slides too busy)${isImageBased ? ' If image-based, classify as "Low" and note that visual analysis is needed.' : ''}
+- wordDensityFeedback: 2-3 sentences being brutally honest about text density based on the actual word counts per page. Acknowledge the specific distribution (e.g., "Page 1 has 200 words while pages 2-10 average 40 words"). DO NOT claim slides are empty unless word count is literally 0. Low word count can indicate visual-heavy slides (images, charts) which is often GOOD for pitch decks. If distribution is unbalanced (e.g., first slide very text-heavy, rest reasonable), state that specifically.${isImageBased ? ' For image-based decks, explicitly state that the deck is image-based and requires visual analysis to fully assess.' : ''}
 - disruptionSignal: Score 0-100 measuring how disruptive/innovative the business idea is. Consider: market disruption potential, technology innovation, business model novelty, addressable pain points. Score 0-30: incremental improvement, 31-60: moderate innovation, 61-80: significant disruption potential, 81-100: revolutionary/paradigm-shifting. Be harsh - most ideas are not disruptive.
 - disruptionSignalFeedback: 2-3 sentences of brutal truth about the innovation level. If it's just another SaaS tool or incremental improvement, say so plainly. Don't inflate mediocre ideas.
 - pageCountFeedback: 2-3 sentences being direct about whether page count is appropriate. If it's too long, say it's bloated. If too short, say it's underdeveloped.

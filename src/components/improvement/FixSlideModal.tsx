@@ -178,7 +178,7 @@ export function FixSlideModal({
                     key={idx}
                     className="flex items-start gap-3 bg-white border rounded-lg p-4"
                   >
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center">
+                    <div className="flex-shrink-0 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
                       <ImageIcon className="w-4 h-4 text-[#000]" />
                     </div>
                     <p className="text-slate-700 flex-1">{rec}</p>

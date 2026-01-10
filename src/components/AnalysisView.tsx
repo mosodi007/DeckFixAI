@@ -21,6 +21,7 @@ interface AnalysisViewProps {
 
 const sections = [
   { id: 'summary', label: 'Summary' },
+  { id: 'metrics-scores', label: 'Metrics & Scores' },
   { id: 'general-review', label: 'General Review' },
   // { id: 'key-metrics', label: 'Business Information' },
   { id: 'stage-assessment', label: 'Stage Assessment' },
@@ -28,7 +29,6 @@ const sections = [
   { id: 'deal-breakers', label: 'Deal Breakers' },
   { id: 'red-flags', label: 'Red Flags' },
   { id: 'missing-pages', label: 'Missing Pages' },
-  { id: 'metrics-scores', label: 'Metrics & Scores' },
   { id: 'strengths-issues', label: 'Strengths & Issues' },
   { id: 'improvements', label: 'Improvements' },
 ];
@@ -134,6 +134,11 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
       />
       </div>
 
+      <div id="metrics-scores" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <MetricsSection metrics={data.metrics} />
+        <ScoreDistributionSection overallScore={data.overallScore} />
+      </div>
+
       <div id="general-review">
         <GeneralReviewSection
           overallScore={data.overallScore}
@@ -182,11 +187,6 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
 
       <div id="missing-pages">
         <MissingPagesSection missingSlides={data.missingSlides || []} />
-      </div>
-
-      <div id="metrics-scores" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <MetricsSection metrics={data.metrics} />
-        <ScoreDistributionSection overallScore={data.overallScore} />
       </div>
 
       <div id="strengths-issues" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

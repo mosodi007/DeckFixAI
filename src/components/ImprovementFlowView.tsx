@@ -133,7 +133,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+    <div className="min-h-screen bg-[#000]">
       {isAnalyzing && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4">

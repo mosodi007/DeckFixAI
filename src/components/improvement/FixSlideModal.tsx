@@ -184,7 +184,7 @@ export function FixSlideModal({
             </div>
           )}
 
-          <div className="bg-slate-50 border border-blue-200 rounded-xl p-6">
+          <div className="bg-white-50 border border-blue-200 rounded-xl p-6">
             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
               Step-by-Step Implementation
             </h3>

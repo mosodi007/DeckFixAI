@@ -90,7 +90,6 @@ Deno.serve(async (req: Request) => {
       pageCount = result.pageCount;
       pdfMetadata = result.metadata;
 
-      // Calculate word count per page
       perPageWordCounts = result.pages.map(page => ({
         pageNumber: page.pageNumber,
         wordCount: page.text.trim().split(/\s+/).filter(w => w.length > 0).length
@@ -436,11 +435,10 @@ Return ONLY valid JSON matching this exact structure:
       id: analysisId,
       user_id: user?.id || null,
       session_id: !user?.id ? sessionId : null,
-      filename: file.name,
+      file_name: file.name,
+      file_size: file.size,
       overall_score: analysis.overallScore || 0,
       summary: analysis.summary || 'No summary provided',
-      ideal_investor: analysis.idealInvestor || null,
-      ideal_version: analysis.idealVersion || null,
       total_pages: pageCount,
       created_at: new Date().toISOString(),
     };

@@ -35,51 +35,43 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
   }));
 
   const allIssues = [
-    ...(data?.dealBreakers || []).map((breaker: any) => ({
-      type: 'deal_breaker' as const,
-      priority: 'high',
-      title: breaker.title,
-      description: breaker.description,
-      recommendation: breaker.recommendation,
-      pageNumber: null,
-      impact: 'This is a critical issue that makes the deck uninvestable. Must be fixed before approaching investors.',
-    })),
-    ...(data?.redFlags || []).map((flag: any) => ({
-      type: 'red_flag' as const,
-      priority: flag.severity === 'critical' ? 'high' : flag.severity === 'major' ? 'medium' : 'low',
-      title: flag.title,
-      description: flag.description,
-      impact: flag.impact,
-      category: flag.category,
-      severity: flag.severity,
-      pageNumber: null,
-    })),
-    ...(data?.issues || []).map((issue: any) => ({
-      type: 'issue' as const,
-      priority: typeof issue === 'string' ? 'medium' : issue.priority,
-      title: typeof issue === 'string' ? issue.split(':')[0] : issue.issue || issue.title,
-      description: typeof issue === 'string' ? issue : issue.impact || issue.description,
-      pageNumber: typeof issue === 'string' ? null : issue.pageNumber,
-    })),
-    ...(data?.improvements || []).map((improvement: any) => ({
-      type: 'improvement' as const,
-      priority: improvement.priority,
-      title: improvement.issue || improvement.title,
-      description: improvement.impact || improvement.description,
-      pageNumber: improvement.pageNumber,
-    })),
-    ...(data?.missingSlides || []).map((slide: any) => ({
-      type: 'missing_slide' as const,
-      priority: slide.priority,
-      title: slide.title,
-      description: slide.description,
-      suggestedContent: slide.suggestedContent,
-      pageNumber: null,
-    }))
+    ...(data?.dealBreakers || [])
+      .filter((breaker: any) => breaker.title && breaker.description)
+      .map((breaker: any) => ({
+        type: 'deal_breaker' as const,
+        priority: 'high',
+        title: breaker.title,
+        description: breaker.description,
+        recommendation: breaker.recommendation,
+        pageNumber: null,
+        impact: 'This is a critical issue that makes the deck uninvestable. Must be fixed before approaching investors.',
+      })),
+    ...(data?.redFlags || [])
+      .filter((flag: any) => flag.title && flag.description)
+      .map((flag: any) => ({
+        type: 'red_flag' as const,
+        priority: flag.severity === 'critical' ? 'high' : flag.severity === 'major' ? 'medium' : 'low',
+        title: flag.title,
+        description: flag.description,
+        impact: flag.impact,
+        category: flag.category,
+        severity: flag.severity,
+        pageNumber: null,
+      })),
+    ...(data?.missingSlides || [])
+      .filter((slide: any) => slide.title && slide.description)
+      .map((slide: any) => ({
+        type: 'missing_slide' as const,
+        priority: slide.priority,
+        title: slide.title,
+        description: slide.description,
+        suggestedContent: slide.suggestedContent,
+        pageNumber: null,
+      }))
   ];
 
   const sortedIssues = [...allIssues].sort((a, b) => {
-    const typeOrder = { deal_breaker: 0, red_flag: 1, missing_slide: 2, issue: 3, improvement: 4 };
+    const typeOrder = { deal_breaker: 0, red_flag: 1, missing_slide: 2 };
     const priorityOrder = { high: 0, medium: 1, low: 2 };
 
     if (typeOrder[a.type] !== typeOrder[b.type]) {
@@ -97,8 +89,6 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
     all: sortedIssues.length,
     deal_breaker: sortedIssues.filter(i => i.type === 'deal_breaker').length,
     red_flag: sortedIssues.filter(i => i.type === 'red_flag').length,
-    issue: sortedIssues.filter(i => i.type === 'issue').length,
-    improvement: sortedIssues.filter(i => i.type === 'improvement').length,
     missing_slide: sortedIssues.filter(i => i.type === 'missing_slide').length,
   };
 
@@ -265,8 +255,6 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                     {issueTypeCounts.deal_breaker > 0 && <option value="deal_breaker">Deal-Breakers ({issueTypeCounts.deal_breaker})</option>}
                     {issueTypeCounts.red_flag > 0 && <option value="red_flag">Red Flags ({issueTypeCounts.red_flag})</option>}
                     {issueTypeCounts.missing_slide > 0 && <option value="missing_slide">Missing Slides ({issueTypeCounts.missing_slide})</option>}
-                    {issueTypeCounts.issue > 0 && <option value="issue">Issues ({issueTypeCounts.issue})</option>}
-                    {issueTypeCounts.improvement > 0 && <option value="improvement">Improvements ({issueTypeCounts.improvement})</option>}
                   </select>
                 </div>
               </div>
@@ -355,18 +343,30 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
               {/* Issues from aggregated data */}
               {filteredIssues.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-5xl mb-3">🎉</div>
+                  <div className="text-5xl mb-3">✨</div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    {filterType === 'all' ? 'No Additional Issues' : 'No items found'}
+                    {filterType === 'all' ? (selectedPage > 0 ? 'Check AI Feedback Above' : 'No Critical Deck Issues') : 'No items found'}
                   </h3>
                   <p className="text-slate-600 text-sm">
                     {filterType === 'all'
-                      ? (selectedPage > 0 ? 'Check the feedback above for ways to improve this slide' : 'No critical issues found')
+                      ? (selectedPage > 0
+                          ? 'Review the detailed AI feedback and recommendations above, then use "Fix This" to get implementation-ready improvements'
+                          : 'Your deck has no deal-breakers or red flags. Click on individual slides to see detailed feedback and get AI-powered fixes.')
                       : `No ${filterType.replace('_', ' ')}s found`}
                   </p>
                 </div>
               ) : (
                 <div>
+                  {selectedPage === 0 && (
+                    <div className="mb-4">
+                      <h3 className="font-bold text-slate-900 mb-2 text-sm uppercase tracking-wide">
+                        Critical Deck-Level Issues
+                      </h3>
+                      <p className="text-sm text-slate-600 mb-4">
+                        These issues affect your entire deck. For slide-specific feedback and AI-powered fixes, click on individual slides.
+                      </p>
+                    </div>
+                  )}
                   {selectedPage > 0 && (
                     <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wide">
                       Additional Issues

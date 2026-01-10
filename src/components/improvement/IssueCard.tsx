@@ -1,5 +1,4 @@
-import { AlertCircle, Lightbulb, Wand2, CheckCircle2, FilePlus, TrendingDown, Target, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, Lightbulb, FilePlus, TrendingDown, Target, AlertTriangle } from 'lucide-react';
 
 interface IssueCardProps {
   issue: {
@@ -17,8 +16,6 @@ interface IssueCardProps {
 }
 
 export function IssueCard({ issue }: IssueCardProps) {
-  const [isFixed, setIsFixed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const getPriorityColor = (priority: string) => {
     if (priority === 'High') return 'bg-red-100 text-red-700 border-red-200';
@@ -26,44 +23,11 @@ export function IssueCard({ issue }: IssueCardProps) {
     return 'bg-blue-100 text-blue-700 border-blue-200';
   };
 
-  const handleAction = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsFixed(true);
-    setIsLoading(false);
-  };
-
-  if (isFixed) {
-    return (
-      <div className="bg-green-50/80 backdrop-blur-sm border border-green-200 rounded-xl p-5 transition-all duration-300">
-        <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-green-900 mb-1">
-              {issue.type === 'missing_slide' ? 'Slide Generated!' : issue.type === 'issue' ? 'Issue Fixed!' : 'Improvement Applied!'}
-            </h4>
-            <p className="text-sm text-green-700">
-              {issue.type === 'missing_slide'
-                ? 'New slide has been generated and added to your deck'
-                : `Changes have been applied to Slide ${issue.pageNumber}`
-              }
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const getIconConfig = () => {
     if (issue.type === 'deal_breaker') {
       return {
         bgColor: 'bg-red-100',
         icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
-        buttonColor: 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg hover:-translate-y-0.5',
-        buttonText: 'Fix Critical Issue',
-        loadingText: 'Applying...',
         badgeColor: 'bg-red-100 text-red-700 border-red-300',
         badgeText: 'DEAL-BREAKER'
       };
@@ -72,9 +36,6 @@ export function IssueCard({ issue }: IssueCardProps) {
       return {
         bgColor: 'bg-orange-100',
         icon: <TrendingDown className="w-5 h-5 text-orange-600" />,
-        buttonColor: 'bg-orange-600 text-white hover:bg-orange-700 hover:shadow-lg hover:-translate-y-0.5',
-        buttonText: 'Address Red Flag',
-        loadingText: 'Applying...',
         badgeColor: 'bg-orange-100 text-orange-700 border-orange-300',
         badgeText: 'RED FLAG'
       };
@@ -83,9 +44,6 @@ export function IssueCard({ issue }: IssueCardProps) {
       return {
         bgColor: 'bg-purple-100',
         icon: <FilePlus className="w-5 h-5 text-purple-600" />,
-        buttonColor: 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:-translate-y-0.5',
-        buttonText: 'Generate Slide',
-        loadingText: 'Generating...',
         badgeColor: 'bg-purple-100 text-purple-700 border-purple-300',
         badgeText: 'MISSING CONTENT'
       };
@@ -94,9 +52,6 @@ export function IssueCard({ issue }: IssueCardProps) {
       return {
         bgColor: 'bg-yellow-100',
         icon: <AlertCircle className="w-5 h-5 text-yellow-600" />,
-        buttonColor: 'bg-yellow-600 text-white hover:bg-yellow-700 hover:shadow-lg hover:-translate-y-0.5',
-        buttonText: 'Fix Issue',
-        loadingText: 'Applying...',
         badgeColor: 'bg-yellow-100 text-yellow-700 border-yellow-300',
         badgeText: 'ISSUE'
       };
@@ -104,9 +59,6 @@ export function IssueCard({ issue }: IssueCardProps) {
     return {
       bgColor: 'bg-blue-100',
       icon: <Lightbulb className="w-5 h-5 text-blue-600" />,
-      buttonColor: 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5',
-      buttonText: 'Apply Improvement',
-      loadingText: 'Applying...',
       badgeColor: 'bg-blue-100 text-blue-700 border-blue-300',
       badgeText: 'IMPROVEMENT'
     };
@@ -198,29 +150,11 @@ export function IssueCard({ issue }: IssueCardProps) {
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleAction}
-              disabled={isLoading}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-300 ${
-                isLoading
-                  ? 'bg-slate-100 text-slate-400 cursor-wait'
-                  : iconConfig.buttonColor
-              }`}
-            >
-              <Wand2 className="w-4 h-4" />
-              {isLoading ? iconConfig.loadingText : iconConfig.buttonText}
-            </button>
-
-            {issue.type !== 'deal_breaker' && (
-              <button
-                className="px-4 py-2.5 rounded-lg font-semibold text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"
-              >
-                Skip
-              </button>
-            )}
-          </div>
+          {issue.pageNumber && (
+            <div className="mt-4 text-xs text-slate-500 italic">
+              Review this slide and use the "Fix This" button to get AI-powered implementation-ready fixes
+            </div>
+          )}
         </div>
       </div>
     </div>

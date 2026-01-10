@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react';
+import { ChevronDown, LogOut } from 'lucide-react';
 import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
 import { ImprovementFlowView } from './components/ImprovementFlowView';
+import { LoginModal } from './components/auth/LoginModal';
+import { SignUpModal } from './components/auth/SignUpModal';
 import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
 import { analyzeSlides } from './services/slideAnalysisService';
 import { adaptAnalysisData } from './utils/dataAdapter';
+import { useAuth } from './contexts/AuthContext';
+import { logout } from './services/authService';
 
 function App() {
+  const { user, isAuthenticated } = useAuth();
   const [view, setView] = useState<'upload' | 'analysis' | 'improvement'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     loadPersistedAnalysis();
@@ -68,6 +77,11 @@ function App() {
   };
 
   const handleOpenImprovementFlow = async () => {
+    if (!isAuthenticated) {
+      setShowSignUpModal(true);
+      return;
+    }
+
     if (!analysisData?.id) return;
 
     setIsAnalyzingSlides(true);
@@ -96,6 +110,23 @@ function App() {
     setView('analysis');
   };
 
+  const handleLogout = async () => {
+    await logout();
+    setShowUserMenu(false);
+    setView('upload');
+    setAnalysisData(null);
+  };
+
+  const handleOpenSignUp = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(true);
+  };
+
+  const handleOpenLogin = () => {
+    setShowSignUpModal(false);
+    setShowLoginModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
@@ -110,21 +141,56 @@ function App() {
             </div>
 
             <div className="flex items-center gap-3">
-              {view === 'analysis' && (
-                <div className="flex items-center gap-2">
-                  
+              {isAuthenticated ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold">
+                      {user?.email?.charAt(0).toUpperCase()}
+                    </div>
+                    <span>{user?.email}</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+
+                  {showUserMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setShowUserMenu(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-20">
+                        <div className="px-4 py-3 border-b border-slate-200">
+                          <p className="text-sm font-medium text-slate-900">{user?.email}</p>
+                        </div>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => setShowSignUpModal(true)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
+                  >
+                    Sign Up
+                  </button>
                 </div>
               )}
-
-
-              <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
-                <button className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                  Login
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm">
-                  Sign Up
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -145,15 +211,39 @@ function App() {
             data={analysisData}
             onNewAnalysis={handleNewAnalysis}
             onOpenImprovementFlow={handleOpenImprovementFlow}
+            isAuthenticated={isAuthenticated}
+            onSignUpClick={() => setShowSignUpModal(true)}
           />
         ) : (
           <ImprovementFlowView
             data={analysisData}
             onBack={handleBackToAnalysis}
             isAnalyzing={isAnalyzingSlides}
+            isAuthenticated={isAuthenticated}
+            onSignUpClick={() => setShowSignUpModal(true)}
           />
         )}
       </main>
+
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          onSwitchToSignUp={handleOpenSignUp}
+          onLoginSuccess={() => {
+            setShowLoginModal(false);
+          }}
+        />
+      )}
+
+      {showSignUpModal && (
+        <SignUpModal
+          onClose={() => setShowSignUpModal(false)}
+          onSwitchToLogin={handleOpenLogin}
+          onSignUpSuccess={() => {
+            setShowSignUpModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

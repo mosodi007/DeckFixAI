@@ -11,9 +11,11 @@ interface ImprovementFlowViewProps {
   data: any;
   onBack: () => void;
   isAnalyzing?: boolean;
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
-export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: ImprovementFlowViewProps) {
+export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick }: ImprovementFlowViewProps) {
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
   const [feedbackModalPage, setFeedbackModalPage] = useState<any | null>(null);
@@ -93,6 +95,11 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
   };
 
   const handleGenerateFix = async () => {
+    if (!isAuthenticated) {
+      onSignUpClick();
+      return;
+    }
+
     if (selectedPage === 0 || !data?.id) return;
 
     const currentPage = deckPages.find((p: any) => p.page_number === selectedPage);

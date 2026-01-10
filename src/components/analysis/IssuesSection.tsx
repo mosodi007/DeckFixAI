@@ -1,11 +1,14 @@
 import { AlertCircle } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { BlurredContent } from '../auth/BlurredContent';
 
 interface IssuesSectionProps {
   issues: string[];
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
-export function IssuesSection({ issues }: IssuesSectionProps) {
+export function IssuesSection({ issues, isAuthenticated, onSignUpClick }: IssuesSectionProps) {
   if (!issues || issues.length === 0) {
     return (
       <GlassCard className="p-6">
@@ -20,6 +23,7 @@ export function IssuesSection({ issues }: IssuesSectionProps) {
 
   return (
     <GlassCard className="p-6">
+      <BlurredContent isBlurred={!isAuthenticated} onSignUpClick={onSignUpClick}>
       <div className="flex items-center gap-2 mb-6">
         <AlertCircle className="w-6 h-6 text-orange-600" />
         <h3 className="text-xl font-bold text-slate-900">Key Issues to Address</h3>
@@ -35,6 +39,7 @@ export function IssuesSection({ issues }: IssuesSectionProps) {
           </li>
         ))}
       </ul>
+      </BlurredContent>
     </GlassCard>
   );
 }

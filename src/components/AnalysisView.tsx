@@ -16,6 +16,8 @@ interface AnalysisViewProps {
   data: any;
   onNewAnalysis: () => void;
   onOpenImprovementFlow: () => void;
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
 const sections = [
@@ -32,7 +34,7 @@ const sections = [
   { id: 'improvements', label: 'Improvements' },
 ];
 
-export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: AnalysisViewProps) {
+export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAuthenticated, onSignUpClick }: AnalysisViewProps) {
   const [activeSection, setActiveSection] = useState('summary');
   const navRef = useRef<HTMLElement>(null);
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -176,11 +178,19 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
       </div>
 
       <div id="deal-breakers">
-        <DealBreakersSection dealBreakers={data.dealBreakers || []} />
+        <DealBreakersSection
+          dealBreakers={data.dealBreakers || []}
+          isAuthenticated={isAuthenticated}
+          onSignUpClick={onSignUpClick}
+        />
       </div>
 
       <div id="red-flags">
-        <RedFlagsSection redFlags={data.redFlags || []} />
+        <RedFlagsSection
+          redFlags={data.redFlags || []}
+          isAuthenticated={isAuthenticated}
+          onSignUpClick={onSignUpClick}
+        />
       </div>
 
       {/* <div id="missing-pages">
@@ -188,14 +198,24 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
       </div> */}
 
       <div id="strengths-issues" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <StrengthsSection strengths={data.strengths} />
-        <IssuesSection issues={data.issues} />
+        <StrengthsSection
+          strengths={data.strengths}
+          isAuthenticated={isAuthenticated}
+          onSignUpClick={onSignUpClick}
+        />
+        <IssuesSection
+          issues={data.issues}
+          isAuthenticated={isAuthenticated}
+          onSignUpClick={onSignUpClick}
+        />
       </div>
 
       <div id="improvements">
         <ImprovementsSection
           improvements={data.improvements}
           onOpenImprovementFlow={onOpenImprovementFlow}
+          isAuthenticated={isAuthenticated}
+          onSignUpClick={onSignUpClick}
         />
       </div>
     </div>

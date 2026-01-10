@@ -1,11 +1,14 @@
 import { CheckCircle2 } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { BlurredContent } from '../auth/BlurredContent';
 
 interface StrengthsSectionProps {
   strengths: string[];
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
-export function StrengthsSection({ strengths }: StrengthsSectionProps) {
+export function StrengthsSection({ strengths, isAuthenticated, onSignUpClick }: StrengthsSectionProps) {
   if (!strengths || strengths.length === 0) {
     return (
       <GlassCard className="p-6">
@@ -20,6 +23,7 @@ export function StrengthsSection({ strengths }: StrengthsSectionProps) {
 
   return (
     <GlassCard className="p-6">
+      <BlurredContent isBlurred={!isAuthenticated} onSignUpClick={onSignUpClick}>
       <div className="flex items-center gap-2 mb-6">
         <CheckCircle2 className="w-6 h-6 text-green-600" />
         <h3 className="text-xl font-bold text-slate-900">Key Strengths</h3>
@@ -35,6 +39,7 @@ export function StrengthsSection({ strengths }: StrengthsSectionProps) {
           </li>
         ))}
       </ul>
+      </BlurredContent>
     </GlassCard>
   );
 }

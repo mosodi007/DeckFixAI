@@ -1,5 +1,6 @@
 import { XCircle, Lightbulb } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { BlurredContent } from '../auth/BlurredContent';
 
 interface DealBreaker {
   title: string;
@@ -9,15 +10,18 @@ interface DealBreaker {
 
 interface DealBreakersSectionProps {
   dealBreakers: DealBreaker[];
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
-export function DealBreakersSection({ dealBreakers }: DealBreakersSectionProps) {
+export function DealBreakersSection({ dealBreakers, isAuthenticated, onSignUpClick }: DealBreakersSectionProps) {
   if (!dealBreakers || dealBreakers.length === 0) {
     return null;
   }
 
   return (
     <GlassCard className="p-6 mb-8 border-2 border-red-200 bg-gradient-to-br from-red-50/50 to-white">
+      <BlurredContent isBlurred={!isAuthenticated} onSignUpClick={onSignUpClick}>
       <div className="flex items-center gap-2 mb-6">
         <XCircle className="w-6 h-6 text-red-600" />
         <div className="flex-1">
@@ -66,6 +70,7 @@ export function DealBreakersSection({ dealBreakers }: DealBreakersSectionProps) 
           This deck should NOT be presented to investors until these deal-breakers are resolved.
         </p>
       </div>
+      </BlurredContent>
     </GlassCard>
   );
 }

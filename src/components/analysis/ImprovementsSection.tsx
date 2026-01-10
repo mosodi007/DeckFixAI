@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { BlurredContent } from '../auth/BlurredContent';
 
 interface Improvement {
   priority: string;
@@ -10,9 +11,11 @@ interface Improvement {
 interface ImprovementsSectionProps {
   improvements: Improvement[];
   onOpenImprovementFlow: () => void;
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
-export function ImprovementsSection({ improvements, onOpenImprovementFlow }: ImprovementsSectionProps) {
+export function ImprovementsSection({ improvements, onOpenImprovementFlow, isAuthenticated, onSignUpClick }: ImprovementsSectionProps) {
   const getPriorityColor = (priority: string) => {
     const priorityLower = priority.toLowerCase();
     if (priorityLower === 'high') return 'bg-red-100 text-red-700 border-red-200';
@@ -39,6 +42,7 @@ export function ImprovementsSection({ improvements, onOpenImprovementFlow }: Imp
 
   return (
     <GlassCard className="p-6">
+      <BlurredContent isBlurred={!isAuthenticated} onSignUpClick={onSignUpClick}>
       <div className="flex items-center gap-2 mb-6">
         <h3 className="text-xl font-bold text-slate-900">Priority Improvements</h3>
         <span className="ml-auto text-sm font-medium text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
@@ -129,6 +133,7 @@ export function ImprovementsSection({ improvements, onOpenImprovementFlow }: Imp
           </div>
         </div>
       )}
+      </BlurredContent>
     </GlassCard>
   );
 }

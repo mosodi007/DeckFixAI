@@ -1,5 +1,6 @@
 import { AlertTriangle, Flame, AlertOctagon } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { BlurredContent } from '../auth/BlurredContent';
 
 interface RedFlag {
   category: string;
@@ -11,6 +12,8 @@ interface RedFlag {
 
 interface RedFlagsSectionProps {
   redFlags: RedFlag[];
+  isAuthenticated: boolean;
+  onSignUpClick: () => void;
 }
 
 function getSeverityConfig(severity: string) {
@@ -55,7 +58,7 @@ function getCategoryLabel(category: string): string {
   return labels[category] || category;
 }
 
-export function RedFlagsSection({ redFlags }: RedFlagsSectionProps) {
+export function RedFlagsSection({ redFlags, isAuthenticated, onSignUpClick }: RedFlagsSectionProps) {
   if (!redFlags || redFlags.length === 0) {
     return null;
   }
@@ -66,6 +69,7 @@ export function RedFlagsSection({ redFlags }: RedFlagsSectionProps) {
 
   return (
     <GlassCard className="p-6 mb-8">
+      <BlurredContent isBlurred={!isAuthenticated} onSignUpClick={onSignUpClick}>
       <div className="flex items-center gap-2 mb-6">
         <AlertOctagon className="w-6 h-6 text-red-600" />
         <h3 className="text-xl font-bold text-slate-900">Red Flags Detected</h3>
@@ -183,6 +187,7 @@ export function RedFlagsSection({ redFlags }: RedFlagsSectionProps) {
           </div>
         )}
       </div>
+      </BlurredContent>
     </GlassCard>
   );
 }

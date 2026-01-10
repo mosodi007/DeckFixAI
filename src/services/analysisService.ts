@@ -3,7 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase environment variables:', {
+    url: supabaseUrl ? 'set' : 'missing',
+    key: supabaseKey ? 'set' : 'missing'
+  });
+}
+
+export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 function getPublicImageUrl(storagePath: string | null): string | null {
   if (!storagePath) return null;
@@ -133,9 +140,12 @@ export async function analyzeDeck(
   console.log('Image URLs stored:', imageUrls.length, '(not sent to AI during initial analysis)');
 
   const headers: Record<string, string> = {
-    'apikey': supabaseKey,
+    'apikey': supabaseKey || '',
     'Accept': 'application/json',
   };
+
+  console.log('API URL:', `${supabaseUrl}/functions/v1/analyze-deck`);
+  console.log('API key present:', supabaseKey ? `Yes (${supabaseKey.substring(0, 20)}...)` : 'No - MISSING');
 
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {

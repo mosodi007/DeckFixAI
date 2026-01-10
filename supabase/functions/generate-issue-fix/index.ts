@@ -156,7 +156,15 @@ Deno.serve(async (req: Request) => {
       deckContext,
     } = requestData;
 
-    const ISSUE_FIX_COST = 5;
+    let ISSUE_FIX_COST = 5;
+
+    if (issueType === 'deal_breaker') {
+      ISSUE_FIX_COST = 10;
+    } else if (issueType === 'red_flag') {
+      ISSUE_FIX_COST = 5;
+    } else if (issueType === 'missing_slide') {
+      ISSUE_FIX_COST = 5;
+    }
 
     if (user) {
       const userCredits = await getUserCreditBalance(supabaseClient, user.id);

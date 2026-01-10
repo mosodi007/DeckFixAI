@@ -161,15 +161,21 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    if (diffDays === 0) return `Today, ${timeStr}`;
+    if (diffDays === 1) return `Yesterday, ${timeStr}`;
+    if (diffDays < 7) return `${diffDays} days ago, ${timeStr}`;
 
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    });
+    }) + `, ${timeStr}`;
   }
 
   function getScoreColor(score: number) {
@@ -226,7 +232,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-slate-100 rounded-xl">
@@ -271,7 +277,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         )}
 

@@ -46,6 +46,21 @@ export interface CreditPackage {
   isActive: boolean;
 }
 
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  billingPeriod: 'monthly' | 'annual';
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  stripeSubscriptionId: string | null;
+  stripeCustomerId: string | null;
+  cancelAtPeriodEnd: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export async function getUserCreditBalance(): Promise<UserCredits | null> {
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -297,4 +312,72 @@ export async function getCreditPackages(): Promise<CreditPackage[]> {
 export async function checkSufficientCredits(requiredCredits: number): Promise<boolean> {
   const credits = await getUserCreditBalance();
   return credits ? credits.creditsBalance >= requiredCredits : false;
+}
+
+export async function getUserSubscription(): Promise<UserSubscription | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user subscription:', error);
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    planId: data.plan_id,
+    billingPeriod: data.billing_period,
+    status: data.status,
+    currentPeriodStart: data.current_period_start,
+    currentPeriodEnd: data.current_period_end,
+    stripeSubscriptionId: data.stripe_subscription_id,
+    stripeCustomerId: data.stripe_customer_id,
+    cancelAtPeriodEnd: data.cancel_at_period_end,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function getSubscriptionPlanById(planId: string): Promise<SubscriptionPlan | null> {
+  const { data, error } = await supabase
+    .from('subscription_plans')
+    .select('*')
+    .eq('id', planId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching subscription plan:', error);
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    monthlyCredits: data.monthly_credits,
+    priceMonthly: data.price_monthly,
+    priceAnnual: data.price_annual,
+    stripePriceIdMonthly: data.stripe_price_id_monthly,
+    stripePriceIdAnnual: data.stripe_price_id_annual,
+    features: data.features || [],
+    isActive: data.is_active,
+  };
 }

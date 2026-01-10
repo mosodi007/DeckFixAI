@@ -85,79 +85,82 @@ interface OpenAIAnalysis {
   };
 }
 
-const ANALYSIS_PROMPT = `You are an expert venture capital pitch deck analyst. Analyze this pitch deck and provide comprehensive feedback.
+const ANALYSIS_PROMPT = `You are a senior VC partner with 15+ years of experience who has reviewed thousands of pitch decks and rejects 99% of them. You've seen every trick, every inflated claim, and every amateur mistake. Your job is to provide BRUTALLY HONEST feedback that reflects how real VCs think - not what founders want to hear, but what they NEED to hear before facing actual investors.
 
-Evaluate using these VC-standard criteria:
-- Problem/Solution clarity and market opportunity
-- Business model viability and revenue potential
-- Team credibility and execution capability
-- Traction, metrics, and proof points
-- Financial projections and use of funds
-- Competitive landscape awareness
-- Overall storytelling and narrative flow
+CRITICAL MINDSET: Assume this is YOUR money being invested. Be skeptical. Question everything. Call out BS. Don't sugarcoat. Founders pay for honesty, not encouragement.
+
+Evaluate with HARSH VC standards:
+- Problem/Solution: Is this a real problem worth solving? Is the solution actually differentiated or just another me-too product?
+- Market: Is this a real opportunity or made-up TAM math? Do they understand their market or just reciting generalities?
+- Business Model: Can this actually make money? Are unit economics believable or fantasy? Is CAC/LTV realistic?
+- Team: Can they execute? Do they have relevant expertise or are they learning on investor dollars? Any red flags in backgrounds?
+- Traction: Real proof points or vanity metrics? Revenue or just users? Growth trajectory believable?
+- Financials: Are projections grounded in reality or hockey sticks with no basis? Do they know their numbers?
+- Competition: Do they understand the landscape or claim "no competitors"? Why won't they get crushed?
+- Story: Is the narrative compelling or confusing? Do they know what they're asking for and why?
 
 Respond ONLY with valid JSON in this exact format:
 {
   "overallScore": <number 0-100>,
-  "summary": "<2-3 sentence executive summary of the deck's investment readiness>",
+  "summary": "<3-4 sentences of brutally honest assessment: Would you take this meeting? What's the biggest problem? Is this fundable? Be direct and unfiltered.>",
   "clarityScore": <number 0-100>,
   "designScore": <number 0-100>,
   "contentScore": <number 0-100>,
   "structureScore": <number 0-100>,
-  "overallScoreFeedback": "<2-3 sentences explaining why the deck received this overall score, what factors contributed most>",
-  "investmentGradeFeedback": "<2-3 sentences explaining the investment grade (A+/A/B+/B/C+ etc), what would improve it>",
-  "fundingOddsFeedback": "<2-3 sentences explaining the funding odds assessment and what impacts the likelihood of raising>",
-  "pageCountFeedback": "<1-2 sentences on whether the page count is appropriate for this stage/content, ideal range>",
+  "overallScoreFeedback": "<4-5 sentences of harsh truth about why this deck scores what it does. Call out the specific problems. If it's weak, say why. If claims seem inflated, say so. No softening.>",
+  "investmentGradeFeedback": "<4-5 sentences explaining the investment grade (most decks are D/C range, good ones are B+, exceptional ones are A-). What are the fatal flaws? What would make this actually investable? Be specific and direct.>",
+  "fundingOddsFeedback": "<4-5 sentences with realistic funding odds. If traction is weak, say it. If the market is saturated, call it out. If the team lacks credibility, flag it. Include realistic percentage estimate of funding success.>",
+  "pageCountFeedback": "<2-3 sentences on page count. If too long, say they're wasting VC time. If too short, call out missing critical info. Specify ideal range for their stage.>",
   "wordDensityAssessment": "<Low | Medium | High | Very High>",
-  "wordDensityFeedback": "<2-3 sentences on slide text density - whether slides are too text-heavy or appropriately visual>",
-  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "weaknesses": ["<weakness/issue 1>", "<weakness/issue 2>", "<weakness/issue 3>"],
+  "wordDensityFeedback": "<3-4 sentences on text density. If slides are text-heavy, say VCs won't read walls of text. If unclear, call out the communication failure. Demand visual clarity.>",
+  "strengths": ["<2-4 actual strengths - be specific, not generic. If deck is weak, list fewer strengths. Don't inflate.>"],
+  "weaknesses": ["<6-12 specific, detailed weaknesses. Find the problems. Call out missing information. Identify unrealistic assumptions. Flag weak positioning. Be thorough and harsh.>"],
   "issues": [
     {
       "pageNumber": <page number or null if general>,
       "priority": "High" | "Medium" | "Low",
-      "title": "<short issue title>",
-      "description": "<detailed description>",
+      "title": "<direct issue title>",
+      "description": "<3-4 sentences explaining exactly what's wrong, why it matters to investors, and the real impact on fundability. Be specific with examples.>",
       "type": "issue" | "improvement"
     }
   ],
   "dealBreakers": [
     {
-      "title": "<deal breaker title>",
-      "description": "<why this is critical>",
-      "recommendation": "<how to fix>"
+      "title": "<deal breaker that would cause immediate rejection>",
+      "description": "<3-4 sentences on why this is a deal killer. What specifically makes this unfundable? Be blunt about the severity.>",
+      "recommendation": "<2-3 sentences on exactly what needs to change. Be specific and actionable.>"
     }
   ],
   "redFlags": [
     {
       "category": "financial" | "team" | "market" | "product" | "competition" | "traction" | "other",
       "severity": "critical" | "major" | "moderate",
-      "title": "<red flag title>",
-      "description": "<description>",
-      "impact": "<impact on funding potential>"
+      "title": "<specific red flag that concerns VCs>",
+      "description": "<2-3 sentences describing the exact problem. Call out inconsistencies, missing data, or questionable claims.>",
+      "impact": "<2-3 sentences on how this affects funding chances. If it kills the deal, say so. Quantify impact.>"
     }
   ],
   "stageAssessment": {
     "detectedStage": "<Pre-seed | Seed | Series A | Series B | Growth>",
     "stageConfidence": "high" | "medium" | "low",
     "stageAppropriatenessScore": <0-100>,
-    "stageFeedback": "<feedback on stage appropriateness>"
+    "stageFeedback": "<3-4 sentences on whether the deck matches the claimed stage. If they're pre-seed claiming Series A metrics, call it out. If stage-inappropriate, explain why.>"
   },
   "investmentReadiness": {
     "isInvestmentReady": <true | false>,
     "readinessScore": <0-100>,
-    "readinessSummary": "<summary of investment readiness>",
-    "criticalBlockers": ["<blocker 1>", "<blocker 2>"],
+    "readinessSummary": "<4-5 sentences of unfiltered truth about whether they're ready to raise. If not ready, say why specifically. If ready, what makes them stand out? Be direct.>",
+    "criticalBlockers": ["<specific blocker with detail>", "<another blocker>", "<be thorough - identify ALL critical blockers>"],
     "teamScore": <0-100>,
     "marketOpportunityScore": <0-100>,
     "productScore": <0-100>,
     "tractionScore": <0-100>,
     "financialsScore": <0-100>,
-    "teamFeedback": "<team assessment feedback>",
-    "marketOpportunityFeedback": "<market opportunity feedback>",
-    "productFeedback": "<product feedback>",
-    "tractionFeedback": "<traction feedback>",
-    "financialsFeedback": "<financials feedback>"
+    "teamFeedback": "<3-4 sentences: Can this team execute? Relevant experience? Domain expertise? Concerning gaps? First-time founders overpromising? Be critical of credibility.>",
+    "marketOpportunityFeedback": "<3-4 sentences: Real opportunity or fantasy TAM math? Understand customer pain? Market timing right? Competition understood? Call out market delusions.>",
+    "productFeedback": "<3-4 sentences: Real differentiation or me-too? Tech moat? Product-market fit evidence? Scalability? Call out if product seems weak or unproven.>",
+    "tractionFeedback": "<3-4 sentences: Real traction or vanity metrics? Revenue or just users? Growth rate believable? Retention data? Flag if traction is insufficient or misleading.>",
+    "financialsFeedback": "<3-4 sentences: Projections realistic or hockey stick fantasy? Unit economics make sense? CAC/LTV believable? Burn rate sustainable? Call out unrealistic assumptions.>"
   },
   "keyBusinessMetrics": {
     "companyName": "<company name or 'Not specified'>",
@@ -173,15 +176,28 @@ Respond ONLY with valid JSON in this exact format:
   }
 }
 
-Important guidelines:
-- Be critical but constructive - VCs are discerning
-- Score realistically (most decks are 40-70, excellent ones 75-85)
-- Identify 3-5 strengths and 3-5 weaknesses
-- Include 5-10 issues with specific page references when possible
-- Only include deal breakers for truly critical problems (empty array if none)
-- Include 2-5 red flags that would concern investors
-- Assess the funding stage based on content maturity
-- Extract any business metrics mentioned (company name, revenue, funding sought, etc.)`;
+SCORING PHILOSOPHY (BE HARSH):
+- Most decks are 20-50 range (weak to below average)
+- Average decent decks are 35-45
+- Good fundable decks are 55-70
+- Excellent compelling decks are 70-80
+- Only truly exceptional unicorn-potential decks score 80+
+- Penalize heavily for: missing traction, weak teams, unrealistic projections, unclear value props, saturated markets
+- Deduct points for: buzzword bingo, vague claims, missing critical slides, poor storytelling, amateur design
+
+REQUIREMENTS (NON-NEGOTIABLE):
+- Include 6-12 weaknesses minimum - dig deep and find problems
+- Include 8-15 issues with specific page numbers and detailed explanations
+- Include 4-10 red flags minimum - if you don't see at least 4 concerns, you're not looking hard enough
+- Include 2-6 deal breakers for truly critical problems (if there are none, still identify potential ones)
+- All feedback must be 3-5 sentences minimum - be thorough and specific
+- Call out unrealistic claims, missing information, weak positioning, and amateur mistakes
+- If something seems too good to be true, say so
+- If the market is crowded, flag the competitive risk
+- If the team seems inexperienced, question execution capability
+- Every score must be justified with specific reasoning
+
+This is about preparing founders for REAL VC scrutiny. Brutal honesty serves them better than false encouragement.`;
 
 async function analyzeWithVision(
   imageUrls: string[],
@@ -227,8 +243,9 @@ async function analyzeWithVision(
           ]
         }
       ],
-      max_tokens: 4000,
+      max_tokens: 8000,
       temperature: 0.7,
+      response_format: { type: 'json_object' }
     }),
   });
 
@@ -245,12 +262,16 @@ async function analyzeWithVision(
     throw new Error('No response from OpenAI Vision');
   }
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('No JSON found in Vision response');
-  }
+  console.log('OpenAI Vision response length:', content.length);
+  console.log('First 500 chars:', content.substring(0, 500));
 
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return JSON.parse(content);
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError);
+    console.error('Response content:', content.substring(0, 2000));
+    throw new Error(`Invalid JSON in Vision response: ${parseError.message}. Check function logs for details.`);
+  }
 }
 
 async function analyzeWithText(
@@ -278,8 +299,9 @@ async function analyzeWithText(
           content: `Analyze this ${pageCount}-page pitch deck:\n\n${textToAnalyze}`
         }
       ],
-      max_tokens: 4000,
+      max_tokens: 8000,
       temperature: 0.7,
+      response_format: { type: 'json_object' }
     }),
   });
 
@@ -296,12 +318,16 @@ async function analyzeWithText(
     throw new Error('No response from OpenAI');
   }
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('No JSON found in response');
-  }
+  console.log('OpenAI Text response length:', content.length);
+  console.log('First 500 chars:', content.substring(0, 500));
 
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return JSON.parse(content);
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError);
+    console.error('Response content:', content.substring(0, 2000));
+    throw new Error(`Invalid JSON in response: ${parseError.message}. Check function logs for details.`);
+  }
 }
 
 Deno.serve(async (req: Request) => {

@@ -6,6 +6,7 @@ import { ImprovementFlowView } from './components/ImprovementFlowView';
 import { DashboardView } from './components/DashboardView';
 import { PricingView } from './components/PricingView';
 import { CreditHistoryView } from './components/CreditHistoryView';
+import { UsageHistoryView } from './components/UsageHistoryView';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoginModal } from './components/auth/LoginModal';
 import { SignUpModal } from './components/auth/SignUpModal';
@@ -16,8 +17,8 @@ import { useAuth } from './contexts/AuthContext';
 import { logout } from './services/authService';
 
 function App() {
-  const { user, isAuthenticated } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits'>('upload');
+  const { user, userProfile, isAuthenticated } = useAuth();
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
@@ -214,9 +215,9 @@ function App() {
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                     >
                       <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold">
-                        {user?.email?.charAt(0).toUpperCase()}
+                        {(userProfile?.fullName || user?.email)?.charAt(0).toUpperCase()}
                       </div>
-                      <span>{user?.email}</span>
+                      <span>{userProfile?.fullName || user?.email}</span>
                       <ChevronDown className="w-4 h-4" />
                     </button>
 
@@ -228,7 +229,10 @@ function App() {
                         />
                         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-20">
                           <div className="px-4 py-3 border-b border-slate-200">
-                            <p className="text-sm font-medium text-slate-900">{user?.email}</p>
+                            {userProfile?.fullName && (
+                              <p className="text-sm font-medium text-slate-900 mb-1">{userProfile.fullName}</p>
+                            )}
+                            <p className="text-xs text-slate-600">{user?.email}</p>
                           </div>
                           <button
                             onClick={() => {
@@ -248,7 +252,7 @@ function App() {
                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                           >
                             <CreditCard className="w-4 h-4" />
-                            Credit History
+                            Subscription & Credits
                           </button>
                           <button
                             onClick={handleLogout}
@@ -294,7 +298,12 @@ function App() {
         ) : view === 'pricing' ? (
           <PricingView />
         ) : view === 'credits' ? (
-          <CreditHistoryView onBack={handleGoToDashboard} />
+          <CreditHistoryView
+            onBack={handleGoToDashboard}
+            onViewUsageHistory={() => setView('usage-history')}
+          />
+        ) : view === 'usage-history' ? (
+          <UsageHistoryView onBack={() => setView('credits')} />
         ) : view === 'dashboard' ? (
           <DashboardView
             onViewAnalysis={handleViewAnalysis}

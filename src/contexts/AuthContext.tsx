@@ -1,17 +1,24 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { getCurrentUser, onAuthStateChange } from '../services/authService';
+import { getCurrentUser, onAuthStateChange, getUserProfile } from '../services/authService';
 import { migrateSessionAnalyses } from '../services/analysisService';
 import { getSessionId, clearSessionId } from '../services/sessionService';
 
+interface UserProfile {
+  fullName: string | null;
+  email: string;
+}
+
 interface AuthContextType {
   user: User | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  userProfile: null,
   loading: true,
   isAuthenticated: false,
 });
@@ -30,11 +37,25 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function loadUserProfile(userId: string) {
+    const profile = await getUserProfile(userId);
+    if (profile) {
+      setUserProfile({
+        fullName: profile.full_name,
+        email: profile.email,
+      });
+    }
+  }
+
   useEffect(() => {
-    getCurrentUser().then((currentUser) => {
+    getCurrentUser().then(async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        await loadUserProfile(currentUser.id);
+      }
       setLoading(false);
     });
 
@@ -53,6 +74,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       setUser(updatedUser);
+      if (updatedUser) {
+        await loadUserProfile(updatedUser.id);
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     });
 
@@ -63,6 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = {
     user,
+    userProfile,
     loading,
     isAuthenticated: !!user,
   };

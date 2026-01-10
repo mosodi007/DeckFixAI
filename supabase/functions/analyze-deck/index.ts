@@ -22,6 +22,12 @@ interface OpenAIAnalysis {
   designScore: number;
   contentScore: number;
   structureScore: number;
+  overallScoreFeedback: string;
+  investmentGradeFeedback: string;
+  fundingOddsFeedback: string;
+  pageCountFeedback: string;
+  wordDensityAssessment: string;
+  wordDensityFeedback: string;
   strengths: string[];
   weaknesses: string[];
   issues: Array<{
@@ -98,6 +104,12 @@ Respond ONLY with valid JSON in this exact format:
   "designScore": <number 0-100>,
   "contentScore": <number 0-100>,
   "structureScore": <number 0-100>,
+  "overallScoreFeedback": "<2-3 sentences explaining why the deck received this overall score, what factors contributed most>",
+  "investmentGradeFeedback": "<2-3 sentences explaining the investment grade (A+/A/B+/B/C+ etc), what would improve it>",
+  "fundingOddsFeedback": "<2-3 sentences explaining the funding odds assessment and what impacts the likelihood of raising>",
+  "pageCountFeedback": "<1-2 sentences on whether the page count is appropriate for this stage/content, ideal range>",
+  "wordDensityAssessment": "<Low | Medium | High | Very High>",
+  "wordDensityFeedback": "<2-3 sentences on slide text density - whether slides are too text-heavy or appropriately visual>",
   "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
   "weaknesses": ["<weakness/issue 1>", "<weakness/issue 2>", "<weakness/issue 3>"],
   "issues": [
@@ -462,6 +474,12 @@ Deno.serve(async (req: Request) => {
         summary: analysis.summary,
         investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
         funding_stage: analysis.stageAssessment?.detectedStage || null,
+        word_density: analysis.wordDensityAssessment || 'Medium',
+        overall_score_feedback: analysis.overallScoreFeedback || null,
+        investment_grade_feedback: analysis.investmentGradeFeedback || null,
+        funding_odds_feedback: analysis.fundingOddsFeedback || null,
+        page_count_feedback: analysis.pageCountFeedback || null,
+        word_density_feedback: analysis.wordDensityFeedback || null,
       })
       .eq('id', analysisId);
 

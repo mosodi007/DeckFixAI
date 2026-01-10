@@ -135,6 +135,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           slideContent: currentPage.content || '',
@@ -143,14 +144,15 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         }),
       });
 
-      if (estimateResponse.ok) {
-        const estimateData = await estimateResponse.json();
-        if (estimateData.success) {
-          setSlideCostEstimates(prev => ({
-            ...prev,
-            [pageNumber]: estimateData.creditCost,
-          }));
-        }
+      const estimateData = await estimateResponse.json();
+
+      if (estimateResponse.ok && estimateData.success) {
+        setSlideCostEstimates(prev => ({
+          ...prev,
+          [pageNumber]: estimateData.creditCost,
+        }));
+      } else {
+        console.error('Failed to estimate cost for slide:', { status: estimateResponse.status, data: estimateData });
       }
     } catch (error) {
       console.error('Error estimating slide cost:', error);
@@ -232,6 +234,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           slideContent: currentPage.content || '',
@@ -240,14 +243,12 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         }),
       });
 
-      if (!estimateResponse.ok) {
-        throw new Error('Failed to estimate cost');
-      }
-
       const estimateData = await estimateResponse.json();
 
-      if (!estimateData.success) {
-        throw new Error(estimateData.error || 'Failed to estimate cost');
+      if (!estimateResponse.ok || !estimateData.success) {
+        const errorMsg = estimateData.error || estimateData.message || 'Failed to estimate cost';
+        console.error('Estimate API error:', { status: estimateResponse.status, data: estimateData });
+        throw new Error(errorMsg);
       }
 
       setCostEstimation({

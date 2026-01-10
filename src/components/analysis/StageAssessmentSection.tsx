@@ -64,7 +64,6 @@ export function StageAssessmentSection({ stageAssessment, fundingStage }: StageA
         <div className="flex items-center gap-3">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Stage Assessment</h3>
-            <p className="text-sm text-slate-600">Stage-specific evaluation and guidance</p>
           </div>
         </div>
       </div>

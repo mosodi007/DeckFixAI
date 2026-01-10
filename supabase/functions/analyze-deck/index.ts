@@ -503,16 +503,29 @@ Return ONLY valid JSON matching this exact structure:
 
     if (analysis.keyMetrics) {
       console.log('Inserting key business metrics:', analysis.keyMetrics);
+
+      let teamSize = 0;
+      if (analysis.keyMetrics.teamSize && typeof analysis.keyMetrics.teamSize === 'string') {
+        const match = analysis.keyMetrics.teamSize.match(/\d+/);
+        if (match) {
+          teamSize = parseInt(match[0], 10);
+        }
+      } else if (typeof analysis.keyMetrics.teamSize === 'number') {
+        teamSize = analysis.keyMetrics.teamSize;
+      }
+
       await supabase.from('key_business_metrics').insert({
         analysis_id: analysisId,
         company_name: analysis.keyMetrics.companyName || 'Not specified',
         industry: analysis.keyMetrics.industry || 'Not specified',
         current_revenue: analysis.keyMetrics.currentRevenue || 'Not specified',
         funding_sought: analysis.keyMetrics.fundingSought || 'Not specified',
-        team_size: analysis.keyMetrics.teamSize || 'Not specified',
+        team_size: teamSize,
         customer_count: analysis.keyMetrics.customerCount || 'Not specified',
         growth_rate: analysis.keyMetrics.growthRate || 'Not specified',
-        monthly_revenue: analysis.keyMetrics.monthlyRevenue || 'Not specified',
+        market_size: 'Not specified',
+        valuation: 'Not specified',
+        business_model: 'Not specified',
       });
     }
 

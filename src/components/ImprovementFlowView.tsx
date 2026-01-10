@@ -282,7 +282,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                         </>
                       ) : (
                         <>
-                         Generate Fix
+                         Generate Instant Fix
                         </>
                       )}
                     </button>

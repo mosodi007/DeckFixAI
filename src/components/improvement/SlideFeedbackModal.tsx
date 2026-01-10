@@ -20,16 +20,18 @@ interface SlideFeedbackModalProps {
 
 export function SlideFeedbackModal({ page, onClose }: SlideFeedbackModalProps) {
   const getScoreColor = (score: number) => {
-    if (score >= 85) return 'text-green-400';
-    if (score >= 70) return 'text-yellow-400';
-    if (score >= 50) return 'text-orange-400';
+    const normalizedScore = score / 10;
+    if (normalizedScore >= 8.5) return 'text-green-400';
+    if (normalizedScore >= 7) return 'text-yellow-400';
+    if (normalizedScore >= 5) return 'text-orange-400';
     return 'text-red-400';
   };
 
   const getScoreBg = (score: number) => {
-    if (score >= 85) return 'bg-green-500/20 border-green-500/30';
-    if (score >= 70) return 'bg-yellow-500/20 border-yellow-500/30';
-    if (score >= 50) return 'bg-orange-500/20 border-orange-500/30';
+    const normalizedScore = score / 10;
+    if (normalizedScore >= 8.5) return 'bg-green-500/20 border-green-500/30';
+    if (normalizedScore >= 7) return 'bg-yellow-500/20 border-yellow-500/30';
+    if (normalizedScore >= 5) return 'bg-orange-500/20 border-orange-500/30';
     return 'bg-red-500/20 border-red-500/30';
   };
 
@@ -45,7 +47,7 @@ export function SlideFeedbackModal({ page, onClose }: SlideFeedbackModalProps) {
               <div className={`px-4 py-2 rounded-lg border ${getScoreBg(page.score)}`}>
                 <span className="text-sm text-white/70">Score: </span>
                 <span className={`text-xl font-bold ${getScoreColor(page.score)}`}>
-                  {page.score}/100
+                  {(page.score / 10).toFixed(1)}/10
                 </span>
               </div>
               {page.score < 85 && (

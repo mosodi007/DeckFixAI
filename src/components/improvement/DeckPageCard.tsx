@@ -14,8 +14,9 @@ interface DeckPageCardProps {
 
 export function DeckPageCard({ page, isSelected, issueCount, onClick }: DeckPageCardProps) {
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-50';
-    if (score >= 60) return 'text-yellow-600 bg-yellow-50';
+    const normalizedScore = score / 10;
+    if (normalizedScore >= 8) return 'text-green-600 bg-green-50';
+    if (normalizedScore >= 6) return 'text-yellow-600 bg-yellow-50';
     return 'text-red-600 bg-red-50';
   };
 
@@ -46,7 +47,7 @@ export function DeckPageCard({ page, isSelected, issueCount, onClick }: DeckPage
             <button onClick={onClick} className="w-full text-left">
               <div className="flex items-center justify-between mb-1">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getScoreColor(page.score)}`}>
-                  {page.score}
+                  {(page.score / 10).toFixed(1)}
                 </span>
               </div>
               <h3 className="font-semibold text-slate-900 text-sm mb-2 truncate">

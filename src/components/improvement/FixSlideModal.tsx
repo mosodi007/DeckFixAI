@@ -94,7 +94,7 @@ export function FixSlideModal({
             </p>
           </div>
 
-          <div className="bg-[#000] border border-blue-200 rounded-xl p-6">
+          <div className="bg-[#F3F3F3] border border-blue-200 rounded-xl p-6">
             <div className="flex items-start justify-between mb-4">
               <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
                 <Lightbulb className="w-5 h-5 text-blue-600" />

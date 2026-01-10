@@ -24,7 +24,7 @@ export function BlurredContent({ children, isBlurred, onSignUpClick }: BlurredCo
             <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-3">
+            <h3 className="text-xl font-bold text-slate-900 mb-3">
               Authentication required.
             </h3>
             <p className="text-slate-600 mb-6">

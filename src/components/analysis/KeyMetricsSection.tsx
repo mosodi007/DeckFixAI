@@ -82,7 +82,7 @@ export function KeyMetricsSection({
         <div className="flex items-center gap-3 mb-8">
           <div className="h-1 w-12 bg-gradient-to-r from-slate-400 to-slate-200 rounded-full" />
           <h3 className="text-2xl font-bold text-slate-900">
-            Key Metrics
+           Business Information
           </h3>
         </div>
 

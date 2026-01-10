@@ -211,7 +211,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold">All Pages</span>
+                  <span className="font-semibold">All Issues & Recommendations</span>
                   <span className="text-sm opacity-90">{sortedIssues.length} items</span>
                 </div>
               </button>

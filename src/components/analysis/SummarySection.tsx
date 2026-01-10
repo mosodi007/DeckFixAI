@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText, FileStack, AlignLeft, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Zap, Target, Download, FileStack, AlignLeft, AlertTriangle } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
@@ -22,8 +22,6 @@ interface SummarySectionProps {
   wordDensityFeedback: string | null;
   criticalIssuesFeedback: string | null;
   pageCountFeedback: string | null;
-  onNewAnalysis: () => void;
-  onOpenImprovementFlow: () => void;
 }
 
 export function SummarySection({
@@ -41,9 +39,7 @@ export function SummarySection({
   fundingOddsFeedback,
   wordDensityFeedback,
   criticalIssuesFeedback,
-  pageCountFeedback,
-  onNewAnalysis,
-  onOpenImprovementFlow
+  pageCountFeedback
 }: SummarySectionProps) {
   const [isOverallScoreModalOpen, setIsOverallScoreModalOpen] = useState(false);
   const [modalState, setModalState] = useState<{
@@ -168,17 +164,6 @@ export function SummarySection({
           valueClassName={getCriticalIssuesColor(criticalIssuesCount)}
           onClick={() => openModal('Critical Issues', criticalIssuesCount, criticalIssuesFeedback, AlertTriangle)}
         />
-      </div>
-
-      
-
-      <div className="flex gap-3">
-        <Button variant="primary" icon={Wand2} className="flex-1" onClick={onOpenImprovementFlow}>
-          Fix Issues
-        </Button>
-        <Button variant="secondary" icon={FileUp} className="flex-1" onClick={onNewAnalysis}>
-          Analyze New Deck
-        </Button>
       </div>
 
       <MetricDetailModal

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Wand2 } from 'lucide-react';
 import { SummarySection } from './analysis/SummarySection';
 import { GeneralReviewSection } from './analysis/GeneralReviewSection';
 // import { KeyMetricsSection } from './analysis/KeyMetricsSection';
@@ -130,8 +131,6 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAut
         wordDensityFeedback={data.wordDensityFeedback}
         criticalIssuesFeedback={data.criticalIssuesFeedback}
         pageCountFeedback={data.pageCountFeedback}
-        onNewAnalysis={onNewAnalysis}
-        onOpenImprovementFlow={onOpenImprovementFlow}
       />
       </div>
 
@@ -218,6 +217,15 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAut
           onSignUpClick={onSignUpClick}
         />
       </div>
+
+      {/* Floating Fix All Issues Button */}
+      <button
+        onClick={onOpenImprovementFlow}
+        className="fixed bottom-8 right-8 bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl z-50 group"
+      >
+        <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+        <span>Fix All Issues</span>
+      </button>
     </div>
   );
 }

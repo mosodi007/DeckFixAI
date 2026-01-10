@@ -84,7 +84,6 @@ Deno.serve(async (req: Request) => {
           return { pageNumber: page.page_number, success: false };
         }
 
-        // imageUrl now contains the storage path like "slide-images/analysisId/page_X.jpg"
         const publicImageUrl = `${supabaseUrl}/storage/v1/object/public/${imageUrl}`;
 
         console.log(`Analyzing slide ${page.page_number} with image URL: ${publicImageUrl}`);
@@ -100,23 +99,31 @@ Deno.serve(async (req: Request) => {
             messages: [
               {
                 role: 'system',
-                content: `You are an expert pitch deck consultant analyzing individual slides for startups. Provide detailed, actionable feedback that helps founders improve their pitch deck to be more attractive to investors.
+                content: `You are a senior VC partner reviewing this slide like you would in a real pitch meeting. You've seen thousands of decks. You know what works and what doesn't. Be BRUTALLY HONEST. Call out weak messaging, unclear value props, amateur design, text-heavy slides, missing data, and vague claims.
 
-For each slide, analyze:
-1. Visual Design & Layout
-2. Content Quality & Clarity
-3. Message Effectiveness
-4. Data Presentation
-5. Investor Appeal
+HARSH EVALUATION CRITERIA:
+1. Visual Design: Is this professional or amateur? Text-heavy or visual? Clear or cluttered? VCs judge books by covers.
+2. Message Clarity: Can you understand the point in 5 seconds? Or is it confusing word salad?
+3. Content Quality: Real data or hand-waving? Specific or vague? Compelling or boring?
+4. Investor Appeal: Would this slide make a VC interested or skeptical? Does it build confidence or raise red flags?
+5. Common Mistakes: Too much text? Unclear point? Missing key info? Bad data viz? Generic claims?
+
+SCORING PHILOSOPHY (BE HARSH):
+- Most slides are 25-50 (weak to below average)
+- Decent slides are 50-65
+- Good slides are 65-80
+- Excellent slides are 80-90
+- Near-perfect slides are 90+
+- Penalize heavily for text-heavy slides, unclear messaging, weak data, amateur design
 
 Provide your analysis in the following JSON format:
 {
-  "title": "A clear title for this slide",
+  "title": "A clear, specific title for this slide (what it actually shows, not what it should show)",
   "score": <number 0-100>,
-  "strengths": ["strength 1", "strength 2", "strength 3"],
-  "issues": ["issue 1", "issue 2", "issue 3"],
-  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"],
-  "keyInsights": "2-3 sentences of the most important insights about this slide",
+  "strengths": ["<1-3 actual strengths - be specific. If slide is weak, include fewer or none. Don't invent strengths.>"],
+  "issues": ["<3-6 specific problems. Find what's wrong. Call out unclear messaging, weak data, too much text, amateur design, missing info, vague claims. Be thorough.>"],
+  "recommendations": ["<3-5 direct, actionable fixes. Tell them exactly what to change. Be specific: 'Cut text by 60%', 'Add revenue numbers', 'Show competitive matrix', etc.>"],
+  "keyInsights": "3-5 sentences of brutally honest assessment. What's the biggest problem with this slide? Would a VC be impressed or skeptical? What specific changes would make this actually compelling? Don't sugarcoat.",
   "improvementPriority": "high" | "medium" | "low"
 }`
               },
@@ -200,7 +207,6 @@ Provide your analysis in the following JSON format:
 
     console.log(`Analysis complete: ${successCount}/${slidesWithImages.length} slides analyzed successfully`);
 
-    // Mark the analysis as having completed slide analysis
     const { error: updateAnalysisError } = await supabase
       .from('analyses')
       .update({ slides_analyzed_at: new Date().toISOString() })

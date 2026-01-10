@@ -48,7 +48,7 @@ export function DealBreakersSection({ dealBreakers }: DealBreakersSectionProps) 
                 <p className="text-sm text-slate-700">{breaker.description}</p>
               </div>
 
-              <div className="bg-black/50 border rounded-lg p-3">
+              <div className="border rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <div>
                     <p className="text-xs font-semibold text-blue-900 mb-1">Required Action:</p>

@@ -261,7 +261,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                 </div>
               </div> */}
 
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              {/* <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-blue-100 rounded-xl">
                     <Calendar className="w-6 h-6 text-blue-700" />
@@ -276,7 +276,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                     <div className="text-sm text-slate-600">This Week</div>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         )}

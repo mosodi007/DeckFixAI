@@ -1,6 +1,8 @@
 import { AnalysisData } from '../services/analysisService';
 
 export function adaptAnalysisData(data: AnalysisData) {
+  const criticalIssuesCount = data.issues.filter(i => i.priority === 'high' && i.type === 'issue').length;
+
   return {
     id: data.id,
     fileName: data.fileName,
@@ -13,12 +15,12 @@ export function adaptAnalysisData(data: AnalysisData) {
     businessSummary: data.summary,
     totalPages: data.totalPages,
     wordDensity: data.wordDensity,
-    disruptionSignal: data.disruptionSignal / 10,
+    criticalIssuesCount,
     overallScoreFeedback: data.overallScoreFeedback,
     investmentGradeFeedback: data.investmentGradeFeedback,
     fundingOddsFeedback: data.fundingOddsFeedback,
     wordDensityFeedback: data.wordDensityFeedback,
-    disruptionSignalFeedback: data.disruptionSignalFeedback,
+    criticalIssuesFeedback: data.disruptionSignalFeedback,
     pageCountFeedback: data.pageCountFeedback,
     keyMetrics: {
       companyName: data.keyMetrics.companyName,

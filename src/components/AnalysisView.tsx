@@ -122,12 +122,12 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
         businessSummary={data.businessSummary}
         totalPages={data.totalPages}
         wordDensity={data.wordDensity}
-        disruptionSignal={data.disruptionSignal}
+        criticalIssuesCount={data.criticalIssuesCount}
         overallScoreFeedback={data.overallScoreFeedback}
         investmentGradeFeedback={data.investmentGradeFeedback}
         fundingOddsFeedback={data.fundingOddsFeedback}
         wordDensityFeedback={data.wordDensityFeedback}
-        disruptionSignalFeedback={data.disruptionSignalFeedback}
+        criticalIssuesFeedback={data.criticalIssuesFeedback}
         pageCountFeedback={data.pageCountFeedback}
         onNewAnalysis={onNewAnalysis}
         onOpenImprovementFlow={onOpenImprovementFlow}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText, FileStack, AlignLeft, Sparkles } from 'lucide-react';
+import { TrendingUp, Zap, Target, Download, Wand2, Layout, FileUp, FileText, FileStack, AlignLeft, AlertTriangle } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
@@ -14,12 +14,12 @@ interface SummarySectionProps {
   businessSummary: string;
   totalPages: number;
   wordDensity: string;
-  disruptionSignal: number;
+  criticalIssuesCount: number;
   overallScoreFeedback: string | null;
   investmentGradeFeedback: string | null;
   fundingOddsFeedback: string | null;
   wordDensityFeedback: string | null;
-  disruptionSignalFeedback: string | null;
+  criticalIssuesFeedback: string | null;
   pageCountFeedback: string | null;
   onNewAnalysis: () => void;
   onOpenImprovementFlow: () => void;
@@ -34,12 +34,12 @@ export function SummarySection({
   businessSummary,
   totalPages,
   wordDensity,
-  disruptionSignal,
+  criticalIssuesCount,
   overallScoreFeedback,
   investmentGradeFeedback,
   fundingOddsFeedback,
   wordDensityFeedback,
-  disruptionSignalFeedback,
+  criticalIssuesFeedback,
   pageCountFeedback,
   onNewAnalysis,
   onOpenImprovementFlow
@@ -87,10 +87,10 @@ export function SummarySection({
     return 'text-red-600';
   };
 
-  const getDisruptionColor = (score: number) => {
-    if (score >= 8) return 'text-green-600';
-    if (score >= 6) return 'text-blue-600';
-    if (score >= 3) return 'text-orange-600';
+  const getCriticalIssuesColor = (count: number) => {
+    if (count === 0) return 'text-green-600';
+    if (count <= 2) return 'text-blue-600';
+    if (count <= 4) return 'text-orange-600';
     return 'text-red-600';
   };
 
@@ -148,12 +148,11 @@ export function SummarySection({
           onClick={() => openModal('Word Density', wordDensity, wordDensityFeedback, AlignLeft)}
         />
         <StatCard
-          label="Disruption Signal"
-          value={disruptionSignal}
-          suffix="/10"
-          icon={Sparkles}
-          valueClassName={getDisruptionColor(disruptionSignal)}
-          onClick={() => openModal('Disruption Signal', `${disruptionSignal}/10`, disruptionSignalFeedback, Sparkles)}
+          label="Critical Issues"
+          value={criticalIssuesCount}
+          icon={AlertTriangle}
+          valueClassName={getCriticalIssuesColor(criticalIssuesCount)}
+          onClick={() => openModal('Critical Issues', criticalIssuesCount, criticalIssuesFeedback, AlertTriangle)}
         />
       </div>
 

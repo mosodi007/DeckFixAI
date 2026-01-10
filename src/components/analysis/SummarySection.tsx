@@ -109,6 +109,9 @@ export function SummarySection({
       </div>
       <div className="border-t border-slate-200 pt-6 mb-6">
         <div className="flex items-start gap-3 mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Pitch Deck Summary</h3>
+          </div>
         </div>
         <div className="prose prose-slate max-w-none">
           <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">

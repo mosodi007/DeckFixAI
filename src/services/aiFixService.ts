@@ -38,8 +38,10 @@ export async function generateSlideFix(
   slideContent: string | null,
   slideFeedback: string | null,
   slideRecommendations: string[] | null,
-  imageUrl: string | null
-): Promise<{ success: boolean; fix?: GeneratedFix; fixId?: string; error?: string }> {
+  imageUrl: string | null,
+  estimatedCreditCost?: number,
+  complexityScore?: number
+): Promise<{ success: boolean; fix?: GeneratedFix; fixId?: string; error?: string; requiresAuth?: boolean; requiresUpgrade?: boolean; currentBalance?: number; requiredCredits?: number }> {
   try {
     const headers: Record<string, string> = {
       'apikey': supabaseKey,
@@ -65,19 +67,39 @@ export async function generateSlideFix(
           slideFeedback,
           slideRecommendations,
           imageUrl,
+          estimatedCreditCost: estimatedCreditCost || 4,
+          complexityScore: complexityScore || 50,
         }),
       }
     );
 
+    const result = await response.json();
+
     if (!response.ok) {
-      const error = await response.json();
+      if (response.status === 401) {
+        return {
+          success: false,
+          requiresAuth: true,
+          error: result.error || 'Authentication required',
+        };
+      }
+
+      if (response.status === 402) {
+        return {
+          success: false,
+          requiresUpgrade: true,
+          currentBalance: result.currentBalance,
+          requiredCredits: result.requiredCredits,
+          error: result.error || 'Insufficient credits',
+        };
+      }
+
       return {
         success: false,
-        error: error.error || 'Failed to generate fix',
+        error: result.error || 'Failed to generate fix',
       };
     }
 
-    const result = await response.json();
     return result;
   } catch (error) {
     console.error('Error generating fix:', error);

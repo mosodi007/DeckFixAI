@@ -5,7 +5,10 @@ import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
 import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 import { FixSlideModal } from './improvement/FixSlideModal';
+import { CostEstimationModal } from './CostEstimationModal';
 import { generateSlideFix, generateIssueFix, GeneratedFix } from '../services/aiFixService';
+import { getUserCreditBalance } from '../services/creditService';
+import { supabase } from '../services/authService';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -13,6 +16,13 @@ interface ImprovementFlowViewProps {
   isAnalyzing?: boolean;
   isAuthenticated: boolean;
   onSignUpClick: () => void;
+}
+
+interface CostEstimation {
+  estimatedCost: number;
+  complexityScore: number;
+  complexityLevel: 'low' | 'medium' | 'high';
+  explanation: string;
 }
 
 export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick }: ImprovementFlowViewProps) {
@@ -24,6 +34,10 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
   const [generatingIssueIndex, setGeneratingIssueIndex] = useState<number | null>(null);
+  const [showCostModal, setShowCostModal] = useState(false);
+  const [costEstimation, setCostEstimation] = useState<CostEstimation | null>(null);
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [pendingFixData, setPendingFixData] = useState<any>(null);
 
   const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
@@ -110,28 +124,119 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     setFixError(null);
 
     try {
+      const credits = await getUserCreditBalance();
+      if (!credits) {
+        setFixError('Unable to fetch credit balance');
+        setIsGeneratingFix(false);
+        return;
+      }
+
+      setCurrentBalance(credits.creditsBalance);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setFixError('Authentication required');
+        setIsGeneratingFix(false);
+        return;
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/estimate-fix-cost`;
+      const estimateResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slideContent: currentPage.content || '',
+          slideFeedback: currentPage.feedback || '',
+          slideRecommendations: currentPage.recommendations || [],
+        }),
+      });
+
+      if (!estimateResponse.ok) {
+        throw new Error('Failed to estimate cost');
+      }
+
+      const estimateData = await estimateResponse.json();
+
+      if (!estimateData.success) {
+        throw new Error(estimateData.error || 'Failed to estimate cost');
+      }
+
+      setCostEstimation({
+        estimatedCost: estimateData.creditCost,
+        complexityScore: estimateData.complexityScore,
+        complexityLevel: estimateData.complexityLevel,
+        explanation: estimateData.explanation,
+      });
+
+      setPendingFixData({
+        analysisId: data.id,
+        pageNumber: currentPage.page_number,
+        title: currentPage.title,
+        score: currentPage.score,
+        content: currentPage.content,
+        feedback: currentPage.feedback,
+        recommendations: currentPage.recommendations,
+        imageUrl: currentPage.image_url,
+        estimatedCost: estimateData.creditCost,
+        complexityScore: estimateData.complexityScore,
+      });
+
+      setShowCostModal(true);
+    } catch (error) {
+      console.error('Error estimating fix cost:', error);
+      setFixError('Failed to estimate fix cost. Please try again.');
+    } finally {
+      setIsGeneratingFix(false);
+    }
+  };
+
+  const handleConfirmGenerate = async () => {
+    if (!pendingFixData) return;
+
+    setShowCostModal(false);
+    setIsGeneratingFix(true);
+    setFixError(null);
+
+    try {
       const result = await generateSlideFix(
-        data.id,
-        currentPage.page_number,
-        currentPage.title,
-        currentPage.score,
-        currentPage.content,
-        currentPage.feedback,
-        currentPage.recommendations,
-        currentPage.image_url
+        pendingFixData.analysisId,
+        pendingFixData.pageNumber,
+        pendingFixData.title,
+        pendingFixData.score,
+        pendingFixData.content,
+        pendingFixData.feedback,
+        pendingFixData.recommendations,
+        pendingFixData.imageUrl,
+        pendingFixData.estimatedCost,
+        pendingFixData.complexityScore
       );
 
       if (result.success && result.fix && result.fixId) {
         setGeneratedFix({ fix: result.fix, fixId: result.fixId });
         setShowFixModal(true);
+
+        const updatedCredits = await getUserCreditBalance();
+        if (updatedCredits) {
+          setCurrentBalance(updatedCredits.creditsBalance);
+        }
       } else {
-        setFixError(result.error || 'Failed to generate fix');
+        if (result.requiresAuth) {
+          onSignUpClick();
+        } else if (result.requiresUpgrade) {
+          setFixError(`Insufficient credits. You need ${result.requiredCredits} credits but only have ${result.currentBalance}.`);
+        } else {
+          setFixError(result.error || 'Failed to generate fix');
+        }
       }
     } catch (error) {
       console.error('Error generating fix:', error);
       setFixError('An unexpected error occurred');
     } finally {
       setIsGeneratingFix(false);
+      setPendingFixData(null);
     }
   };
 
@@ -444,6 +549,23 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
           onClose={handleCloseFixModal}
           onMarkApplied={() => {}}
           isDeckWideIssue={!!generatedFix.issueTitle}
+        />
+      )}
+
+      {showCostModal && costEstimation && (
+        <CostEstimationModal
+          isOpen={showCostModal}
+          onClose={() => {
+            setShowCostModal(false);
+            setPendingFixData(null);
+            setCostEstimation(null);
+          }}
+          onConfirm={handleConfirmGenerate}
+          estimatedCost={costEstimation.estimatedCost}
+          complexityScore={costEstimation.complexityScore}
+          complexityLevel={costEstimation.complexityLevel}
+          explanation={costEstimation.explanation}
+          currentBalance={currentBalance}
         />
       )}
     </div>

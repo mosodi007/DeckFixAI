@@ -134,6 +134,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (!user) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Authentication required',
+          requiresAuth: true,
+        }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -153,68 +170,17 @@ Deno.serve(async (req: Request) => {
       complexityScore,
     } = requestData;
 
-    if (user) {
-      const userCredits = await getUserCreditBalance(supabaseClient, user.id);
-      
-      if (!userCredits) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Unable to fetch credit balance',
-            requiresAuth: false,
-          }),
-          {
-            status: 400,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-
-      if (userCredits.credits_balance < estimatedCreditCost) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Insufficient credits',
-            requiresUpgrade: true,
-            currentBalance: userCredits.credits_balance,
-            requiredCredits: estimatedCreditCost,
-          }),
-          {
-            status: 402,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-
-      await deductCredits(
-        supabaseClient,
-        user.id,
-        estimatedCreditCost,
-        `Slide fix generation for page ${pageNumber}: ${slideTitle}`,
-        complexityScore,
-        {
-          analysisId,
-          pageNumber,
-          slideTitle,
-        }
-      );
-
-      console.log(`Deducted ${estimatedCreditCost} credits from user ${user.id}`);
-    } else {
+    const userCredits = await getUserCreditBalance(supabaseClient, user.id);
+    
+    if (!userCredits) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Authentication required',
-          requiresAuth: true,
+          error: 'Unable to fetch credit balance',
+          requiresAuth: false,
         }),
         {
-          status: 401,
+          status: 400,
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
@@ -222,6 +188,40 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+
+    if (userCredits.credits_balance < estimatedCreditCost) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Insufficient credits',
+          requiresUpgrade: true,
+          currentBalance: userCredits.credits_balance,
+          requiredCredits: estimatedCreditCost,
+        }),
+        {
+          status: 402,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    await deductCredits(
+      supabaseClient,
+      user.id,
+      estimatedCreditCost,
+      `Slide fix generation for page ${pageNumber}: ${slideTitle}`,
+      complexityScore,
+      {
+        analysisId,
+        pageNumber,
+        slideTitle,
+      }
+    );
+
+    console.log(`Deducted ${estimatedCreditCost} credits from user ${user.id}`);
 
     const currentScore = slideScore / 10;
     const scoreGap = 10 - currentScore;
@@ -350,7 +350,6 @@ Be extremely specific. This is a premium feature - deliver expert-level, impleme
     const openaiData = await openaiResponse.json();
     const generatedFix: GeneratedFix = JSON.parse(openaiData.choices[0].message.content);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const saveResponse = await fetch(`${supabaseUrl}/rest/v1/analysis_slide_fixes`, {

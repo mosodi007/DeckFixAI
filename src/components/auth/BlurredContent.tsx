@@ -21,7 +21,7 @@ export function BlurredContent({ children, isBlurred, onSignUpClick }: BlurredCo
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 border-2 border-slate-200">
           <div className="text-center">
-            <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-10 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-3">

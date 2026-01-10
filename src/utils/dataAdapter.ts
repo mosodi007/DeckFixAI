@@ -1,7 +1,7 @@
 import { AnalysisData } from '../services/analysisService';
 
 export function adaptAnalysisData(data: AnalysisData) {
-  const criticalIssuesCount = data.issues.filter(i => i.priority === 'high' && i.type === 'issue').length;
+  const criticalIssuesCount = data.metrics.weaknesses.length;
 
   return {
     id: data.id,

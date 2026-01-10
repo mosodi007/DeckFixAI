@@ -302,7 +302,6 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
-                  <Sparkles className="w-6 h-6 text-blue-600" />
                   <h2 className="text-2xl font-bold text-slate-900">
                     Get more out of DeckFix, Upgrade to {nextTier.name}
                   </h2>

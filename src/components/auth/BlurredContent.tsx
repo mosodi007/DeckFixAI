@@ -14,7 +14,7 @@ export function BlurredContent({ children, isBlurred, onSignUpClick }: BlurredCo
 
   return (
     <div className="relative">
-      <div className="filter blur-md pointer-events-none select-none">
+      <div className="filter blur-sm pointer-events-none select-none">
         {children}
       </div>
 

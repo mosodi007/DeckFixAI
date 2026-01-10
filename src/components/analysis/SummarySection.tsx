@@ -4,6 +4,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { StatCard } from '../ui/StatCard';
 import { Button } from '../ui/Button';
 import { MetricDetailModal } from './MetricDetailModal';
+import { OverallScoreModal } from './OverallScoreModal';
 
 interface SummarySectionProps {
   fileName: string;
@@ -44,6 +45,7 @@ export function SummarySection({
   onNewAnalysis,
   onOpenImprovementFlow
 }: SummarySectionProps) {
+  const [isOverallScoreModalOpen, setIsOverallScoreModalOpen] = useState(false);
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     title: string;
@@ -126,7 +128,7 @@ export function SummarySection({
           value={overallScore}
           suffix="/10"
           icon={TrendingUp}
-          onClick={() => openModal('Overall Score', `${overallScore}/10`, overallScoreFeedback, TrendingUp)}
+          onClick={() => setIsOverallScoreModalOpen(true)}
         />
         <StatCard
           label="Investment Grade"
@@ -186,6 +188,12 @@ export function SummarySection({
         value={modalState.value}
         feedback={modalState.feedback}
         icon={modalState.icon}
+      />
+
+      <OverallScoreModal
+        isOpen={isOverallScoreModalOpen}
+        onClose={() => setIsOverallScoreModalOpen(false)}
+        overallScore={overallScore * 10}
       />
     </GlassCard>
   );

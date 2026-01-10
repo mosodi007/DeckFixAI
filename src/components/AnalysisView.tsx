@@ -8,7 +8,6 @@ import { DealBreakersSection } from './analysis/DealBreakersSection';
 import { RedFlagsSection } from './analysis/RedFlagsSection';
 import { MissingPagesSection } from './analysis/MissingPagesSection';
 import { MetricsSection } from './analysis/MetricsSection';
-import { ScoreDistributionSection } from './analysis/ScoreDistributionSection';
 import { StrengthsSection } from './analysis/StrengthsSection';
 import { IssuesSection } from './analysis/IssuesSection';
 import { ImprovementsSection } from './analysis/ImprovementsSection';
@@ -21,7 +20,7 @@ interface AnalysisViewProps {
 
 const sections = [
   { id: 'summary', label: 'Summary' },
-  { id: 'metrics-scores', label: 'Metrics & Scores' },
+  { id: 'metrics-scores', label: 'Performance Metrics' },
   { id: 'general-review', label: 'General Review' },
   // { id: 'key-metrics', label: 'Business Information' },
   { id: 'stage-assessment', label: 'Stage Assessment' },
@@ -134,9 +133,8 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow }: Ana
       />
       </div>
 
-      <div id="metrics-scores" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div id="metrics-scores" className="mb-8">
         <MetricsSection metrics={data.metrics} />
-        <ScoreDistributionSection overallScore={data.overallScore} />
       </div>
 
       <div id="general-review">

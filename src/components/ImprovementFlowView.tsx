@@ -307,7 +307,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false }: Impro
                       {hasFeedback && (
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
                           <h3 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wide">
-                            AI Feedback
+                            Slide Feedback
                           </h3>
                           <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
                             {currentSlide.feedback}

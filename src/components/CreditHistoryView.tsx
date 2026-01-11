@@ -265,11 +265,11 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                         className="group bg-white text-black rounded-xl p-5 shadow-xl transition-all hover:shadow-2xl hover:scale-105 min-w-[260px]"
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className="p-2 bg-white/20 rounded-lg">
+                          <div className="p-2 bg-black/20 rounded-lg">
                             <Sparkles className="w-5 h-5" />
                           </div>
                           <div className="flex-1 text-left">
-                            <div className="text-xs font-semibold text-blue-100 mb-1">Get more from Pro</div>
+                            <div className="text-xs font-semibold text-black-100 mb-1">Get more from Pro</div>
                             <div className="text-base font-bold">Upgrade to {nextAvailableTier.credits.toLocaleString()}</div>
                             <div className="text-xs text-black/90">Credits Plan</div>
                           </div>

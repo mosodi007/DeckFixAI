@@ -88,7 +88,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                   <Upload className="w-12 h-12 text-white" />
                 </div>
 
-                <h2 className="text-2xl font-bold text-slate-900 mb-3">
+                <h2 className="text-xl font-semibold text-slate-900 mb-3">
                   Analyze & Fix Your Startup Pitch Deck
                 </h2>
 

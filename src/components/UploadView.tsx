@@ -15,7 +15,9 @@ interface UploadViewProps {
 export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -23,6 +25,48 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       handleAnalyze(file);
     } else if (file) {
       alert('Please select a PDF file');
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    if (isAnalyzing) return;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type === 'application/pdf') {
+        handleAnalyze(file);
+      } else {
+        alert('Please drop a PDF file');
+      }
     }
   };
 
@@ -83,19 +127,37 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
           <section className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
             <div className="p-2 md:p-12">
-              <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-dashed border-slate-300 rounded-2xl p-12 md:p-12 text-center hover:border-slate-400 transition-all">
-                <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Upload className="w-12 h-12 text-white" />
+              <div
+                className={`bg-gradient-to-br from-slate-50 to-white border-2 border-dashed rounded-2xl p-12 md:p-12 text-center transition-all ${
+                  isDragging
+                    ? 'border-slate-900 bg-slate-100 scale-[1.02]'
+                    : 'border-slate-300 hover:border-slate-400'
+                } ${isAnalyzing ? 'pointer-events-none' : ''}`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                <div className={`w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-6 transition-all ${
+                  isDragging ? 'bg-slate-900 scale-110' : 'bg-slate-900'
+                }`}>
+                  <Upload className={`w-12 h-12 text-white transition-transform ${
+                    isDragging ? 'scale-110' : ''
+                  }`} />
                 </div>
 
-                <h2 className="text-xl font-semibold text-slate-900 mb-3">
-                  Upload your Startup Pitch Deck
+                <h2 className={`text-xl font-semibold mb-3 transition-colors ${
+                  isDragging ? 'text-slate-900' : 'text-slate-900'
+                }`}>
+                  {isDragging ? 'Drop your pitch deck here' : 'Upload your Startup Pitch Deck'}
                 </h2>
 
                 <p className="text-slate-600 mb-8 max-w-md mx-auto">
                   {isAnalyzing
                     ? 'AI is analyzing your pitch deck for investor readiness...'
-                    : 'Choose your file or drag n drop to start analyzing'}
+                    : isDragging
+                    ? 'Release to upload your PDF file'
+                    : 'Choose your file or drag and drop to start analyzing'}
                 </p>
 
                 {isAnalyzing ? (

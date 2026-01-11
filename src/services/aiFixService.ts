@@ -189,7 +189,7 @@ export async function generateIssueFix(
     overallScore?: number;
     keyMetrics?: any;
   }
-): Promise<{ success: boolean; fix?: GeneratedFix; fixId?: string; error?: string }> {
+): Promise<{ success: boolean; fix?: GeneratedFix; fixId?: string; error?: string; requiresAuth?: boolean; requiresUpgrade?: boolean; currentBalance?: number; requiredCredits?: number }> {
   try {
     const headers: Record<string, string> = {
       'apikey': supabaseKey,
@@ -197,10 +197,49 @@ export async function generateIssueFix(
       'Accept': 'application/json',
     };
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
+    // Get session and refresh if needed
+    let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    // Check if session is expired or about to expire (within 2 minutes)
+    let needsRefresh = false;
+    if (session?.expires_at) {
+      const expiresAt = new Date(session.expires_at * 1000);
+      const now = new Date();
+      const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+
+      // Refresh if expired or expires within 2 minutes
+      if (timeUntilExpiry < 120000) {
+        needsRefresh = true;
+      }
+    } else if (!session) {
+      needsRefresh = true;
     }
+
+    // Refresh session if needed
+    if (needsRefresh) {
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && refreshData.session) {
+          session = refreshData.session;
+        } else if (!session) {
+          throw new Error('No active session. Please log in and try again.');
+        }
+      } catch (refreshErr: any) {
+        if (!session) {
+          throw new Error('Session expired. Please log in and try again.');
+        }
+      }
+    }
+
+    if (!session?.access_token) {
+      return {
+        success: false,
+        error: 'Authentication required. Please log in and try again.',
+        requiresAuth: true,
+      };
+    }
+
+    headers['Authorization'] = `Bearer ${session.access_token}`;
 
     const response = await fetch(
       `${supabaseUrl}/functions/v1/generate-issue-fix`,
@@ -223,7 +262,26 @@ export async function generateIssueFix(
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      
+      if (response.status === 401) {
+        return {
+          success: false,
+          error: error.error || 'Authentication failed. Please log in and try again.',
+          requiresAuth: true,
+        };
+      }
+
+      if (response.status === 402) {
+        return {
+          success: false,
+          error: error.error || 'Insufficient credits',
+          requiresUpgrade: true,
+          currentBalance: error.currentBalance,
+          requiredCredits: error.requiredCredits,
+        };
+      }
+
       return {
         success: false,
         error: error.error || 'Failed to generate fix',

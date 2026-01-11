@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Wand2 } from 'lucide-react';
+import { Wand2, Upload } from 'lucide-react';
 import { SummarySection } from './analysis/SummarySection';
 import { GeneralReviewSection } from './analysis/GeneralReviewSection';
 // import { KeyMetricsSection } from './analysis/KeyMetricsSection';
@@ -218,14 +218,24 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAut
         />
       </div>
 
-      {/* Floating Fix All Issues Button */}
-      <button
-        onClick={onOpenImprovementFlow}
-        className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl z-50 group"
-      >
-        <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-        <span>Fix All Issues</span>
-      </button>
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50">
+       
+        <button
+          onClick={onOpenImprovementFlow}
+          className="bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl group"
+        >
+          <Wand2 className="w-10 h-5 group-hover:rotate-12 transition-transform" />
+          <span>Fix All Issues</span>
+        </button>
+        <button
+          onClick={onNewAnalysis}
+          className="bg-white hover:bg-slate-50 text-slate-900 border-2 border-slate-300 hover:border-slate-400 pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl group"
+        >
+          <Upload className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span> New</span>
+        </button>
+      </div>
     </div>
   );
 }

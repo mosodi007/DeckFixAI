@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { getUserCreditBalance, type UserCredits } from '../services/creditService';
 import { useAuth } from './AuthContext';
 
@@ -15,7 +15,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshCredits = async () => {
+  const refreshCredits = useCallback(async () => {
     if (!user) {
       setCredits(null);
       setLoading(false);
@@ -30,11 +30,25 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     refreshCredits();
-  }, [user]);
+  }, [refreshCredits]);
+
+  // Poll for credit updates periodically when user is logged in
+  useEffect(() => {
+    if (!user) return;
+
+    // Poll every 3 seconds to keep credits updated in real-time
+    const pollInterval = setInterval(() => {
+      refreshCredits();
+    }, 3000); // Poll every 3 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [user, refreshCredits]);
 
   return (
     <CreditContext.Provider value={{ credits, loading, refreshCredits }}>

@@ -252,13 +252,21 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   };
 
   const handleGenerateIssueFix = async (issue: any, index: number) => {
+    console.log('handleGenerateIssueFix called', { issue, index, isAuthenticated, dataId: data?.id });
+    
     if (!isAuthenticated) {
+      console.log('Not authenticated, showing sign up');
       onSignUpClick();
       return;
     }
 
-    if (!data?.id) return;
+    if (!data?.id) {
+      console.error('No analysis ID available');
+      setFixError('Analysis data not available. Please try again.');
+      return;
+    }
 
+    console.log('Starting issue fix generation...');
     setGeneratingIssueIndex(index);
     setFixError(null);
 
@@ -280,6 +288,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         }
       );
 
+      console.log('Issue fix generation result:', result);
+
       if (result.success && result.fix && result.fixId) {
         setGeneratedFix({ fix: result.fix, fixId: result.fixId, issueTitle: issue.title });
         setShowFixModal(true);
@@ -297,11 +307,31 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         });
         setExistingFixes(fixesByPage);
       } else {
-        setFixError(result.error || 'Failed to generate fix');
+        const errorMsg = result.error || 'Failed to generate fix';
+        console.error('Fix generation failed:', errorMsg);
+        setFixError(errorMsg);
+        
+        // Handle authentication errors
+        if (result.requiresAuth) {
+          alert('Your session has expired. Please log in again.');
+          onSignUpClick();
+          return;
+        }
+        
+        // Handle insufficient credits
+        if (result.requiresUpgrade) {
+          alert(`Insufficient credits. You need ${result.requiredCredits} credits but only have ${result.currentBalance}. Please upgrade your plan.`);
+          return;
+        }
+        
+        // Show error to user
+        alert(`Failed to generate fix: ${errorMsg}`);
       }
     } catch (error) {
       console.error('Error generating issue fix:', error);
-      setFixError('An unexpected error occurred');
+      const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setFixError(errorMsg);
+      alert(`Error: ${errorMsg}`);
     } finally {
       setGeneratingIssueIndex(null);
     }

@@ -16,7 +16,7 @@ interface UploadViewProps {
 
 export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
   const { user } = useAuth();
-  const { refreshCredits } = useCredits();
+  const { refreshCredits, credits } = useCredits();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -165,17 +165,35 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         // Error handling is done in the service, which updates status to 'failed'
       });
 
-      // Step 4.5: Refresh credits after a short delay to reflect deduction
+      // Step 4.5: Poll for credit updates after analysis starts
       // Credits are deducted in the Edge Function when analysis starts
-      setTimeout(async () => {
+      // Poll multiple times to catch the credit deduction
+      let pollCount = 0;
+      const maxPolls = 15; // Poll for up to 15 seconds
+      const pollInterval = 1000; // Every 1 second
+      const initialBalance = credits?.creditsBalance || 0;
+      
+      const pollForCreditUpdate = setInterval(async () => {
+        pollCount++;
         try {
           await refreshCredits();
-          console.log('Credit balance refreshed after analysis started');
+          console.log(`Polling for credit update (attempt ${pollCount}/${maxPolls})`);
+          
+          // Stop polling after max attempts
+          if (pollCount >= maxPolls) {
+            clearInterval(pollForCreditUpdate);
+            console.log('Stopped polling for credit updates after max attempts');
+          }
         } catch (creditError) {
           console.error('Failed to refresh credits:', creditError);
-          // Don't fail the upload if credit refresh fails
+          // Continue polling even if one refresh fails
         }
-      }, 3000); // Wait 3 seconds for Edge Function to process and deduct credits
+      }, pollInterval);
+      
+      // Cleanup polling after max time
+      setTimeout(() => {
+        clearInterval(pollForCreditUpdate);
+      }, maxPolls * pollInterval);
 
       // Step 5: Show loader for 2-5 seconds, then redirect to Dashboard
       // Minimum 2 seconds, maximum 5 seconds based on file size

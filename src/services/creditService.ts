@@ -294,12 +294,17 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return [];
   }
 
+  if (!data || data.length === 0) {
+    console.warn('No subscription plans found');
+    return [];
+  }
+
   return data.map(plan => ({
     id: plan.id,
     name: plan.name,
     monthlyCredits: plan.monthly_credits,
-    priceMonthly: plan.price_monthly,
-    priceAnnual: plan.price_annual,
+    priceMonthly: parseFloat(plan.price_monthly),
+    priceAnnual: parseFloat(plan.price_annual),
     stripePriceIdMonthly: plan.stripe_price_id_monthly,
     stripePriceIdAnnual: plan.stripe_price_id_annual,
     features: plan.features || [],
@@ -319,11 +324,16 @@ export async function getCreditPackages(): Promise<CreditPackage[]> {
     return [];
   }
 
+  if (!data || data.length === 0) {
+    console.warn('No credit packages found');
+    return [];
+  }
+
   return data.map(pkg => ({
     id: pkg.id,
     name: pkg.name,
     credits: pkg.credits,
-    price: pkg.price,
+    price: parseFloat(pkg.price),
     stripePriceId: pkg.stripe_price_id,
     isActive: pkg.is_active,
   }));
@@ -394,8 +404,8 @@ export async function getSubscriptionPlanById(planId: string): Promise<Subscript
     id: data.id,
     name: data.name,
     monthlyCredits: data.monthly_credits,
-    priceMonthly: data.price_monthly,
-    priceAnnual: data.price_annual,
+    priceMonthly: parseFloat(data.price_monthly),
+    priceAnnual: parseFloat(data.price_annual),
     stripePriceIdMonthly: data.stripe_price_id_monthly,
     stripePriceIdAnnual: data.stripe_price_id_annual,
     features: data.features || [],

@@ -262,7 +262,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                     return (
                       <button
                         onClick={() => onViewPricing(nextAvailableTier.credits)}
-                        className="group bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl p-5 shadow-xl transition-all hover:shadow-2xl hover:scale-105 min-w-[260px]"
+                        className="group bg-white text-black rounded-xl p-5 shadow-xl transition-all hover:shadow-2xl hover:scale-105 min-w-[260px]"
                       >
                         <div className="flex items-start gap-3 mb-3">
                           <div className="p-2 bg-white/20 rounded-lg">

@@ -275,7 +275,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-3 border-t border-white/20">
-                          <span className="text-xs font-medium text-black/90">View pricing</span>
+                          <span className="text-xs font-medium text-black/200">View pricing</span>
                           <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                         </div>
                       </button>

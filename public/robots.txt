@@ -1,0 +1,28 @@
+# robots.txt for DeckFix
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /*.json$
+
+# Sitemap location
+Sitemap: https://deckfix.ai/sitemap.xml
+
+# Crawl-delay for bots
+Crawl-delay: 0
+
+# Allow specific bots full access
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# Block bad bots
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10

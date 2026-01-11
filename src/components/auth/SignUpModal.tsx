@@ -210,7 +210,7 @@ export function SignUpModal({ onClose, onSwitchToLogin, onSignUpSuccess }: SignU
             disabled={loading}
             className="w-full py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating account...' : 'Sign Up'}
+            {loading ? 'Creating account...' : 'Sign up with Email'}
           </button>
         </form>
 

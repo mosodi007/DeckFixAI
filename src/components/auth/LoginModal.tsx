@@ -158,7 +158,7 @@ export function LoginModal({ onClose, onSwitchToSignUp, onLoginSuccess }: LoginM
             disabled={loading}
             className="w-full py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Login with Email'}
           </button>
         </form>
 

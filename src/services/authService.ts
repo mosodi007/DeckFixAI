@@ -70,6 +70,19 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
   return { error: null };
 }
 
+export async function signInWithGoogleOneTap(credential: string): Promise<{ user: User | null; error: Error | null }> {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: credential,
+  });
+
+  if (error) {
+    return { user: null, error: new Error(error.message) };
+  }
+
+  return { user: data.user, error: null };
+}
+
 export async function logout(): Promise<{ error: Error | null }> {
   const { error } = await supabase.auth.signOut();
 

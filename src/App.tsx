@@ -15,6 +15,7 @@ import { analyzeSlides } from './services/slideAnalysisService';
 import { adaptAnalysisData } from './utils/dataAdapter';
 import { useAuth } from './contexts/AuthContext';
 import { logout } from './services/authService';
+import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
   const { user, userProfile, isAuthenticated } = useAuth();
@@ -25,6 +26,16 @@ function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  useGoogleOneTap({
+    disabled: isAuthenticated,
+    onSuccess: () => {
+      console.log('Google One Tap sign-in successful');
+    },
+    onError: (error) => {
+      console.error('Google One Tap error:', error.message);
+    },
+  });
 
   useEffect(() => {
     if (isAuthenticated) {

@@ -8,7 +8,11 @@ import { supabase } from '../services/authService';
 import { UpgradePreviewModal } from './UpgradePreviewModal';
 import { getUpgradePreview, formatCurrency, type UpgradePreview } from '../services/upgradeService';
 
-export function PricingView() {
+interface PricingViewProps {
+  preselectedTierCredits?: number;
+}
+
+export function PricingView({ preselectedTierCredits }: PricingViewProps = {}) {
   const { user } = useAuth();
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual');
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
@@ -43,7 +47,12 @@ export function PricingView() {
     setScheduledBillingPeriod(scheduledChange?.scheduledBillingPeriod || null);
     setScheduledChangeDate(scheduledChange?.scheduledChangeDate || null);
 
-    if (userTier) {
+    if (preselectedTierCredits) {
+      const tierIndex = tiers.findIndex(t => t.credits === preselectedTierCredits);
+      if (tierIndex !== -1) {
+        setSelectedTierIndex(tierIndex);
+      }
+    } else if (userTier) {
       const tierIndex = tiers.findIndex(t => t.id === userTier.id);
       if (tierIndex !== -1) {
         setSelectedTierIndex(tierIndex);

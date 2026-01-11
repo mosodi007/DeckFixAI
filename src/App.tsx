@@ -26,6 +26,7 @@ function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [preselectedTierCredits, setPreselectedTierCredits] = useState<number | undefined>(undefined);
 
   useGoogleOneTap({
     disabled: isAuthenticated,
@@ -135,6 +136,7 @@ function App() {
   const handleGoToDashboard = () => {
     setView('dashboard');
     setAnalysisData(null);
+    setPreselectedTierCredits(undefined);
   };
 
   const handleOpenImprovementFlow = async () => {
@@ -248,6 +250,7 @@ function App() {
                           <button
                             onClick={() => {
                               setShowUserMenu(false);
+                              setPreselectedTierCredits(undefined);
                               setView('pricing');
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
@@ -307,12 +310,15 @@ function App() {
             </div>
           </div>
         ) : view === 'pricing' ? (
-          <PricingView />
+          <PricingView preselectedTierCredits={preselectedTierCredits} />
         ) : view === 'credits' ? (
           <CreditHistoryView
             onBack={handleGoToDashboard}
             onViewUsageHistory={() => setView('usage-history')}
-            onViewPricing={() => setView('pricing')}
+            onViewPricing={(tierCredits) => {
+              setPreselectedTierCredits(tierCredits);
+              setView('pricing');
+            }}
           />
         ) : view === 'usage-history' ? (
           <UsageHistoryView onBack={() => setView('credits')} />

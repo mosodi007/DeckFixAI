@@ -21,6 +21,7 @@ import {
   getSubscriptionPlanById,
   getSubscriptionPlans,
   getUserProCreditTier,
+  getProCreditTiers,
   getScheduledBillingChange,
   getSubscriptionPeriodEnd,
   type CreditTransaction,
@@ -33,7 +34,7 @@ import {
 interface CreditHistoryViewProps {
   onBack: () => void;
   onViewUsageHistory: () => void;
-  onViewPricing: () => void;
+  onViewPricing: (preselectedTierCredits?: number) => void;
 }
 
 export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }: CreditHistoryViewProps) {
@@ -46,6 +47,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
   const [scheduledChangeDate, setScheduledChangeDate] = useState<number | null>(null);
   const [periodEnd, setPeriodEnd] = useState<Date | null>(null);
   const [allPlans, setAllPlans] = useState<SubscriptionPlan[]>([]);
+  const [allProTiers, setAllProTiers] = useState<ProCreditTier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTransactions, setShowTransactions] = useState(false);
 
@@ -55,11 +57,12 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
 
   async function loadData() {
     setLoading(true);
-    const [history, balance, userSub, plans, proTier, scheduledChange, subPeriodEnd] = await Promise.all([
+    const [history, balance, userSub, plans, proTiers, proTier, scheduledChange, subPeriodEnd] = await Promise.all([
       getCreditHistory(100, 0),
       getUserCreditBalance(),
       getUserSubscription(),
       getSubscriptionPlans(),
+      getProCreditTiers(),
       getUserProCreditTier(),
       getScheduledBillingChange(),
       getSubscriptionPeriodEnd(),
@@ -69,6 +72,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
     setCredits(balance);
     setSubscription(userSub);
     setAllPlans(plans);
+    setAllProTiers(proTiers);
     setCurrentProTier(proTier);
     setScheduledProTier(scheduledChange?.scheduledTier || null);
     setScheduledChangeDate(scheduledChange?.scheduledChangeDate || null);
@@ -134,17 +138,17 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
     }
   };
 
-  const getNextTier = (): SubscriptionPlan | null => {
-    if (!currentPlan) return null;
+  const getNextTier = (): ProCreditTier | null => {
+    if (allProTiers.length === 0) return null;
 
-    const tierOrder = ['Free', 'Starter', 'Pro'];
-    const currentIndex = tierOrder.indexOf(currentPlan.name);
-
-    if (currentIndex === -1 || currentIndex === tierOrder.length - 1) {
-      return null;
+    if (!currentProTier) {
+      return allProTiers[0] || null;
     }
 
-    return allPlans.find(p => p.name === tierOrder[currentIndex + 1]) || null;
+    const currentCredits = currentProTier.credits;
+    const nextTier = allProTiers.find(tier => tier.credits > currentCredits);
+
+    return nextTier || null;
   };
 
   const calculateCreditUsage = () => {
@@ -220,7 +224,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
         <div className="bg-white border border-slate-200 rounded-3xl shadow-lg overflow-hidden mb-8">
           {/* Header Section */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-700 p-8 text-white">
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start justify-between gap-8 mb-6">
               <div className="flex-1">
                 <div className="text-slate-300 text-sm mb-2 font-medium">Credit Balance</div>
                 <div className="text-6xl font-bold mb-2">{credits?.creditsBalance || 0}</div>
@@ -249,22 +253,55 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                   </div>
                 )}
               </div>
-              {currentProTier ? (
-                <button
-                  onClick={onViewPricing}
-                  className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
-                >
-                  <Settings className="w-4 h-4" />
-                  Manage Plan
-                </button>
-              ) : (
-                <button
-                  onClick={onViewPricing}
-                  className="px-5 py-2.5 bg-white text-black rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
-                >
-                  Upgrade to Pro
-                </button>
-              )}
+
+              {/* Right Side: Upgrade Promo or Manage Plan */}
+              <div className="flex-shrink-0">
+                {(() => {
+                  const nextAvailableTier = getNextTier();
+                  if (currentProTier && nextAvailableTier) {
+                    return (
+                      <button
+                        onClick={() => onViewPricing(nextAvailableTier.credits)}
+                        className="group bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl p-5 shadow-xl transition-all hover:shadow-2xl hover:scale-105 min-w-[260px]"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="p-2 bg-white/20 rounded-lg">
+                            <Sparkles className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <div className="text-xs font-semibold text-blue-100 mb-1">Get more from Pro</div>
+                            <div className="text-base font-bold">Upgrade to {nextAvailableTier.credits.toLocaleString()}</div>
+                            <div className="text-xs text-white/90">Credits Plan</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-3 border-t border-white/20">
+                          <span className="text-xs font-medium text-white/90">View pricing</span>
+                          <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </div>
+                      </button>
+                    );
+                  } else if (currentProTier) {
+                    return (
+                      <button
+                        onClick={() => onViewPricing()}
+                        className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Manage Plan
+                      </button>
+                    );
+                  } else {
+                    return (
+                      <button
+                        onClick={() => onViewPricing()}
+                        className="px-5 py-2.5 bg-white text-black rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
+                      >
+                        Upgrade to Pro
+                      </button>
+                    );
+                  }
+                })()}
+              </div>
             </div>
 
             {/* Credit Usage Bar */}
@@ -322,7 +359,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
             <div className="space-y-3">
               {!currentProTier && (
                 <button
-                  onClick={onViewPricing}
+                  onClick={() => onViewPricing()}
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                 >
                   <Sparkles className="w-5 h-5" />
@@ -360,7 +397,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
             {/* See All Plans Link */}
             <div className="mt-6 pt-6 border-t border-slate-200 text-center">
               <button
-                onClick={onViewPricing}
+                onClick={() => onViewPricing()}
                 className="text-slate-700 hover:text-slate-900 font-semibold text-sm transition-colors flex items-center justify-center gap-2 mx-auto group"
               >
                 <span>See all available plans</span>

@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
         // Verify subscription exists for existing customer
         const { data: subscription, error: getSubscriptionError } = await supabase
           .from('stripe_subscriptions')
-          .select('subscription_id, status, price_id')
+          .select('subscription_id, status, price_id, schedule_id, scheduled_price_id')
           .eq('customer_id', customerId)
           .maybeSingle();
 
@@ -164,6 +164,24 @@ Deno.serve(async (req) => {
         if (subscription && subscription.subscription_id && subscription.status === 'active') {
           // User has an active subscription - update it instead of creating a new checkout session
           try {
+            // If there's an existing schedule, cancel it first
+            if (subscription.schedule_id) {
+              console.log(`Cancelling existing subscription schedule ${subscription.schedule_id}`);
+              await stripe.subscriptionSchedules.cancel(subscription.schedule_id);
+
+              // Clear schedule fields in database
+              await supabase
+                .from('stripe_subscriptions')
+                .update({
+                  schedule_id: null,
+                  scheduled_price_id: null,
+                  scheduled_change_date: null,
+                })
+                .eq('subscription_id', subscription.subscription_id);
+
+              console.log(`Cleared schedule for subscription ${subscription.subscription_id}`);
+            }
+
             const currentSub = await stripe.subscriptions.retrieve(subscription.subscription_id);
 
             // Get the tier information for both current and new price

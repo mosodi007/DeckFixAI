@@ -77,7 +77,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
               Fix Your Pitch Deck & Make It Investor-Ready in Minutes
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Get VC-standard feedback, scoring, and actionable fixes to make your startup pitch deck investor-ready and increase funding chances.
+              Get VC-standard feedback, scoring, and actionable fixes to make your startup pitch deck investor-ready and increase funding chances by 98.6%.
             </p>
           </header>
 

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Check, ChevronDown, Mail, Sparkles, Loader2 } from 'lucide-react';
 import { getProCreditTiers, getUserProCreditTier, formatCredits, type ProCreditTier } from '../services/creditService';
 import { ContactSalesModal } from './ContactSalesModal';
-import { redirectToCheckout, getSuccessUrl, getCancelUrl } from '../services/stripeService';
+import { createCheckoutSession, getSuccessUrl, getCancelUrl } from '../services/stripeService';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../services/authService';
 
 export function PricingView() {
   const { user } = useAuth();
@@ -39,9 +40,9 @@ export function PricingView() {
     setLoading(false);
   }
 
-  async function handleUpgradeToPro() {
+  async function handleChangePlan() {
     if (!user) {
-      setError('Please log in to upgrade');
+      setError('Please log in to change your plan');
       return;
     }
 
@@ -63,15 +64,74 @@ export function PricingView() {
     setError(null);
 
     try {
-      await redirectToCheckout({
+      const result = await createCheckoutSession({
         priceId,
         mode: 'subscription',
         successUrl: getSuccessUrl('/dashboard'),
         cancelUrl: getCancelUrl('/pricing'),
       });
+
+      if (result.success && result.url) {
+        if (result.updated) {
+          if (result.isDowngrade) {
+            alert('Your plan will be downgraded at the end of your current billing period.');
+          } else {
+            alert('Your plan has been upgraded successfully!');
+          }
+          window.location.href = result.url;
+        } else {
+          window.location.href = result.url;
+        }
+      } else {
+        throw new Error(result.error || 'Failed to process plan change');
+      }
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setCheckoutLoading(false);
+    }
+  }
+
+  async function handleDowngradeToFree() {
+    if (!user) {
+      setError('Please log in to downgrade');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to downgrade to the Free plan? Your subscription will be cancelled at the end of the current billing period.')) {
+      return;
+    }
+
+    setCheckoutLoading(true);
+    setError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cancel-subscription`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to cancel subscription');
+      }
+
+      alert('Your subscription will be cancelled at the end of the current billing period. You will be moved to the Free plan.');
+      await loadPricing();
+    } catch (err) {
+      console.error('Cancellation error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+    } finally {
       setCheckoutLoading(false);
     }
   }
@@ -198,11 +258,26 @@ export function PricingView() {
               </ul>
 
               <button
-                className="w-full py-3 rounded-xl font-semibold transition-all bg-slate-900 text-white hover:bg-slate-800 opacity-50 cursor-not-allowed"
-                disabled={!currentTier}
+                onClick={currentTier ? handleDowngradeToFree : undefined}
+                disabled={checkoutLoading || !currentTier}
+                className="w-full py-3 rounded-xl font-semibold transition-all bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {!currentTier ? 'Current Plan' : 'Get Started Free'}
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : !currentTier ? (
+                  'Current Plan'
+                ) : (
+                  'Downgrade to Free'
+                )}
               </button>
+              {currentTier && (
+                <p className="text-xs text-center mt-2 text-slate-500">
+                  Cancels subscription at end of billing period
+                </p>
+              )}
             </div>
 
             <div className="relative rounded-2xl p-8 border bg-slate-900 border-slate-800 transform scale-105 shadow-2xl transition-all hover:shadow-3xl">
@@ -267,7 +342,7 @@ export function PricingView() {
               </ul>
 
               <button
-                onClick={handleUpgradeToPro}
+                onClick={handleChangePlan}
                 disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id)}
                 className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
@@ -278,18 +353,25 @@ export function PricingView() {
                   </>
                 ) : currentTier !== null && currentTier.id === selectedTier?.id ? (
                   'Current Plan'
+                ) : currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits ? (
+                  'Downgrade'
                 ) : (
                   'Upgrade to Pro'
                 )}
               </button>
               {!user && (
                 <p className="text-xs text-center mt-2 text-slate-400">
-                  Please log in to upgrade
+                  Please log in to change your plan
                 </p>
               )}
               {currentTier !== null && currentTier.id === selectedTier?.id && (
                 <p className="text-xs text-center mt-2 text-slate-400">
                   You are currently on this plan
+                </p>
+              )}
+              {currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits && currentTier.id !== selectedTier?.id && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  Downgrade will take effect at the end of your billing period
                 </p>
               )}
             </div>

@@ -8,13 +8,15 @@ export interface CreateCheckoutSessionParams {
 }
 
 export interface CheckoutSessionResponse {
-  sessionId: string;
+  sessionId: string | null;
   url: string;
+  updated?: boolean;
+  isDowngrade?: boolean;
 }
 
 export async function createCheckoutSession(
   params: CreateCheckoutSessionParams
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; url?: string; error?: string; updated?: boolean; isDowngrade?: boolean }> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
 
@@ -48,7 +50,7 @@ export async function createCheckoutSession(
     const data: CheckoutSessionResponse = await response.json();
 
     if (data.url) {
-      return { success: true, url: data.url };
+      return { success: true, url: data.url, updated: data.updated, isDowngrade: data.isDowngrade };
     }
 
     return { success: false, error: 'No checkout URL returned' };

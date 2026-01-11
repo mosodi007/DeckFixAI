@@ -74,6 +74,13 @@ async function handleEvent(event: Stripe.Event) {
   if (!customerId || typeof customerId !== 'string') {
     console.error(`No customer received on event: ${JSON.stringify(event)}`);
   } else {
+    // Handle subscription updates and cancellations
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      console.info(`Syncing subscription for customer: ${customerId} due to ${event.type}`);
+      await syncCustomerFromStripe(customerId);
+      return;
+    }
+
     let isSubscription = true;
 
     if (event.type === 'checkout.session.completed') {
@@ -230,6 +237,23 @@ async function syncCustomerFromStripe(customerId: string) {
     // Allocate credits if subscription is active
     if (subscription.status === 'active' || subscription.status === 'trialing') {
       await allocateCreditsForSubscription(userId, priceId, subscription.id);
+    }
+
+    // Handle subscription cancellation - reset user to free tier
+    if (subscription.status === 'canceled') {
+      console.info(`Subscription cancelled for user ${userId}, resetting to free tier`);
+
+      const { error: resetError } = await supabase
+        .from('user_credits')
+        .update({
+          monthly_credits_allocated: 100,
+          subscription_tier: 'free',
+        })
+        .eq('user_id', userId);
+
+      if (resetError) {
+        console.error('Error resetting user to free tier:', resetError);
+      }
     }
 
     console.info(`Successfully synced subscription for customer: ${customerId}`);

@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
         // Verify subscription exists for existing customer
         const { data: subscription, error: getSubscriptionError } = await supabase
           .from('stripe_subscriptions')
-          .select('status')
+          .select('subscription_id, status, price_id')
           .eq('customer_id', customerId)
           .maybeSingle();
 
@@ -159,6 +159,59 @@ Deno.serve(async (req) => {
           console.error('Failed to fetch subscription information from the database', getSubscriptionError);
 
           return corsResponse({ error: 'Failed to fetch subscription information' }, 500);
+        }
+
+        if (subscription && subscription.subscription_id && subscription.status === 'active') {
+          // User has an active subscription - update it instead of creating a new checkout session
+          try {
+            const currentSub = await stripe.subscriptions.retrieve(subscription.subscription_id);
+
+            // Get the tier information for both current and new price
+            const { data: currentTier } = await supabase
+              .from('pro_credit_tiers')
+              .select('credits')
+              .or(`stripe_price_id_monthly.eq.${subscription.price_id},stripe_price_id_annual.eq.${subscription.price_id}`)
+              .maybeSingle();
+
+            const { data: newTier } = await supabase
+              .from('pro_credit_tiers')
+              .select('credits')
+              .or(`stripe_price_id_monthly.eq.${price_id},stripe_price_id_annual.eq.${price_id}`)
+              .maybeSingle();
+
+            const isDowngrade = newTier && currentTier && newTier.credits < currentTier.credits;
+
+            // Update the subscription
+            const updatedSubscription = await stripe.subscriptions.update(subscription.subscription_id, {
+              items: [{
+                id: currentSub.items.data[0].id,
+                price: price_id,
+              }],
+              proration_behavior: isDowngrade ? 'none' : 'always_invoice',
+              billing_cycle_anchor: isDowngrade ? 'unchanged' : undefined,
+            });
+
+            // Update database
+            await supabase
+              .from('stripe_subscriptions')
+              .update({
+                price_id: price_id,
+              })
+              .eq('subscription_id', subscription.subscription_id);
+
+            console.log(`Updated subscription ${subscription.subscription_id} to price ${price_id}`);
+
+            // Return success URL directly since we don't need a checkout session
+            return corsResponse({
+              sessionId: null,
+              url: success_url,
+              updated: true,
+              isDowngrade
+            });
+          } catch (updateError: any) {
+            console.error('Error updating subscription:', updateError);
+            return corsResponse({ error: 'Failed to update subscription' }, 500);
+          }
         }
 
         if (!subscription) {

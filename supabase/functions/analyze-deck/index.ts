@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { extractTextFromPDF } from './pdfExtractor.ts';
+import { extractContentFromPDF } from './pdfExtractor.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +98,15 @@ Evaluate with HARSH VC standards:
 - Financials: Are projections grounded in reality or hockey sticks with no basis? Do they know their numbers?
 - Competition: Do they understand the landscape or claim \"no competitors\"? Why won't they get crushed?
 - Story: Is the narrative compelling or confusing? Do they know what they're asking for and why?
+- Design & Visuals: Are the slides professional and well-designed? Do charts and visuals effectively communicate the data? Are images relevant and high-quality?
+
+You are analyzing BOTH the text content AND visual content (images, charts, diagrams) from each slide. Pay close attention to:
+- Visual design quality and professionalism
+- Chart and graph clarity and accuracy
+- Image relevance and quality
+- Slide layout and information density
+- Color scheme and branding consistency
+- Data visualization effectiveness
 
 Be direct, specific, and actionable. Call out weak arguments. Highlight missing information. No generic feedback. If something is mediocre, say it. If it's impressive, acknowledge it but explain why. Think like you're protecting your LP's capital.
 
@@ -107,6 +116,7 @@ Provide a thorough analysis including:
 3. Deal-breaking red flags (if any)
 4. Specific, actionable improvements for each slide
 5. Missing information that investors will ask about
+6. Design and visual feedback
 
 Return your analysis as a JSON object with this structure:
 {
@@ -185,16 +195,45 @@ Return your analysis as a JSON object with this structure:
   }
 }`;
 
-async function analyzeWithOpenAI(text: string, pageCount: number): Promise<OpenAIAnalysis> {
+async function analyzeWithOpenAI(
+  text: string,
+  pageCount: number,
+  images: string[]
+): Promise<OpenAIAnalysis> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY environment variable is not set');
   }
 
-  const prompt = `${ANALYSIS_PROMPT}
+  const textPrompt = `${ANALYSIS_PROMPT}\n\nPitch Deck Content (${pageCount} pages):\n\nText Content:\n${text}`;
 
-Pitch Deck Content (${pageCount} pages):
-${text}`;
+  const maxImagesForAnalysis = Math.min(images.length, 20);
+  const imagesToAnalyze = images.slice(0, maxImagesForAnalysis);
+
+  console.log(`Analyzing with ${imagesToAnalyze.length} images out of ${images.length} total`);
+
+  const messages: any[] = [
+    {
+      role: 'system',
+      content: 'You are a senior VC partner providing brutally honest pitch deck analysis. You will analyze both text content and visual content (slides as images). Return only valid JSON with no markdown formatting or code blocks.'
+    },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: textPrompt
+        },
+        ...imagesToAnalyze.map(img => ({
+          type: 'image_url',
+          image_url: {
+            url: img,
+            detail: 'high'
+          }
+        }))
+      ]
+    }
+  ];
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -203,18 +242,10 @@ ${text}`;
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a senior VC partner providing brutally honest pitch deck analysis. Return only valid JSON with no markdown formatting or code blocks.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
+      model: 'gpt-4o',
+      messages,
       temperature: 0.7,
+      max_tokens: 4096,
       response_format: { type: 'json_object' }
     }),
   });
@@ -340,18 +371,22 @@ Deno.serve(async (req: Request) => {
 
     let text: string;
     let pageCount: number;
-    let pages: Array<{ pageNumber: number; text: string }>;
+    let pages: Array<{ pageNumber: number; text: string; images: string[] }>;
+    let allImages: string[];
 
     try {
-      const result = await extractTextFromPDF(arrayBuffer);
+      console.log('Starting robust PDF extraction with images...');
+      const result = await extractContentFromPDF(arrayBuffer);
       text = result.text;
       pageCount = result.pageCount;
       pages = result.pages;
-      console.log(`PDF extraction: ${text.length} characters from ${pageCount} pages`);
-      console.log('First 500 characters:', text.substring(0, 500));
+      allImages = result.allImages;
+      console.log(`PDF extraction complete: ${text.length} characters, ${pageCount} pages, ${allImages.length} images`);
+      console.log('First 1000 characters:', text.substring(0, 1000));
+      console.log('Sample page data:', pages[0]);
     } catch (pdfError: any) {
       console.error('PDF extraction failed:', pdfError);
-      throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
+      throw new Error(`Failed to extract content from PDF: ${pdfError.message}`);
     }
 
     const analysisId = clientAnalysisId || crypto.randomUUID();
@@ -387,8 +422,8 @@ Deno.serve(async (req: Request) => {
       title: `Slide ${page.pageNumber}`,
       content: page.text,
       score: 0,
-      image_url: imageUrls[index] || null,
-      thumbnail_url: imageUrls[index] || null,
+      image_url: imageUrls[index] || (page.images.length > 0 ? page.images[0] : null),
+      thumbnail_url: imageUrls[index] || (page.images.length > 0 ? page.images[0] : null),
     }));
 
     const { error: pagesError } = await supabase
@@ -401,7 +436,8 @@ Deno.serve(async (req: Request) => {
 
     let openAIAnalysis: OpenAIAnalysis;
     try {
-      openAIAnalysis = await analyzeWithOpenAI(text, pageCount);
+      console.log(`Starting AI analysis with ${allImages.length} images...`);
+      openAIAnalysis = await analyzeWithOpenAI(text, pageCount, allImages);
       console.log('AI analysis completed successfully');
     } catch (aiError: any) {
       console.error('AI analysis failed:', aiError);

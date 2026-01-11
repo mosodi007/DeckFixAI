@@ -5,6 +5,8 @@ import { ContactSalesModal } from './ContactSalesModal';
 import { createCheckoutSession, getSuccessUrl, getCancelUrl } from '../services/stripeService';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/authService';
+import { UpgradePreviewModal } from './UpgradePreviewModal';
+import { getUpgradePreview, formatCurrency, type UpgradePreview } from '../services/upgradeService';
 
 export function PricingView() {
   const { user } = useAuth();
@@ -15,6 +17,9 @@ export function PricingView() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,8 +65,31 @@ export function PricingView() {
       return;
     }
 
+    setError(null);
+
+    if (currentTier && selectedTier.credits > currentTier.credits) {
+      setPreviewLoading(true);
+      setShowUpgradeModal(true);
+
+      try {
+        const preview = await getUpgradePreview(priceId);
+        setUpgradePreview(preview);
+      } catch (err) {
+        console.error('Preview error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load upgrade preview');
+        setShowUpgradeModal(false);
+      } finally {
+        setPreviewLoading(false);
+      }
+    } else {
+      proceedWithCheckout(priceId);
+    }
+  }
+
+  async function proceedWithCheckout(priceId: string) {
     setCheckoutLoading(true);
     setError(null);
+    setShowUpgradeModal(false);
 
     try {
       const result = await createCheckoutSession({
@@ -89,6 +117,18 @@ export function PricingView() {
       console.error('Checkout error:', err);
       setError(err instanceof Error ? err.message : 'Failed to start checkout');
       setCheckoutLoading(false);
+    }
+  }
+
+  function handleConfirmUpgrade() {
+    if (!selectedTier) return;
+
+    const priceId = billingPeriod === 'monthly'
+      ? selectedTier.stripePriceIdMonthly
+      : selectedTier.stripePriceIdAnnual;
+
+    if (priceId) {
+      proceedWithCheckout(priceId);
     }
   }
 
@@ -355,6 +395,8 @@ export function PricingView() {
                   'Current Plan'
                 ) : currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits ? (
                   'Downgrade'
+                ) : currentTier !== null && selectedTier && selectedTier.credits > currentTier.credits ? (
+                  'View Upgrade Options'
                 ) : (
                   'Upgrade to Pro'
                 )}
@@ -460,6 +502,17 @@ export function PricingView() {
           </div>
         </div>
       </div>
+
+      <UpgradePreviewModal
+        isOpen={showUpgradeModal}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setUpgradePreview(null);
+        }}
+        onConfirm={handleConfirmUpgrade}
+        preview={upgradePreview}
+        loading={previewLoading}
+      />
 
       <ContactSalesModal
         isOpen={showContactModal}

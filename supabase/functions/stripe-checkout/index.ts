@@ -180,16 +180,87 @@ Deno.serve(async (req) => {
               .maybeSingle();
 
             const isDowngrade = newTier && currentTier && newTier.credits < currentTier.credits;
+            const isUpgrade = newTier && currentTier && newTier.credits > currentTier.credits;
 
-            // Update the subscription
-            const updatedSubscription = await stripe.subscriptions.update(subscription.subscription_id, {
-              items: [{
-                id: currentSub.items.data[0].id,
-                price: price_id,
-              }],
-              proration_behavior: isDowngrade ? 'none' : 'always_invoice',
-              billing_cycle_anchor: isDowngrade ? 'unchanged' : undefined,
-            });
+            if (isUpgrade) {
+              const currentPeriodEnd = new Date(currentSub.current_period_end * 1000);
+              const currentPeriodStart = new Date(currentSub.current_period_start * 1000);
+              const now = new Date();
+
+              const daysRemaining = Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const totalDays = Math.ceil((currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24));
+
+              const isAnnual = currentSub.items.data[0].price.recurring?.interval === 'year';
+              const billingPeriod = isAnnual ? 'annual' : 'monthly';
+
+              const { data: baseUpgradeCost, error: upgradeCostError } = await supabase.rpc('get_upgrade_cost', {
+                p_from_credits: currentTier.credits,
+                p_to_credits: newTier.credits,
+                p_billing_period: billingPeriod,
+              });
+
+              if (upgradeCostError || !baseUpgradeCost) {
+                console.error('Error getting upgrade cost:', upgradeCostError);
+                return corsResponse({ error: 'Failed to calculate upgrade cost' }, 500);
+              }
+
+              const { data: proratedCost, error: proratedError } = await supabase.rpc('calculate_prorated_upgrade', {
+                p_upgrade_cost: parseFloat(baseUpgradeCost),
+                p_days_remaining: daysRemaining,
+                p_total_days: totalDays,
+              });
+
+              if (proratedError) {
+                console.error('Error calculating prorated cost:', proratedError);
+                return corsResponse({ error: 'Failed to calculate prorated cost' }, 500);
+              }
+
+              const finalUpgradeCost = parseFloat(proratedCost || baseUpgradeCost);
+
+              await stripe.invoiceItems.create({
+                customer: customerId,
+                amount: Math.round(finalUpgradeCost * 100),
+                currency: 'usd',
+                description: `Prorated upgrade from ${currentTier.credits} to ${newTier.credits} credits (${daysRemaining} days remaining)`,
+                metadata: {
+                  upgrade: 'true',
+                  from_credits: currentTier.credits.toString(),
+                  to_credits: newTier.credits.toString(),
+                  base_cost: baseUpgradeCost.toString(),
+                  prorated_cost: finalUpgradeCost.toString(),
+                  days_remaining: daysRemaining.toString(),
+                },
+              });
+
+              await stripe.subscriptions.update(subscription.subscription_id, {
+                items: [{
+                  id: currentSub.items.data[0].id,
+                  price: price_id,
+                }],
+                proration_behavior: 'none',
+              });
+
+              const invoice = await stripe.invoices.create({
+                customer: customerId,
+                auto_advance: true,
+              });
+
+              await stripe.invoices.finalizeInvoice(invoice.id);
+              await stripe.invoices.pay(invoice.id);
+
+              console.log(`Processed upgrade with prorated cost $${finalUpgradeCost} for subscription ${subscription.subscription_id}`);
+            } else {
+              await stripe.subscriptions.update(subscription.subscription_id, {
+                items: [{
+                  id: currentSub.items.data[0].id,
+                  price: price_id,
+                }],
+                proration_behavior: isDowngrade ? 'none' : 'always_invoice',
+                billing_cycle_anchor: isDowngrade ? 'unchanged' : undefined,
+              });
+
+              console.log(`Updated subscription ${subscription.subscription_id} to price ${price_id}`);
+            }
 
             // Update database
             await supabase
@@ -199,14 +270,13 @@ Deno.serve(async (req) => {
               })
               .eq('subscription_id', subscription.subscription_id);
 
-            console.log(`Updated subscription ${subscription.subscription_id} to price ${price_id}`);
-
             // Return success URL directly since we don't need a checkout session
             return corsResponse({
               sessionId: null,
               url: success_url,
               updated: true,
-              isDowngrade
+              isDowngrade,
+              isUpgrade
             });
           } catch (updateError: any) {
             console.error('Error updating subscription:', updateError);

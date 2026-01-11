@@ -74,6 +74,23 @@ async function handleEvent(event: Stripe.Event) {
   if (!customerId || typeof customerId !== 'string') {
     console.error(`No customer received on event: ${JSON.stringify(event)}`);
   } else {
+    // Handle invoice payment for upgrades
+    if (event.type === 'invoice.payment_succeeded') {
+      const invoice = event.data.object as Stripe.Invoice;
+      const hasUpgradeItem = invoice.lines.data.some(line =>
+        line.metadata?.upgrade === 'true'
+      );
+
+      if (hasUpgradeItem) {
+        console.info(`Detected upgrade invoice payment for customer: ${customerId}`);
+        const upgradeLine = invoice.lines.data.find(line => line.metadata?.upgrade === 'true');
+        if (upgradeLine?.metadata) {
+          console.info(`Upgrade details: from ${upgradeLine.metadata.from_credits} to ${upgradeLine.metadata.to_credits} credits`);
+          console.info(`Prorated cost: $${upgradeLine.metadata.prorated_cost} (base: $${upgradeLine.metadata.base_cost})`);
+        }
+      }
+    }
+
     // Handle subscription updates and cancellations
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       console.info(`Syncing subscription for customer: ${customerId} due to ${event.type}`);

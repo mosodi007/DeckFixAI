@@ -73,7 +73,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-12">
-            <h1 className="text-5xl md:text-6xl font-semibold text-slate-900 mb-4 tracking-tighter">
+            <h1 className="text-4xl md:text-6xl font-semibold text-slate-900 mb-4 tracking-tighter">
               Pitch Deck Expert Analysis & Instant Fix with AI 
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">

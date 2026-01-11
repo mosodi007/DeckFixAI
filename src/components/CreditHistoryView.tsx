@@ -21,6 +21,8 @@ import {
   getSubscriptionPlanById,
   getSubscriptionPlans,
   getUserProCreditTier,
+  getScheduledBillingChange,
+  getSubscriptionPeriodEnd,
   type CreditTransaction,
   type UserCredits,
   type UserSubscription,
@@ -39,6 +41,9 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [currentPlan, setCurrentPlan] = useState<SubscriptionPlan | null>(null);
   const [currentProTier, setCurrentProTier] = useState<ProCreditTier | null>(null);
+  const [scheduledProTier, setScheduledProTier] = useState<ProCreditTier | null>(null);
+  const [scheduledChangeDate, setScheduledChangeDate] = useState<number | null>(null);
+  const [periodEnd, setPeriodEnd] = useState<Date | null>(null);
   const [allPlans, setAllPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTransactions, setShowTransactions] = useState(false);
@@ -49,12 +54,14 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
   async function loadData() {
     setLoading(true);
-    const [history, balance, userSub, plans, proTier] = await Promise.all([
+    const [history, balance, userSub, plans, proTier, scheduledChange, subPeriodEnd] = await Promise.all([
       getCreditHistory(100, 0),
       getUserCreditBalance(),
       getUserSubscription(),
       getSubscriptionPlans(),
       getUserProCreditTier(),
+      getScheduledBillingChange(),
+      getSubscriptionPeriodEnd(),
     ]);
 
     setTransactions(history);
@@ -62,6 +69,9 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
     setSubscription(userSub);
     setAllPlans(plans);
     setCurrentProTier(proTier);
+    setScheduledProTier(scheduledChange?.scheduledTier || null);
+    setScheduledChangeDate(scheduledChange?.scheduledChangeDate || null);
+    setPeriodEnd(subPeriodEnd);
 
     if (userSub) {
       const plan = await getSubscriptionPlanById(userSub.planId);
@@ -172,13 +182,16 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
   const nextTier = getNextTier();
   const creditUsage = calculateCreditUsage();
-  const nextRefillDate = credits?.creditsResetDate
-    ? new Date(credits.creditsResetDate).toLocaleDateString('en-US', {
+  const nextRefillDate = periodEnd
+    ? periodEnd.toLocaleDateString('en-US', {
         month: 'long',
         day: 'numeric',
         year: 'numeric'
       })
     : 'N/A';
+
+  const isDowngrade = scheduledProTier && currentProTier && scheduledProTier.credits < currentProTier.credits;
+  const isUpgrade = scheduledProTier && currentProTier && scheduledProTier.credits > currentProTier.credits;
 
   const totalDeducted = transactions
     .filter(t => t.amount < 0)
@@ -226,6 +239,14 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                   {getMonthlyCredits().toLocaleString()} credits/month
                   {subscription && <span className="text-slate-400"> • Billed {subscription.billingPeriod}</span>}
                 </div>
+                {scheduledProTier && scheduledChangeDate && (
+                  <div className="mt-3 px-3 py-2 bg-amber-500/20 border border-amber-400/30 rounded-lg">
+                    <p className="text-sm text-amber-200 font-medium">
+                      {isDowngrade ? 'Scheduled downgrade' : isUpgrade ? 'Scheduled upgrade' : 'Scheduled change'} to {scheduledProTier.credits.toLocaleString()} credits/month from{' '}
+                      {new Date(scheduledChangeDate * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                )}
               </div>
               {currentProTier ? (
                 <button

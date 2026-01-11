@@ -181,7 +181,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
               Make Your Startup Pitch Deck Investor-Ready in Minutes 
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              DeckFix AI will help you analyze & fix critical issues, deal breakers, red flags andincrease funding odds.
+              DeckFix AI will help you analyze & fix critical issues, deal breakers, red flags and increase funding odds.
             </p>
           </header>
 

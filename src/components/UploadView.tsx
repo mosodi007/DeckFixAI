@@ -6,6 +6,7 @@ import { uploadPageImages } from '../services/storageService';
 import { v4 as uuidv4 } from 'uuid';
 import { SEOContentSection } from './upload/SEOContentSection';
 import { useAuth } from '../contexts/AuthContext';
+import { useCredits } from '../contexts/CreditContext';
 import { LoginModal } from './auth/LoginModal';
 import { SignUpModal } from './auth/SignUpModal';
 
@@ -16,6 +17,7 @@ interface UploadViewProps {
 
 export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
   const { user } = useAuth();
+  const { refreshCredits } = useCredits();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -159,6 +161,15 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
       setAnalysisProgress(100);
 
+      // Refresh credit balance after successful analysis
+      try {
+        await refreshCredits();
+        console.log('Credit balance refreshed after analysis');
+      } catch (creditError) {
+        console.error('Failed to refresh credits:', creditError);
+        // Don't fail the analysis if credit refresh fails
+      }
+
       setTimeout(() => {
         onAnalysisComplete({ analysisId: result.analysisId });
       }, 500);
@@ -166,8 +177,20 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       console.error('Analysis failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.';
       
-      // If authentication error, show login modal
-      if (errorMessage.includes('Authentication') || errorMessage.includes('log in')) {
+      // Check if this is an insufficient credits error
+      const insufficientCreditsError = error as Error & {
+        requiresUpgrade?: boolean;
+        currentBalance?: number;
+        requiredCredits?: number;
+        pageCount?: number;
+      };
+      
+      if (insufficientCreditsError.requiresUpgrade) {
+        const { currentBalance = 0, requiredCredits = 0, pageCount = 0 } = insufficientCreditsError;
+        const message = `Insufficient Credits\n\nYou need ${requiredCredits} credits to analyze this ${pageCount}-page deck.\nYou currently have ${currentBalance} credits.\n\nPlease upgrade your plan or purchase more credits to continue.`;
+        alert(message);
+        // Note: User can navigate to pricing page manually from the navigation menu
+      } else if (errorMessage.includes('Authentication') || errorMessage.includes('log in')) {
         alert('Your session has expired. Please log in again.');
         setShowLoginModal(true);
       } else {

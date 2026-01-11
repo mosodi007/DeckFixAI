@@ -30,6 +30,7 @@ import {
   type SubscriptionPlan,
   type ProCreditTier
 } from '../services/creditService';
+import { AnimatedCounter } from './AnimatedCounter';
 
 interface CreditHistoryViewProps {
   onBack: () => void;
@@ -227,7 +228,9 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
             <div className="flex items-start justify-between gap-8 mb-6">
               <div className="flex-1">
                 <div className="text-slate-300 text-sm mb-2 font-medium">Credit Balance</div>
-                <div className="text-6xl font-bold mb-2">{credits?.creditsBalance || 0}</div>
+                <div className="text-6xl font-bold mb-2">
+                  <AnimatedCounter value={credits?.creditsBalance || 0} />
+                </div>
                 <div className="text-slate-300 text-base mb-6">credits available</div>
 
                 <div className="flex items-center gap-3 mb-2">

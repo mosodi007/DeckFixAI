@@ -258,8 +258,19 @@ async function analyzeWithOpenAI(
 ): Promise<OpenAIAnalysis> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is not set');
+    console.error('ERROR: OPENAI_API_KEY environment variable is not set or is empty');
+    console.error('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('OPENAI') || k.includes('API')));
+    throw new Error('OPENAI_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.');
   }
+  
+  // Validate API key format
+  if (!apiKey.startsWith('sk-')) {
+    console.error('ERROR: OPENAI_API_KEY does not have expected format (should start with sk-)');
+    console.error('API key length:', apiKey.length);
+    throw new Error('Invalid OPENAI_API_KEY format. Please check your Supabase Edge Function secrets.');
+  }
+  
+  console.log('OpenAI API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 7) + '...');
 
   // Build comprehensive content from both text extraction and vision analysis
   let fullContent = '';
@@ -339,6 +350,18 @@ Remember: Generic feedback is worthless. Be specific, detailed, and actionable. 
   if (!response.ok) {
     const error = await response.text();
     console.error('OpenAI API error:', error);
+    console.error('Response status:', response.status);
+    console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    // Check if it's an auth error
+    if (response.status === 401) {
+      console.error('OpenAI API returned 401 - checking API key...');
+      console.error('API key present:', !!apiKey);
+      console.error('API key length:', apiKey?.length || 0);
+      console.error('API key starts with sk-:', apiKey?.startsWith('sk-') || false);
+      throw new Error('OpenAI API authentication failed. Please verify OPENAI_API_KEY is correctly set in Supabase Edge Function secrets.');
+    }
+    
     throw new Error(`OpenAI API error: ${response.status} ${error}`);
   }
 
@@ -354,6 +377,103 @@ Remember: Generic feedback is worthless. Be specific, detailed, and actionable. 
   }
 
   return analysis;
+}
+
+// Credit management helper functions
+async function getUserCreditBalance(supabaseClient: any, userId: string) {
+  const { data, error } = await supabaseClient
+    .from('user_credits')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user credits:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function checkSufficientCredits(
+  supabaseClient: any,
+  userId: string,
+  requiredCredits: number
+): Promise<{ sufficient: boolean; currentBalance: number }> {
+  const credits = await getUserCreditBalance(supabaseClient, userId);
+  
+  if (!credits) {
+    return { sufficient: false, currentBalance: 0 };
+  }
+
+  return {
+    sufficient: credits.credits_balance >= requiredCredits,
+    currentBalance: credits.credits_balance,
+  };
+}
+
+async function deductCredits(
+  supabaseClient: any,
+  userId: string,
+  creditCost: number,
+  description: string,
+  metadata: Record<string, unknown> = {}
+) {
+  const currentCredits = await getUserCreditBalance(supabaseClient, userId);
+
+  if (!currentCredits) {
+    throw new Error('Unable to fetch credit balance');
+  }
+
+  if (currentCredits.credits_balance < creditCost) {
+    throw new Error('Insufficient credits');
+  }
+
+  const newBalance = currentCredits.credits_balance - creditCost;
+  let newSubscriptionCredits = currentCredits.subscription_credits;
+  let newPurchasedCredits = currentCredits.purchased_credits;
+
+  if (currentCredits.subscription_credits >= creditCost) {
+    newSubscriptionCredits -= creditCost;
+  } else {
+    const remainingToDeduct = creditCost - currentCredits.subscription_credits;
+    newSubscriptionCredits = 0;
+    newPurchasedCredits -= remainingToDeduct;
+  }
+
+  const { error: updateError } = await supabaseClient
+    .from('user_credits')
+    .update({
+      credits_balance: newBalance,
+      subscription_credits: newSubscriptionCredits,
+      purchased_credits: newPurchasedCredits,
+    })
+    .eq('user_id', userId);
+
+  if (updateError) {
+    console.error('Error updating credits:', updateError);
+    throw new Error('Failed to update credits');
+  }
+
+  const { error: transactionError } = await supabaseClient
+    .from('credit_transactions')
+    .insert({
+      user_id: userId,
+      amount: -creditCost,
+      transaction_type: 'deduction',
+      description,
+      complexity_score: null,
+      credits_cost: creditCost,
+      balance_after: newBalance,
+      metadata,
+    });
+
+  if (transactionError) {
+    console.error('Error logging credit transaction:', transactionError);
+    // Don't throw - transaction is logged but credit deduction succeeded
+  }
+
+  return newBalance;
 }
 
 Deno.serve(async (req: Request) => {
@@ -476,8 +596,19 @@ Deno.serve(async (req: Request) => {
       try {
         const apiKey = Deno.env.get('OPENAI_API_KEY');
         if (!apiKey) {
-          throw new Error('OPENAI_API_KEY environment variable is not set');
+          console.error('ERROR: OPENAI_API_KEY environment variable is not set or is empty');
+          console.error('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('OPENAI') || k.includes('API')));
+          throw new Error('OPENAI_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.');
         }
+        
+        // Validate API key format
+        if (!apiKey.startsWith('sk-')) {
+          console.error('ERROR: OPENAI_API_KEY does not have expected format (should start with sk-)');
+          console.error('API key length:', apiKey.length);
+          throw new Error('Invalid OPENAI_API_KEY format. Please check your Supabase Edge Function secrets.');
+        }
+        
+        console.log('OpenAI API key found for Vision API, length:', apiKey.length);
         
         imageAnalyses = await analyzePDFImages(imageUrls, apiKey);
         
@@ -557,6 +688,32 @@ Deno.serve(async (req: Request) => {
 
     console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
 
+    // Check if user has sufficient credits (1 credit per page)
+    const creditCost = pageCount;
+    const creditCheck = await checkSufficientCredits(supabase, user.id, creditCost);
+    
+    if (!creditCheck.sufficient) {
+      console.log(`Insufficient credits: user has ${creditCheck.currentBalance}, needs ${creditCost}`);
+      return new Response(
+        JSON.stringify({
+          error: 'Insufficient credits',
+          requiresUpgrade: true,
+          currentBalance: creditCheck.currentBalance,
+          requiredCredits: creditCost,
+          pageCount: pageCount,
+        }),
+        {
+          status: 402,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    console.log(`Credit check passed: user has ${creditCheck.currentBalance} credits, needs ${creditCost}`);
+
     const analysisRecord = {
       id: analysisId,
       user_id: user.id,
@@ -591,13 +748,13 @@ Deno.serve(async (req: Request) => {
       console.log(`Preparing page ${page.pageNumber} record: ${pageText.length} characters`);
       
       return {
-        analysis_id: analysisId,
-        page_number: page.pageNumber,
-        title: `Slide ${page.pageNumber}`,
+      analysis_id: analysisId,
+      page_number: page.pageNumber,
+      title: `Slide ${page.pageNumber}`,
         content: pageText,
-        score: 0,
-        image_url: imageUrls[index] || null,
-        thumbnail_url: imageUrls[index] || null,
+      score: 0,
+      image_url: imageUrls[index] || null,
+      thumbnail_url: imageUrls[index] || null,
       };
     });
 
@@ -845,6 +1002,26 @@ Deno.serve(async (req: Request) => {
       if (dealBreakersError) {
         console.error('Failed to insert deal breakers:', dealBreakersError);
       }
+    }
+
+    // Deduct credits after successful analysis (1 credit per page)
+    try {
+      await deductCredits(
+        supabase,
+        user.id,
+        creditCost,
+        `Pitch deck analysis: ${file.name} (${pageCount} pages)`,
+        {
+          analysisId,
+          pageCount,
+          fileName: file.name,
+        }
+      );
+      console.log(`Successfully deducted ${creditCost} credits for analysis ${analysisId}`);
+    } catch (deductError: any) {
+      // Log error but don't fail the analysis - credits were already checked
+      console.error('Failed to deduct credits after analysis:', deductError);
+      console.warn('Analysis completed but credit deduction failed. User may need manual credit adjustment.');
     }
 
     const result: AnalysisResult = {

@@ -74,7 +74,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-12">
             <h1 className="text-7xl font-semibold text-slate-900 mb-4 tracking-tighter">
-              Pitch Deck Expert Analysis & Instant Fix
+              Get Expert Analysis & Instant Fix for your StartUp Pitch Deck
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Get VC assessment and expert fix to critical issues, deal breakers & red flags, increase funding odds by 98.6% and make your startup investor-ready.

@@ -74,7 +74,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-12">
             <h1 className="text-3xl md:text-6xl font-semibold text-slate-900 mb-4 tracking-tighter">
-              Pitch Deck Expert Analysis & Instant Fix with AI 
+              Analyze & Fix Your Startup Pitch Deck with AI 
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               DeckFix AI will help you analyze & fix critical issues, deal breakers & red flags that will increase funding odds by 98.6% and make your startup investor-ready.
@@ -89,7 +89,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                 </div>
 
                 <h2 className="text-xl font-semibold text-slate-900 mb-3">
-                  Analyze & Fix Your Pitch Deck
+                  Analyze & Fix Your Startup Pitch Deck
                 </h2>
 
                 <p className="text-slate-600 mb-8 max-w-md mx-auto">

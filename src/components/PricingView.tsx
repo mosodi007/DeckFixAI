@@ -10,7 +10,7 @@ import { getUpgradePreview, formatCurrency, type UpgradePreview } from '../servi
 
 export function PricingView() {
   const { user } = useAuth();
-  const [billingPeriod, setBillingPeriod] = useState<'annual' | 'annual'>('monthly');
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual');
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
   const [currentTier, setCurrentTier] = useState<ProCreditTier | null>(null);
   const [currentBillingPeriod, setCurrentBillingPeriod] = useState<'monthly' | 'annual' | null>(null);

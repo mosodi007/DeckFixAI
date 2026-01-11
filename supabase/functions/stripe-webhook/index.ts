@@ -255,20 +255,6 @@ async function allocateCreditsForSubscription(
   periodEnd: number
 ) {
   try {
-    const { data: existingPeriod } = await supabase
-      .from('subscription_credit_periods')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('subscription_id', subscriptionId)
-      .eq('period_start', periodStart)
-      .eq('period_end', periodEnd)
-      .maybeSingle();
-
-    if (existingPeriod) {
-      console.info(`Credits already allocated for period ${periodStart}-${periodEnd}`);
-      return;
-    }
-
     const { data: tierData, error: tierError } = await supabase
       .from('pro_credit_tiers')
       .select('credits')
@@ -280,13 +266,66 @@ async function allocateCreditsForSubscription(
       throw new Error('Failed to get tier information');
     }
 
-    const creditAmount = tierData.credits;
+    const newTierCredits = tierData.credits;
+
+    const { data: existingPeriod } = await supabase
+      .from('subscription_credit_periods')
+      .select('id, credits_allocated')
+      .eq('user_id', userId)
+      .eq('subscription_id', subscriptionId)
+      .eq('period_start', periodStart)
+      .eq('period_end', periodEnd)
+      .maybeSingle();
+
+    if (existingPeriod) {
+      const alreadyAllocated = existingPeriod.credits_allocated;
+
+      if (alreadyAllocated >= newTierCredits) {
+        console.info(`Credits already allocated for period ${periodStart}-${periodEnd} (${alreadyAllocated} >= ${newTierCredits})`);
+        return;
+      }
+
+      const additionalCredits = newTierCredits - alreadyAllocated;
+      console.info(`Allocating additional ${additionalCredits} credits for mid-period upgrade (${alreadyAllocated} -> ${newTierCredits})`);
+
+      const { error: allocateError } = await supabase.rpc(
+        'allocate_credits_from_stripe',
+        {
+          p_user_id: userId,
+          p_credits: additionalCredits,
+          p_transaction_type: 'subscription_renewal',
+          p_stripe_metadata: {
+            subscription_id: subscriptionId,
+            price_id: priceId,
+            period_start: periodStart,
+            period_end: periodEnd,
+            timestamp: new Date().toISOString(),
+            upgrade_adjustment: true,
+            previous_allocation: alreadyAllocated,
+            new_tier_total: newTierCredits,
+          },
+        }
+      );
+
+      if (allocateError) {
+        console.error('Error allocating additional credits:', allocateError);
+        throw new Error('Failed to allocate additional credits');
+      }
+
+      await supabase
+        .from('subscription_credit_periods')
+        .update({ credits_allocated: newTierCredits })
+        .eq('id', existingPeriod.id);
+
+      console.info(`Successfully allocated ${additionalCredits} additional credits (total: ${newTierCredits})`);
+      return;
+    }
 
     const { error: allocateError } = await supabase.rpc(
       'allocate_credits_from_stripe',
       {
         p_user_id: userId,
-        p_credits: creditAmount,
+        p_credits: newTierCredits,
         p_transaction_type: 'subscription_renewal',
         p_stripe_metadata: {
           subscription_id: subscriptionId,
@@ -308,14 +347,14 @@ async function allocateCreditsForSubscription(
       subscription_id: subscriptionId,
       period_start: periodStart,
       period_end: periodEnd,
-      credits_allocated: creditAmount,
+      credits_allocated: newTierCredits,
     });
 
     if (periodError) {
       console.error('Error recording credit period:', periodError);
     }
 
-    console.info(`Successfully allocated ${creditAmount} credits to user ${userId}`);
+    console.info(`Successfully allocated ${newTierCredits} credits to user ${userId}`);
   } catch (error) {
     console.error('Error in allocateCreditsForSubscription:', error);
     throw error;

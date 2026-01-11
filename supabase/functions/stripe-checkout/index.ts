@@ -167,22 +167,72 @@ Deno.serve(async (req) => {
             const currentSub = await stripe.subscriptions.retrieve(subscription.subscription_id);
 
             // Get the tier information for both current and new price
-            const { data: currentTier } = await supabase
+            const { data: currentTierData } = await supabase
               .from('pro_credit_tiers')
-              .select('credits')
+              .select('credits, stripe_price_id_monthly, stripe_price_id_annual')
               .or(`stripe_price_id_monthly.eq.${subscription.price_id},stripe_price_id_annual.eq.${subscription.price_id}`)
               .maybeSingle();
 
-            const { data: newTier } = await supabase
+            const { data: newTierData } = await supabase
               .from('pro_credit_tiers')
-              .select('credits')
+              .select('credits, stripe_price_id_monthly, stripe_price_id_annual')
               .or(`stripe_price_id_monthly.eq.${price_id},stripe_price_id_annual.eq.${price_id}`)
               .maybeSingle();
 
-            const isDowngrade = newTier && currentTier && newTier.credits < currentTier.credits;
-            const isUpgrade = newTier && currentTier && newTier.credits > currentTier.credits;
+            if (!currentTierData || !newTierData) {
+              return corsResponse({ error: 'Failed to fetch tier information' }, 500);
+            }
 
-            if (isUpgrade) {
+            const isDowngrade = newTierData.credits < currentTierData.credits;
+            const isUpgrade = newTierData.credits > currentTierData.credits;
+            const isSameTier = newTierData.credits === currentTierData.credits;
+
+            // Detect billing period change
+            const currentIsMonthly = subscription.price_id === currentTierData.stripe_price_id_monthly;
+            const newIsMonthly = price_id === newTierData.stripe_price_id_monthly;
+            const isBillingPeriodChange = isSameTier && (currentIsMonthly !== newIsMonthly);
+
+            if (isBillingPeriodChange) {
+              // For billing period changes, create a subscription schedule to change at the next renewal
+              const currentPeriodEnd = currentSub.current_period_end;
+
+              // Create a subscription schedule that changes the price at the next renewal
+              const schedule = await stripe.subscriptionSchedules.create({
+                from_subscription: subscription.subscription_id,
+              });
+
+              // Update the schedule to change the price at the next renewal
+              await stripe.subscriptionSchedules.update(schedule.id, {
+                phases: [
+                  {
+                    items: [{
+                      price: subscription.price_id,
+                      quantity: 1,
+                    }],
+                    start_date: currentSub.current_period_start,
+                    end_date: currentPeriodEnd,
+                  },
+                  {
+                    items: [{
+                      price: price_id,
+                      quantity: 1,
+                    }],
+                    start_date: currentPeriodEnd,
+                  },
+                ],
+              });
+
+              console.log(`Scheduled billing period change for subscription ${subscription.subscription_id} to take effect at ${new Date(currentPeriodEnd * 1000).toISOString()}`);
+
+              // The database will be updated by the webhook when the schedule phase changes
+              return corsResponse({
+                sessionId: null,
+                url: success_url,
+                updated: true,
+                isBillingPeriodChange: true,
+                scheduledChange: true,
+              });
+            } else if (isUpgrade) {
               const currentPeriodEnd = new Date(currentSub.current_period_end * 1000);
               const currentPeriodStart = new Date(currentSub.current_period_start * 1000);
               const now = new Date();
@@ -194,8 +244,8 @@ Deno.serve(async (req) => {
               const billingPeriod = isAnnual ? 'annual' : 'monthly';
 
               const { data: baseUpgradeCost, error: upgradeCostError } = await supabase.rpc('get_upgrade_cost', {
-                p_from_credits: currentTier.credits,
-                p_to_credits: newTier.credits,
+                p_from_credits: currentTierData.credits,
+                p_to_credits: newTierData.credits,
                 p_billing_period: billingPeriod,
               });
 
@@ -221,11 +271,11 @@ Deno.serve(async (req) => {
                 customer: customerId,
                 amount: Math.round(finalUpgradeCost * 100),
                 currency: 'usd',
-                description: `Prorated upgrade from ${currentTier.credits} to ${newTier.credits} credits (${daysRemaining} days remaining)`,
+                description: `Prorated upgrade from ${currentTierData.credits} to ${newTierData.credits} credits (${daysRemaining} days remaining)`,
                 metadata: {
                   upgrade: 'true',
-                  from_credits: currentTier.credits.toString(),
-                  to_credits: newTier.credits.toString(),
+                  from_credits: currentTierData.credits.toString(),
+                  to_credits: newTierData.credits.toString(),
                   base_cost: baseUpgradeCost.toString(),
                   prorated_cost: finalUpgradeCost.toString(),
                   days_remaining: daysRemaining.toString(),

@@ -109,7 +109,10 @@ export function PricingView() {
 
       if (result.success && result.url) {
         if (result.updated) {
-          if (result.isDowngrade) {
+          if (result.isBillingPeriodChange && result.scheduledChange) {
+            const newPeriod = billingPeriod === 'annual' ? 'annual' : 'monthly';
+            alert(`Your billing period will change to ${newPeriod} at the end of your current billing cycle. You will not be charged until then.`);
+          } else if (result.isDowngrade) {
             alert('Your plan will be downgraded at the end of your current billing period.');
           } else {
             alert('Your plan has been upgraded successfully!');
@@ -442,7 +445,7 @@ export function PricingView() {
               )}
               {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && (
                 <p className="text-xs text-center mt-2 text-slate-400">
-                  Switch to {billingPeriod === 'annual' ? 'annual billing (save 20%)' : 'monthly billing'}
+                  Change will take effect at the end of your current billing cycle
                 </p>
               )}
               {currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits && currentTier.id !== selectedTier?.id && (

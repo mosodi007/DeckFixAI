@@ -167,7 +167,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-slate-700 hover:text-slate-900 mb-8 transition-colors font-medium"
@@ -176,22 +176,39 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
           Back to Dashboard
         </button>
 
-        <div className="mb-8">
+        <div className="mb-10">
           <h1 className="text-5xl font-semibold text-slate-900 mb-2 tracking-tighter">
             My Subscription & Credits
           </h1>
           <p className="text-slate-600 text-lg">Manage your plan, credits, and billing</p>
         </div>
 
-        {/* Credit Balance & Subscription Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Credit Balance Card */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-700 rounded-2xl p-8 text-white shadow-xl">
+        {/* Main Subscription Card */}
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-lg overflow-hidden mb-8">
+          {/* Header Section */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-700 p-8 text-white">
             <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="text-slate-300 text-sm mb-2 font-medium">Credit Balance</div>
-                <div className="text-6xl font-bold mb-2">{credits?.creditsBalance || 0}</div>
-                <div className="text-slate-300 text-sm">credits available</div>
+              <div className="flex-1">
+                <div className="text-slate-300 text-sm mb-3 font-medium">Current Plan</div>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className={`px-4 py-2 rounded-xl text-xl font-bold border-2 ${getTierBadgeColor(currentPlan?.name || 'Free')}`}>
+                    {currentPlan?.name || 'Free'}
+                  </span>
+                  {subscription?.cancelAtPeriodEnd && (
+                    <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+                      Canceling
+                    </span>
+                  )}
+                </div>
+                <div className="text-5xl font-bold mb-2">
+                  {currentPlan?.monthlyCredits || 0}
+                </div>
+                <div className="text-slate-300 text-lg">credits per month</div>
+                {subscription && (
+                  <div className="text-sm text-slate-400 mt-3">
+                    Billed {subscription.billingPeriod}
+                  </div>
+                )}
               </div>
               <button
                 className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
@@ -201,7 +218,8 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
               </button>
             </div>
 
-            <div className="border-t border-slate-600 pt-6 mb-6">
+            {/* Credit Usage Bar */}
+            <div className="border-t border-slate-600 pt-6">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-slate-300">Monthly Credit Usage</span>
                 <span className="text-white font-semibold">
@@ -218,158 +236,101 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                 {creditUsage.percentage.toFixed(0)}% used this month
               </div>
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-300 text-sm">
-                <Calendar className="w-4 h-4" />
-                <span>Next credit refill: <strong className="text-white">{nextRefillDate}</strong></span>
-              </div>
-              <button
-                onClick={onViewUsageHistory}
-                className="text-sm text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
-              >
-                Usage History
-              </button>
-            </div>
           </div>
 
-          {/* Subscription Info Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="text-slate-600 text-sm mb-3 font-medium">Current Plan</div>
-                <div className="flex items-center gap-3 mb-3">
-                  <span className={`px-4 py-2 rounded-xl text-lg font-bold border-2 ${getTierBadgeColor(currentPlan?.name || 'Free')}`}>
-                    {currentPlan?.name || 'Free'}
-                  </span>
-                  {subscription?.cancelAtPeriodEnd && (
-                    <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
-                      Canceling
-                    </span>
-                  )}
+          {/* Content Section */}
+          <div className="p-8">
+            {/* Credit Balance */}
+            <div className="mb-8 pb-8 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-slate-600 text-sm mb-2 font-medium">Total Credit Balance</div>
+                  <div className="text-4xl font-bold text-slate-900">{credits?.creditsBalance || 0}</div>
+                  <div className="text-sm text-slate-500 mt-1">credits available</div>
                 </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">
-                  {currentPlan?.monthlyCredits || 0} credits/month
+                <div className="text-right">
+                  <div className="text-slate-600 text-sm mb-2 font-medium">Next Refill</div>
+                  <div className="text-lg font-semibold text-slate-900">{nextRefillDate}</div>
+                  <button
+                    onClick={onViewUsageHistory}
+                    className="text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2 transition-colors mt-1"
+                  >
+                    View Usage History
+                  </button>
                 </div>
-                {subscription && (
-                  <div className="text-sm text-slate-600">
-                    Billed {subscription.billingPeriod}
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="border-t border-slate-200 pt-6 space-y-4">
-              {currentPlan?.name !== 'Pro' && currentPlan?.name !== 'Custom' && (
+            {/* Credit Breakdown */}
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div className="text-slate-600 text-xs mb-1 font-medium">From Plan</div>
+                <div className="text-2xl font-bold text-blue-600">{credits?.subscriptionCredits || 0}</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div className="text-slate-600 text-xs mb-1 font-medium">Purchased</div>
+                <div className="text-2xl font-bold text-green-600">{credits?.purchasedCredits || 0}</div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              {nextTier && (
                 <button
-                  className="w-full px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm flex items-center justify-center gap-2"
+                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Upgrade to Pro
+                  <Sparkles className="w-5 h-5" />
+                  <span>Upgrade to {nextTier.name}</span>
+                  <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>
               )}
 
               <button
-                className="w-full px-5 py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
+                className="w-full px-6 py-4 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-5 h-5" />
                 Manage Billing
               </button>
 
               <button
                 onClick={() => setShowTransactions(!showTransactions)}
-                className="w-full px-5 py-3 bg-slate-100 text-slate-900 rounded-xl font-semibold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                className="w-full px-6 py-4 bg-slate-100 text-slate-900 rounded-xl font-semibold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
               >
-                <CreditCard className="w-4 h-4" />
-                Credit Usage
+                <CreditCard className="w-5 h-5" />
+                Credit Transactions
                 {showTransactions ? (
-                  <ChevronUp className="w-4 h-4" />
+                  <ChevronUp className="w-5 h-5" />
                 ) : (
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-5 h-5" />
                 )}
               </button>
             </div>
 
+            {/* Period Info */}
             {subscription && (
               <div className="mt-6 pt-6 border-t border-slate-200">
-                <div className="text-xs text-slate-500 space-y-1">
-                  <div className="flex justify-between">
-                    <span>Current Period:</span>
-                    <span className="text-slate-700 font-medium">
-                      {new Date(subscription.currentPeriodStart).toLocaleDateString()} - {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                    </span>
-                  </div>
+                <div className="text-xs text-slate-500 flex items-center justify-between">
+                  <span>Current billing period</span>
+                  <span className="text-slate-700 font-medium">
+                    {new Date(subscription.currentPeriodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
                 </div>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Upgrade Promotion - Only show if not on Pro tier */}
-        {nextTier && (
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl p-8 mb-8 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <h2 className="text-2xl font-bold text-slate-900">
-                    Get more out of DeckFix, Upgrade to {nextTier.name}
-                  </h2>
-                </div>
-                <p className="text-slate-700 mb-4">
-                  Unlock {nextTier.monthlyCredits} credits per month and access premium features
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  {nextTier.features.slice(0, 3).map((feature, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Zap className="w-3 h-3 text-white" />
-                      </div>
-                      <span className="text-sm text-slate-700">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-4xl font-bold text-slate-900">
-                    ${nextTier.priceMonthly.toFixed(2)}
-                  </span>
-                  <span className="text-slate-600">/month</span>
-                  <span className="ml-2 px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
-                    Save 20% annually
-                  </span>
-                </div>
-              </div>
-              <button className="px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2 ml-4">
-                Upgrade Now
-                <ArrowUpRight className="w-4 h-4" />
+            {/* See All Plans Link */}
+            <div className="mt-6 pt-6 border-t border-slate-200 text-center">
+              <button className="text-slate-700 hover:text-slate-900 font-semibold text-sm transition-colors flex items-center justify-center gap-2 mx-auto group">
+                <span>See all available plans</span>
+                <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="text-slate-600 text-sm mb-2 font-medium">Subscription Credits</div>
-            <div className="text-3xl font-bold text-blue-600">{credits?.subscriptionCredits || 0}</div>
-            <div className="text-slate-500 text-xs mt-1">from monthly plan</div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="text-slate-600 text-sm mb-2 font-medium">Purchased Credits</div>
-            <div className="text-3xl font-bold text-green-600">{credits?.purchasedCredits || 0}</div>
-            <div className="text-slate-500 text-xs mt-1">one-time purchases</div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="text-slate-600 text-sm mb-2 font-medium">Total Spent</div>
-            <div className="text-3xl font-bold text-red-600">{totalDeducted}</div>
-            <div className="text-slate-500 text-xs mt-1">credits used all-time</div>
           </div>
         </div>
 
         {/* Transaction History - Collapsible */}
         {showTransactions && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-in">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-slate-900">Transaction History</h2>
               <div className="flex items-center gap-2 text-slate-600 text-sm">

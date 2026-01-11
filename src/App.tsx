@@ -328,19 +328,10 @@ function App() {
             onNewUpload={() => setView('upload')}
           />
         ) : view === 'upload' ? (
-          user ? (
-            <UploadView
-              onAnalysisComplete={handleAnalysisComplete}
-              isAuthenticated={isAuthenticated}
-            />
-          ) : (
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-slate-600">Initializing...</p>
-              </div>
-            </div>
-          )
+          <UploadView
+            onAnalysisComplete={handleAnalysisComplete}
+            isAuthenticated={isAuthenticated}
+          />
         ) : view === 'analysis' ? (
           <AnalysisView
             data={analysisData}

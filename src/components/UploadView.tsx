@@ -5,6 +5,8 @@ import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages } from '../services/storageService';
 import { v4 as uuidv4 } from 'uuid';
 import { SEOContentSection } from './upload/SEOContentSection';
+import { useAuth } from '../contexts/AuthContext';
+import { signInAnonymously } from '../services/authService';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
@@ -12,6 +14,7 @@ interface UploadViewProps {
 }
 
 export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
+  const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -76,6 +79,15 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     setAnalysisProgress(0);
 
     try {
+      if (!user) {
+        console.log('No user found, signing in anonymously before upload...');
+        const { user: anonUser, error } = await signInAnonymously();
+        if (error || !anonUser) {
+          throw new Error('Failed to initialize session. Please refresh the page and try again.');
+        }
+        console.log('Anonymous sign-in successful:', anonUser.id);
+      }
+
       const analysisId = uuidv4();
 
       setAnalysisProgress(10);

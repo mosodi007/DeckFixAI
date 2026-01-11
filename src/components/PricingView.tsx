@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, ChevronDown, Mail, Sparkles, Loader2 } from 'lucide-react';
-import { getProCreditTiers, formatCredits, type ProCreditTier } from '../services/creditService';
+import { getProCreditTiers, getUserProCreditTier, formatCredits, type ProCreditTier } from '../services/creditService';
 import { ContactSalesModal } from './ContactSalesModal';
 import { redirectToCheckout, getSuccessUrl, getCancelUrl } from '../services/stripeService';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +9,7 @@ export function PricingView() {
   const { user } = useAuth();
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
+  const [currentTier, setCurrentTier] = useState<ProCreditTier | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -17,12 +18,24 @@ export function PricingView() {
 
   useEffect(() => {
     loadPricing();
-  }, []);
+  }, [user]);
 
   async function loadPricing() {
     setLoading(true);
-    const tiers = await getProCreditTiers();
+    const [tiers, userTier] = await Promise.all([
+      getProCreditTiers(),
+      getUserProCreditTier()
+    ]);
     setProTiers(tiers);
+    setCurrentTier(userTier);
+
+    if (userTier) {
+      const tierIndex = tiers.findIndex(t => t.id === userTier.id);
+      if (tierIndex !== -1) {
+        setSelectedTierIndex(tierIndex);
+      }
+    }
+
     setLoading(false);
   }
 
@@ -184,8 +197,11 @@ export function PricingView() {
                 ))}
               </ul>
 
-              <button className="w-full py-3 rounded-xl font-semibold transition-all bg-slate-900 text-white hover:bg-slate-800 opacity-50 cursor-not-allowed" disabled>
-                Current Plan
+              <button
+                className="w-full py-3 rounded-xl font-semibold transition-all bg-slate-900 text-white hover:bg-slate-800 opacity-50 cursor-not-allowed"
+                disabled={!currentTier}
+              >
+                {!currentTier ? 'Current Plan' : 'Get Started Free'}
               </button>
             </div>
 
@@ -252,7 +268,7 @@ export function PricingView() {
 
               <button
                 onClick={handleUpgradeToPro}
-                disabled={checkoutLoading || !user}
+                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id)}
                 className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {checkoutLoading ? (
@@ -260,6 +276,8 @@ export function PricingView() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Loading...
                   </>
+                ) : currentTier !== null && currentTier.id === selectedTier?.id ? (
+                  'Current Plan'
                 ) : (
                   'Upgrade to Pro'
                 )}
@@ -267,6 +285,11 @@ export function PricingView() {
               {!user && (
                 <p className="text-xs text-center mt-2 text-slate-400">
                   Please log in to upgrade
+                </p>
+              )}
+              {currentTier !== null && currentTier.id === selectedTier?.id && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  You are currently on this plan
                 </p>
               )}
             </div>

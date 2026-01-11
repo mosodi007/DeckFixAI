@@ -20,10 +20,12 @@ import {
   getUserSubscription,
   getSubscriptionPlanById,
   getSubscriptionPlans,
+  getUserProCreditTier,
   type CreditTransaction,
   type UserCredits,
   type UserSubscription,
-  type SubscriptionPlan
+  type SubscriptionPlan,
+  type ProCreditTier
 } from '../services/creditService';
 
 interface CreditHistoryViewProps {
@@ -36,6 +38,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [currentPlan, setCurrentPlan] = useState<SubscriptionPlan | null>(null);
+  const [currentProTier, setCurrentProTier] = useState<ProCreditTier | null>(null);
   const [allPlans, setAllPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTransactions, setShowTransactions] = useState(false);
@@ -46,17 +49,19 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
   async function loadData() {
     setLoading(true);
-    const [history, balance, userSub, plans] = await Promise.all([
+    const [history, balance, userSub, plans, proTier] = await Promise.all([
       getCreditHistory(100, 0),
       getUserCreditBalance(),
       getUserSubscription(),
       getSubscriptionPlans(),
+      getUserProCreditTier(),
     ]);
 
     setTransactions(history);
     setCredits(balance);
     setSubscription(userSub);
     setAllPlans(plans);
+    setCurrentProTier(proTier);
 
     if (userSub) {
       const plan = await getSubscriptionPlanById(userSub.planId);
@@ -132,13 +137,27 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
   };
 
   const calculateCreditUsage = () => {
-    if (!credits || !currentPlan) return { used: 0, total: 0, percentage: 0 };
+    if (!credits) return { used: 0, total: 0, percentage: 0 };
 
-    const monthlyTotal = currentPlan.monthlyCredits;
+    const monthlyTotal = currentProTier ? currentProTier.credits : (currentPlan?.monthlyCredits || 0);
     const used = monthlyTotal - credits.subscriptionCredits;
     const percentage = monthlyTotal > 0 ? (used / monthlyTotal) * 100 : 0;
 
     return { used: Math.max(0, used), total: monthlyTotal, percentage: Math.min(100, Math.max(0, percentage)) };
+  };
+
+  const getPlanDisplayName = () => {
+    if (currentProTier) {
+      return `Pro - ${currentProTier.credits.toLocaleString()} Credits`;
+    }
+    return currentPlan?.name || 'Free';
+  };
+
+  const getMonthlyCredits = () => {
+    if (currentProTier) {
+      return currentProTier.credits;
+    }
+    return currentPlan?.monthlyCredits || 0;
   };
 
   if (loading) {
@@ -194,8 +213,8 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                 <div className="text-slate-300 text-base mb-6">credits available</div>
 
                 <div className="flex items-center gap-3 mb-2">
-                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${getTierBadgeColor(currentPlan?.name || 'Free')}`}>
-                    {currentPlan?.name || 'Free'} Plan
+                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${getTierBadgeColor(currentProTier ? 'Pro' : (currentPlan?.name || 'Free'))}`}>
+                    {getPlanDisplayName()} Plan
                   </span>
                   {subscription?.cancelAtPeriodEnd && (
                     <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
@@ -204,22 +223,20 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                   )}
                 </div>
                 <div className="text-slate-300 text-sm">
-                  {currentPlan?.monthlyCredits || 0} credits/month
+                  {getMonthlyCredits().toLocaleString()} credits/month
                   {subscription && <span className="text-slate-400"> • Billed {subscription.billingPeriod}</span>}
                 </div>
               </div>
-              {currentPlan?.name === 'Pro' ? (
-                nextTier ? (
-                  <button
-                    className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
-                  >
-                    <ArrowUpRight className="w-4 h-4" />
-                    Upgrade Tier
-                  </button>
-                ) : null
+              {currentProTier ? (
+                <button
+                  className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  Manage Plan
+                </button>
               ) : (
                 <button
-                  className="px-5 py-2.5 bg-white text-black rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-2"
+                  className="px-5 py-2.5 bg-white text-black rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
                 >
                   Upgrade to Pro
                 </button>
@@ -279,24 +296,12 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              {nextTier && currentPlan?.name === 'Pro' && (
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4 mb-3">
-                  <div className="text-sm font-semibold text-slate-900 mb-1">Get more out of Pro</div>
-                  <div className="text-xs text-slate-600 mb-3">Upgrade to {nextTier.name} tier with {nextTier.monthlyCredits} credits/month</div>
-                  <button
-                    className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm group"
-                  >
-                    <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                    Upgrade to {nextTier.name}
-                  </button>
-                </div>
-              )}
-              {nextTier && currentPlan?.name !== 'Pro' && (
+              {!currentProTier && (
                 <button
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                 >
                   <Sparkles className="w-5 h-5" />
-                  <span>Upgrade to {nextTier.name}</span>
+                  <span>Upgrade to Pro</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>
               )}

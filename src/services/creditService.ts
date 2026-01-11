@@ -461,6 +461,50 @@ export async function submitContactRequest(request: ContactRequest): Promise<{ s
   return { success: true };
 }
 
+export async function getUserProCreditTier(): Promise<ProCreditTier | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data: stripeData, error: stripeError } = await supabase
+    .from('stripe_subscriptions')
+    .select('price_id, customer_id')
+    .eq('customer_id', (await supabase
+      .from('stripe_customers')
+      .select('customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle())?.data?.customer_id || '')
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (stripeError || !stripeData?.price_id) {
+    return null;
+  }
+
+  const { data: tiers, error: tiersError } = await supabase
+    .from('pro_credit_tiers')
+    .select('*')
+    .or(`stripe_price_id_monthly.eq.${stripeData.price_id},stripe_price_id_annual.eq.${stripeData.price_id}`)
+    .maybeSingle();
+
+  if (tiersError || !tiers) {
+    return null;
+  }
+
+  return {
+    id: tiers.id,
+    credits: tiers.credits,
+    priceMonthly: parseFloat(tiers.price_monthly),
+    priceAnnual: parseFloat(tiers.price_annual),
+    stripePriceIdMonthly: tiers.stripe_price_id_monthly,
+    stripePriceIdAnnual: tiers.stripe_price_id_annual,
+    displayOrder: tiers.display_order,
+    isActive: tiers.is_active,
+  };
+}
+
 export function formatCredits(credits: number): string {
   return credits.toLocaleString('en-US');
 }

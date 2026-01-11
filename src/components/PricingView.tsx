@@ -507,7 +507,18 @@ export function PricingView() {
 
           <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg">
             
-            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">2-3</span>
+                  </div>
+                  <h4 className="font-semibold text-slate-900">Low Complexity</h4>
+                </div>
+                <p className="text-sm text-slate-700">
+                  Simple fixes: 1-2 minor issues, short content, spelling or grammar corrections
+                </p>
+              </div>
               <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">

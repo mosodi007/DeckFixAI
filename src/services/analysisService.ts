@@ -123,21 +123,15 @@ export interface AnalysisData {
 export async function analyzeDeck(
   file: File,
   analysisId: string,
-  imageUrls: string[],
-  sessionId?: string
+  imageUrls: string[]
 ): Promise<{ analysisId: string }> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('analysisId', analysisId);
   formData.append('imageUrls', JSON.stringify(imageUrls));
 
-  if (sessionId) {
-    formData.append('sessionId', sessionId);
-  }
-
   console.log('Uploading file:', file.name, 'Size:', file.size);
   console.log('Analysis ID:', analysisId);
-  console.log('Session ID:', sessionId || 'authenticated user');
   console.log('Image URLs:', imageUrls.length, 'slides');
 
   const headers: Record<string, string> = {
@@ -197,19 +191,27 @@ export async function getMostRecentAnalysis(): Promise<AnalysisData | null> {
   return getAnalysis(analysis.id);
 }
 
-export async function migrateSessionAnalyses(sessionId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+export async function migrateSessionAnalyses(fromUserIdOrSessionId: string, toUserId: string): Promise<void> {
+  const { error: sessionMigrationError } = await supabase
     .from('analyses')
-    .update({ user_id: userId, session_id: null })
-    .eq('session_id', sessionId)
+    .update({ user_id: toUserId, session_id: null })
+    .eq('session_id', fromUserIdOrSessionId)
     .is('user_id', null);
 
-  if (error) {
-    console.error('Failed to migrate analyses:', error);
-    throw error;
+  if (sessionMigrationError) {
+    console.error('Failed to migrate session analyses:', sessionMigrationError);
   }
 
-  console.log('Successfully migrated analyses from session to user');
+  const { error: userMigrationError } = await supabase
+    .from('analyses')
+    .update({ user_id: toUserId })
+    .eq('user_id', fromUserIdOrSessionId);
+
+  if (userMigrationError) {
+    console.error('Failed to migrate user analyses:', userMigrationError);
+  }
+
+  console.log('Successfully migrated analyses to authenticated user');
 }
 
 export async function getAnalysis(analysisId: string): Promise<AnalysisData> {

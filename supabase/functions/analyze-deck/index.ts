@@ -393,7 +393,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const file = formData.get('file') as File;
-    const sessionId = formData.get('sessionId') as string;
     const clientAnalysisId = formData.get('analysisId') as string;
     const imageUrlsJson = formData.get('imageUrls') as string;
 
@@ -436,10 +435,14 @@ Deno.serve(async (req: Request) => {
     const analysisId = clientAnalysisId || crypto.randomUUID();
     console.log('Analysis ID:', analysisId);
 
+    if (!user?.id) {
+      throw new Error('User must be authenticated (including anonymous users)');
+    }
+
     const analysisRecord = {
       id: analysisId,
-      user_id: user?.id || null,
-      session_id: !user?.id ? sessionId : null,
+      user_id: user.id,
+      session_id: null,
       file_name: file.name,
       file_size: file.size,
       overall_score: 0,

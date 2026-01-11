@@ -3,7 +3,6 @@ import { Sparkles, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
 import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages } from '../services/storageService';
-import { getOrCreateSessionId } from '../services/sessionService';
 import { v4 as uuidv4 } from 'uuid';
 import { SEOContentSection } from './upload/SEOContentSection';
 
@@ -78,7 +77,6 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
     try {
       const analysisId = uuidv4();
-      const sessionId = isAuthenticated ? undefined : getOrCreateSessionId();
 
       setAnalysisProgress(10);
 
@@ -96,7 +94,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
       setAnalysisProgress(60);
 
-      const result = await analyzeDeck(file, analysisId, imageUrls, sessionId);
+      const result = await analyzeDeck(file, analysisId, imageUrls);
 
       setAnalysisProgress(100);
 

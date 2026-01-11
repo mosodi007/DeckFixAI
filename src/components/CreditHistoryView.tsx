@@ -219,9 +219,8 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                 ) : null
               ) : (
                 <button
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-2"
+                  className="px-5 py-2.5 bg-white text-slate rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-2"
                 >
-                  <Sparkles className="w-4 h-4" />
                   Upgrade to Pro
                 </button>
               )}

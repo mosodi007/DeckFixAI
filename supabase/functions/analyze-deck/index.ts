@@ -268,7 +268,16 @@ Deno.serve(async (req: Request) => {
       const { data: userData, error: userError } = await supabaseClient.auth.getUser();
       if (userError) {
         console.error('JWT validation error:', userError);
-        throw new Error(`Authentication failed: ${userError.message}. Please sign out and sign in again.`);
+        return new Response(
+          JSON.stringify({ error: `Authentication failed: ${userError.message}. Please sign out and sign in again.` }),
+          {
+            status: 401,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
       }
       if (userData?.user) {
         user = userData.user;
@@ -277,7 +286,16 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!user) {
-      throw new Error('Authentication required. Please sign in to analyze your pitch deck.');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required. Please sign in to analyze your pitch deck.' }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
     const contentType = req.headers.get('content-type') || '';
@@ -330,6 +348,7 @@ Deno.serve(async (req: Request) => {
       pageCount = result.pageCount;
       pages = result.pages;
       console.log(`PDF extraction: ${text.length} characters from ${pageCount} pages`);
+      console.log('First 500 characters:', text.substring(0, 500));
     } catch (pdfError: any) {
       console.error('PDF extraction failed:', pdfError);
       throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);

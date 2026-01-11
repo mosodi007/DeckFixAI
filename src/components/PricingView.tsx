@@ -121,14 +121,33 @@ export function PricingView() {
   }
 
   function handleConfirmUpgrade() {
-    if (!selectedTier) return;
+    if (!upgradePreview || !upgradePreview.stripePriceId) return;
 
-    const priceId = billingPeriod === 'monthly'
-      ? selectedTier.stripePriceIdMonthly
-      : selectedTier.stripePriceIdAnnual;
+    proceedWithOneTimeUpgrade(upgradePreview.stripePriceId);
+  }
 
-    if (priceId) {
-      proceedWithCheckout(priceId);
+  async function proceedWithOneTimeUpgrade(priceId: string) {
+    setCheckoutLoading(true);
+    setError(null);
+    setShowUpgradeModal(false);
+
+    try {
+      const result = await createCheckoutSession({
+        priceId,
+        mode: 'payment',
+        successUrl: getSuccessUrl('/dashboard'),
+        cancelUrl: getCancelUrl('/pricing'),
+      });
+
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        throw new Error(result.error || 'Failed to process upgrade');
+      }
+    } catch (err) {
+      console.error('Upgrade checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start upgrade checkout');
+      setCheckoutLoading(false);
     }
   }
 

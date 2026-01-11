@@ -15,7 +15,6 @@ const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPAB
 
 Deno.serve(async (req) => {
   try {
-    // Handle OPTIONS request for CORS preflight
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204 });
     }
@@ -24,17 +23,13 @@ Deno.serve(async (req) => {
       return new Response('Method not allowed', { status: 405 });
     }
 
-    // get the signature from the header
     const signature = req.headers.get('stripe-signature');
 
     if (!signature) {
       return new Response('No signature found', { status: 400 });
     }
 
-    // get the raw body
     const body = await req.text();
-
-    // verify the webhook signature
     let event: Stripe.Event;
 
     try {
@@ -48,56 +43,72 @@ Deno.serve(async (req) => {
 
     return Response.json({ received: true });
   } catch (error: any) {
-    console.error('Error processing webhook:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error(`Webhook Error:`, error);
+    return new Response(`Webhook Error: ${error.message}`, { status: 400 });
   }
 });
 
 async function handleEvent(event: Stripe.Event) {
-  const stripeData = event?.data?.object ?? {};
+  console.info(`Processing webhook event: ${event.type}`);
 
-  if (!stripeData) {
+  const allowedEvents = [
+    'checkout.session.completed',
+    'customer.subscription.created',
+    'customer.subscription.updated',
+    'customer.subscription.deleted',
+    'invoice.paid',
+    'invoice.payment_failed',
+  ];
+
+  if (!allowedEvents.includes(event.type)) {
+    console.info(`Ignoring event type: ${event.type}`);
     return;
   }
 
-  if (!('customer' in stripeData)) {
+  const stripeData = event.data.object as Stripe.Subscription | Stripe.Checkout.Session;
+
+  if (!('customer' in stripeData) || !stripeData.customer) {
+    console.warn(`No customer found for event: ${event.type}`);
     return;
   }
 
-  // for one time payments, we only listen for the checkout.session.completed event
-  if (event.type === 'payment_intent.succeeded' && event.data.object.invoice === null) {
+  const customerId = stripeData.customer as string;
+  const { data: customer } = await supabase
+    .from('stripe_customers')
+    .select('user_id')
+    .eq('customer_id', customerId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!customer) {
+    console.warn(`No user mapping found for customer: ${customerId}`);
     return;
   }
 
-  const { customer: customerId } = stripeData;
+  const userId = customer.user_id;
 
-  if (!customerId || typeof customerId !== 'string') {
-    console.error(`No customer received on event: ${JSON.stringify(event)}`);
-  } else {
-    // Handle invoice payment for upgrades
-    if (event.type === 'invoice.payment_succeeded') {
-      const invoice = event.data.object as Stripe.Invoice;
-      const hasUpgradeItem = invoice.lines.data.some(line =>
-        line.metadata?.upgrade === 'true'
-      );
+  if (event.type === 'customer.subscription.deleted') {
+    await supabase
+      .from('stripe_subscriptions')
+      .update({ status: 'canceled', deleted_at: new Date().toISOString() })
+      .eq('customer_id', customerId);
 
-      if (hasUpgradeItem) {
-        console.info(`Detected upgrade invoice payment for customer: ${customerId}`);
-        const upgradeLine = invoice.lines.data.find(line => line.metadata?.upgrade === 'true');
-        if (upgradeLine?.metadata) {
-          console.info(`Upgrade details: from ${upgradeLine.metadata.from_credits} to ${upgradeLine.metadata.to_credits} credits`);
-          console.info(`Prorated cost: $${upgradeLine.metadata.prorated_cost} (base: $${upgradeLine.metadata.base_cost})`);
-        }
-      }
-    }
+    await supabase
+      .from('user_credits')
+      .update({ subscription_tier: 'free', monthly_credits_allocated: 0 })
+      .eq('user_id', userId);
 
-    // Handle subscription updates and cancellations
-    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-      console.info(`Syncing subscription for customer: ${customerId} due to ${event.type}`);
-      await syncCustomerFromStripe(customerId);
-      return;
-    }
+    console.info(`Subscription deleted for customer: ${customerId}`);
+    return;
+  }
 
+  if (
+    event.type === 'checkout.session.completed' ||
+    event.type === 'customer.subscription.created' ||
+    event.type === 'customer.subscription.updated' ||
+    event.type === 'invoice.paid' ||
+    event.type === 'invoice.payment_failed'
+  ) {
     let isSubscription = true;
 
     if (event.type === 'checkout.session.completed') {
@@ -115,7 +126,6 @@ async function handleEvent(event: Stripe.Event) {
       await syncCustomerFromStripe(customerId);
     } else if (mode === 'payment' && payment_status === 'paid') {
       try {
-        // Get user_id from stripe customer
         const { data: customerData, error: customerError } = await supabase
           .from('stripe_customers')
           .select('user_id')
@@ -129,7 +139,6 @@ async function handleEvent(event: Stripe.Event) {
 
         const userId = customerData.user_id;
 
-        // Extract the necessary information from the session
         const {
           id: checkout_session_id,
           payment_intent,
@@ -138,14 +147,12 @@ async function handleEvent(event: Stripe.Event) {
           currency,
         } = stripeData as Stripe.Checkout.Session;
 
-        // Get the line items to extract the price_id
         const session = await stripe.checkout.sessions.retrieve(checkout_session_id, {
           expand: ['line_items'],
         });
 
         const priceId = session.line_items?.data[0]?.price?.id;
 
-        // Insert the order into the stripe_orders table
         const { error: orderError } = await supabase.from('stripe_orders').insert({
           checkout_session_id,
           payment_intent_id: payment_intent,
@@ -162,7 +169,6 @@ async function handleEvent(event: Stripe.Event) {
           return;
         }
 
-        // Allocate credits for the purchase
         if (priceId) {
           await allocateCreditsForOneTimePayment(userId, priceId, checkout_session_id);
         }
@@ -175,10 +181,21 @@ async function handleEvent(event: Stripe.Event) {
   }
 }
 
-// based on the excellent https://github.com/t3dotgg/stripe-recommendations
 async function syncCustomerFromStripe(customerId: string) {
   try {
-    // Get user_id from stripe customer
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      expand: ['data.default_payment_method'],
+      limit: 1,
+    });
+
+    if (!subscriptions.data.length) {
+      console.info(`No subscriptions found for customer: ${customerId}`);
+      return;
+    }
+
+    const subscription = subscriptions.data[0];
+
     const { data: customerData, error: customerError } = await supabase
       .from('stripe_customers')
       .select('user_id')
@@ -187,95 +204,45 @@ async function syncCustomerFromStripe(customerId: string) {
 
     if (customerError || !customerData) {
       console.error('Error fetching user from stripe customer:', customerError);
-      throw new Error('Failed to get user_id from stripe customer');
+      return;
     }
 
     const userId = customerData.user_id;
 
-    // fetch latest subscription data from Stripe
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      limit: 1,
-      status: 'all',
-      expand: ['data.default_payment_method'],
-    });
+    const paymentMethod = subscription.default_payment_method as Stripe.PaymentMethod | undefined;
+    const cardBrand = paymentMethod?.card?.brand || null;
+    const cardLast4 = paymentMethod?.card?.last4 || null;
 
-    // TODO verify if needed
-    if (subscriptions.data.length === 0) {
-      console.info(`No active subscriptions found for customer: ${customerId}`);
-      const { error: noSubError } = await supabase.from('stripe_subscriptions').upsert(
-        {
-          customer_id: customerId,
-          subscription_status: 'not_started',
-        },
-        {
-          onConflict: 'customer_id',
-        },
-      );
+    const subscriptionData = {
+      customer_id: customerId,
+      subscription_id: subscription.id,
+      price_id: subscription.items.data[0].price.id,
+      current_period_start: subscription.current_period_start,
+      current_period_end: subscription.current_period_end,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      payment_method_brand: cardBrand,
+      payment_method_last4: cardLast4,
+      status: subscription.status,
+    };
 
-      if (noSubError) {
-        console.error('Error updating subscription status:', noSubError);
-        throw new Error('Failed to update subscription status in database');
-      }
+    const { error: upsertError } = await supabase
+      .from('stripe_subscriptions')
+      .upsert(subscriptionData, { onConflict: 'customer_id' });
+
+    if (upsertError) {
+      console.error('Error upserting subscription:', upsertError);
       return;
     }
 
-    // assumes that a customer can only have a single subscription
-    const subscription = subscriptions.data[0];
-    const priceId = subscription.items.data[0].price.id;
-
-    // store subscription state
-    const { error: subError } = await supabase.from('stripe_subscriptions').upsert(
-      {
-        customer_id: customerId,
-        subscription_id: subscription.id,
-        price_id: priceId,
-        current_period_start: subscription.current_period_start,
-        current_period_end: subscription.current_period_end,
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        ...(subscription.default_payment_method && typeof subscription.default_payment_method !== 'string'
-          ? {
-              payment_method_brand: subscription.default_payment_method.card?.brand ?? null,
-              payment_method_last4: subscription.default_payment_method.card?.last4 ?? null,
-            }
-          : {}),
-        status: subscription.status,
-      },
-      {
-        onConflict: 'customer_id',
-      },
-    );
-
-    if (subError) {
-      console.error('Error syncing subscription:', subError);
-      throw new Error('Failed to sync subscription in database');
-    }
-
-    // Allocate credits if subscription is active
-    if (subscription.status === 'active' || subscription.status === 'trialing') {
-      await allocateCreditsForSubscription(userId, priceId, subscription.id);
-    }
-
-    // Handle subscription cancellation - reset user to free tier
-    if (subscription.status === 'canceled') {
-      console.info(`Subscription cancelled for user ${userId}, resetting to free tier`);
-
-      const { error: resetError } = await supabase
-        .from('user_credits')
-        .update({
-          monthly_credits_allocated: 100,
-          subscription_tier: 'free',
-        })
-        .eq('user_id', userId);
-
-      if (resetError) {
-        console.error('Error resetting user to free tier:', resetError);
-      }
-    }
-
     console.info(`Successfully synced subscription for customer: ${customerId}`);
+
+    const priceId = subscription.items.data[0].price.id;
+    const currentPeriodStart = subscription.current_period_start;
+    const currentPeriodEnd = subscription.current_period_end;
+
+    await allocateCreditsForSubscription(userId, priceId, subscription.id, currentPeriodStart, currentPeriodEnd);
   } catch (error) {
-    console.error(`Failed to sync subscription for customer ${customerId}:`, error);
+    console.error('Error syncing customer from Stripe:', error);
     throw error;
   }
 }
@@ -283,41 +250,38 @@ async function syncCustomerFromStripe(customerId: string) {
 async function allocateCreditsForSubscription(
   userId: string,
   priceId: string,
-  subscriptionId: string
+  subscriptionId: string,
+  periodStart: number,
+  periodEnd: number
 ) {
   try {
-    // Get credit amount from price_id
-    const { data: creditAmount, error: creditError } = await supabase.rpc(
-      'get_credits_from_price_id',
-      { price_id: priceId }
-    );
-
-    if (creditError) {
-      console.error('Error getting credits from price_id:', creditError);
-      throw new Error('Failed to get credit amount');
-    }
-
-    if (!creditAmount || creditAmount === 0) {
-      console.warn(`No credits found for price_id: ${priceId}`);
-      return;
-    }
-
-    // Check if we've already allocated credits for this subscription period
-    const { data: existingTransaction } = await supabase
-      .from('credit_transactions')
+    const { data: existingPeriod } = await supabase
+      .from('subscription_credit_periods')
       .select('id')
       .eq('user_id', userId)
-      .eq('metadata->>subscription_id', subscriptionId)
-      .eq('transaction_type', 'subscription_renewal')
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .eq('subscription_id', subscriptionId)
+      .eq('period_start', periodStart)
+      .eq('period_end', periodEnd)
       .maybeSingle();
 
-    if (existingTransaction) {
-      console.info(`Credits already allocated for subscription ${subscriptionId} in the last 24 hours`);
+    if (existingPeriod) {
+      console.info(`Credits already allocated for period ${periodStart}-${periodEnd}`);
       return;
     }
 
-    // Allocate credits
+    const { data: tierData, error: tierError } = await supabase
+      .from('pro_credit_tiers')
+      .select('credits')
+      .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_annual.eq.${priceId}`)
+      .maybeSingle();
+
+    if (tierError || !tierData) {
+      console.error('Error fetching tier data:', tierError);
+      throw new Error('Failed to get tier information');
+    }
+
+    const creditAmount = tierData.credits;
+
     const { error: allocateError } = await supabase.rpc(
       'allocate_credits_from_stripe',
       {
@@ -327,6 +291,8 @@ async function allocateCreditsForSubscription(
         p_stripe_metadata: {
           subscription_id: subscriptionId,
           price_id: priceId,
+          period_start: periodStart,
+          period_end: periodEnd,
           timestamp: new Date().toISOString(),
         },
       }
@@ -335,6 +301,18 @@ async function allocateCreditsForSubscription(
     if (allocateError) {
       console.error('Error allocating credits:', allocateError);
       throw new Error('Failed to allocate credits');
+    }
+
+    const { error: periodError } = await supabase.from('subscription_credit_periods').insert({
+      user_id: userId,
+      subscription_id: subscriptionId,
+      period_start: periodStart,
+      period_end: periodEnd,
+      credits_allocated: creditAmount,
+    });
+
+    if (periodError) {
+      console.error('Error recording credit period:', periodError);
     }
 
     console.info(`Successfully allocated ${creditAmount} credits to user ${userId}`);
@@ -350,7 +328,70 @@ async function allocateCreditsForOneTimePayment(
   checkoutSessionId: string
 ) {
   try {
-    // Get credit amount from price_id
+    const { data: upgradeData } = await supabase
+      .from('tier_upgrade_pricing')
+      .select('to_tier_credits, stripe_price_id_monthly, stripe_price_id_annual')
+      .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_annual.eq.${priceId}`)
+      .maybeSingle();
+
+    if (upgradeData) {
+      console.info(`Processing tier upgrade payment for ${upgradeData.to_tier_credits} credits`);
+
+      const { data: customerData } = await supabase
+        .from('stripe_customers')
+        .select('customer_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!customerData) {
+        console.error('No customer found for user:', userId);
+        return;
+      }
+
+      const { data: newTier } = await supabase
+        .from('pro_credit_tiers')
+        .select('stripe_price_id_monthly, stripe_price_id_annual')
+        .eq('credits', upgradeData.to_tier_credits)
+        .maybeSingle();
+
+      if (!newTier) {
+        console.error('No tier found for credits:', upgradeData.to_tier_credits);
+        return;
+      }
+
+      const { data: currentSub } = await supabase
+        .from('stripe_subscriptions')
+        .select('subscription_id, price_id')
+        .eq('customer_id', customerData.customer_id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (!currentSub || !currentSub.subscription_id) {
+        console.error('No active subscription found for customer:', customerData.customer_id);
+        return;
+      }
+
+      const stripeSubscription = await stripe.subscriptions.retrieve(currentSub.subscription_id);
+      const isAnnual = stripeSubscription.items.data[0].price.recurring?.interval === 'year';
+      const newPriceId = isAnnual ? newTier.stripe_price_id_annual : newTier.stripe_price_id_monthly;
+
+      await stripe.subscriptions.update(currentSub.subscription_id, {
+        items: [{
+          id: stripeSubscription.items.data[0].id,
+          price: newPriceId,
+        }],
+        proration_behavior: 'none',
+      });
+
+      await supabase
+        .from('stripe_subscriptions')
+        .update({ price_id: newPriceId })
+        .eq('subscription_id', currentSub.subscription_id);
+
+      console.info(`Successfully upgraded subscription ${currentSub.subscription_id} to ${upgradeData.to_tier_credits} credits tier`);
+      return;
+    }
+
     const { data: creditAmount, error: creditError } = await supabase.rpc(
       'get_credits_from_price_id',
       { price_id: priceId }
@@ -366,7 +407,6 @@ async function allocateCreditsForOneTimePayment(
       return;
     }
 
-    // Check if we've already allocated credits for this checkout session
     const { data: existingTransaction } = await supabase
       .from('credit_transactions')
       .select('id')
@@ -380,7 +420,6 @@ async function allocateCreditsForOneTimePayment(
       return;
     }
 
-    // Allocate credits
     const { error: allocateError } = await supabase.rpc(
       'allocate_credits_from_stripe',
       {

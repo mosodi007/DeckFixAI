@@ -159,22 +159,29 @@ Deno.serve(async (req: Request) => {
     const isAnnual = stripeSubscription.items.data[0].price.recurring?.interval === 'year';
     const billingPeriod = isAnnual ? 'annual' : 'monthly';
 
-    // Get base upgrade cost from database
-    const { data: upgradeCostData, error: upgradeCostError } = await supabase.rpc('get_upgrade_cost', {
-      p_from_credits: currentTier.credits,
-      p_to_credits: targetTier.credits,
-      p_billing_period: billingPeriod,
-    });
+    // Get upgrade pricing data including Stripe price ID
+    const { data: upgradePricing, error: upgradePricingError } = await supabase
+      .from('tier_upgrade_pricing')
+      .select('upgrade_cost_monthly, upgrade_cost_annual, stripe_price_id_monthly, stripe_price_id_annual')
+      .eq('from_tier_credits', currentTier.credits)
+      .eq('to_tier_credits', targetTier.credits)
+      .maybeSingle();
 
-    if (upgradeCostError) {
-      console.error('Error getting upgrade cost:', upgradeCostError);
-      return corsResponse({ error: 'Failed to calculate upgrade cost' }, 500);
+    if (upgradePricingError || !upgradePricing) {
+      console.error('Error getting upgrade pricing:', upgradePricingError);
+      return corsResponse({ error: 'Upgrade pricing not configured for this tier combination' }, 400);
     }
 
-    const baseUpgradeCost = parseFloat(upgradeCostData || '0');
+    const baseUpgradeCost = billingPeriod === 'annual'
+      ? parseFloat(upgradePricing.upgrade_cost_annual)
+      : parseFloat(upgradePricing.upgrade_cost_monthly);
 
-    if (baseUpgradeCost === 0) {
-      return corsResponse({ error: 'Upgrade pricing not configured for this tier combination' }, 400);
+    const stripePriceId = billingPeriod === 'annual'
+      ? upgradePricing.stripe_price_id_annual
+      : upgradePricing.stripe_price_id_monthly;
+
+    if (!stripePriceId) {
+      return corsResponse({ error: 'Stripe price ID not configured for this upgrade' }, 400);
     }
 
     // Calculate prorated amount
@@ -206,6 +213,7 @@ Deno.serve(async (req: Request) => {
       billingPeriod,
       baseUpgradeCost,
       proratedUpgradeCost: finalUpgradeCost,
+      stripePriceId,
       daysRemaining,
       totalDays,
       nextBillingDate: currentPeriodEnd.toISOString(),

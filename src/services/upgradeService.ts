@@ -16,6 +16,7 @@ export interface UpgradePreview {
   billingPeriod?: 'monthly' | 'annual';
   baseUpgradeCost?: number;
   proratedUpgradeCost?: number;
+  stripePriceId?: string;
   daysRemaining?: number;
   totalDays?: number;
   nextBillingDate?: string;

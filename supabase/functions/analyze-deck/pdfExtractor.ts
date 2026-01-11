@@ -3,28 +3,32 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{
   pageCount: number;
   pages: Array<{ pageNumber: number; text: string }>;
 }> {
-  const pdfjsLib = await import('npm:pdfjs-dist@4.9.155');
+  const pdfParse = (await import('npm:pdf-parse@1.1.1')).default;
 
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-  const pdf = await loadingTask.promise;
-  const pageCount = pdf.numPages;
+  const buffer = new Uint8Array(arrayBuffer);
 
+  const data = await pdfParse(buffer, {
+    max: 0,
+  });
+
+  const pageCount = data.numpages;
+  const fullText = data.text;
+
+  const estimatedTextPerPage = fullText.length / pageCount;
   const pages: Array<{ pageNumber: number; text: string }> = [];
-  let fullText = '';
 
-  for (let i = 1; i <= pageCount; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ');
+  const lines = fullText.split('\n');
+  const linesPerPage = Math.ceil(lines.length / pageCount);
+
+  for (let i = 0; i < pageCount; i++) {
+    const startLine = i * linesPerPage;
+    const endLine = Math.min((i + 1) * linesPerPage, lines.length);
+    const pageText = lines.slice(startLine, endLine).join('\n');
 
     pages.push({
-      pageNumber: i,
-      text: pageText,
+      pageNumber: i + 1,
+      text: pageText.trim(),
     });
-
-    fullText += pageText + '\n\n';
   }
 
   return {

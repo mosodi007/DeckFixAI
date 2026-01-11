@@ -505,7 +505,41 @@ export function PricingView() {
             </div>
           </div>
 
-          
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg">
+            
+            
+              <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">4-6</span>
+                  </div>
+                  <h4 className="font-semibold text-slate-900">Medium Complexity</h4>
+                </div>
+                <p className="text-sm text-slate-700">
+                  Moderate fixes: 3-4 issues, medium content length, structural improvements
+                </p>
+              </div>
+              <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">7-10</span>
+                  </div>
+                  <h4 className="font-semibold text-slate-900">High Complexity</h4>
+                </div>
+                <p className="text-sm text-slate-700">
+                  Complex fixes: 5+ issues, long content, critical severity, major rewrites
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <p className="text-sm text-slate-700">
+                <strong className="text-slate-900">Fair & Transparent:</strong> You always see the estimated cost before generating a fix.
+                We analyze issue count, severity, content length, and required changes to calculate a fair price.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <UpgradePreviewModal
         isOpen={showUpgradeModal}

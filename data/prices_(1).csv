@@ -1,0 +1,31 @@
+Price ID,Product ID,Product Name,Product Statement Descriptor,Product Tax Code,Description,Created (UTC),Amount,Currency,Interval,Interval Count,Usage Type,Aggregate Usage,Billing Scheme,Trial Period Days,Tax Behavior
+price_1SoOL0HJtj9hmvRfIVi0C2is,prod_TlwD3a53mVFs2t,"Annually - 5000 to 10,000",,txcd_10103000,,1/11/26 13:05,624,usd,,,,,per_unit,,unspecified
+price_1SoOKUHJtj9hmvRfoRLrmn4y,prod_TlwCq4HGdG7oIJ,"Annually - 2000 to 10,000",,txcd_10103000,,1/11/26 13:05,1017.6,usd,,,,,per_unit,,unspecified
+price_1SoOKCHJtj9hmvRfGrmwXl2Z,prod_TlwCINLsye95Az,"Annually - 2000 to 5,000",,txcd_10103000,,1/11/26 13:04,393.6,usd,,,,,per_unit,,unspecified
+price_1SoOJkHJtj9hmvRfEFUCANr3,prod_TlwCZRuvz3x7Q6,"Annually - 1000 to 10,000",,txcd_10103000,,1/11/26 13:04,1171.2,usd,,,,,per_unit,,unspecified
+price_1SoOJKHJtj9hmvRfA6sEFgIv,prod_TlwB8xsPRSLOTV,"Annually - 1000 to 5,000",,txcd_10103000,,1/11/26 13:04,547.2,usd,,,,,per_unit,,unspecified
+price_1SoOJ1HJtj9hmvRfO2nVb7Yh,prod_TlwBjnNaeYKZ6r,"Annually - 1000 to 2,000",,txcd_10103000,,1/11/26 13:03,153.6,usd,,,,,per_unit,,unspecified
+price_1SoOIhHJtj9hmvRfjxRHsrNW,prod_TlwBLH7WkcztnP,"Annually - 500 to 10,000",,txcd_10103000,,1/11/26 13:03,1248,usd,,,,,per_unit,,unspecified
+price_1SoOILHJtj9hmvRfrIr4F0rT,prod_TlwAUhnKSyRWO3,"Annually - 500 to 5,000",,txcd_10103000,,1/11/26 13:03,624,usd,,,,,per_unit,,unspecified
+price_1SoOI2HJtj9hmvRf4OUldLzn,prod_TlwAHluOodrfVk,"Annually - 500 to 2,000",,txcd_10103000,,1/11/26 13:02,230.4,usd,,,,,per_unit,,unspecified
+price_1SoOHiHJtj9hmvRfmZwPnqE9,prod_TlwA4LPrsK8ngC,"Annually - 500 to 1,000",,txcd_10103000,,1/11/26 13:02,76.8,usd,,,,,per_unit,,unspecified
+price_1SoOGmHJtj9hmvRfrgit8hj5,prod_Tlw9R62TUQQNfu,"5,000 to 10,000",,txcd_10103000,,1/11/26 13:01,65,usd,,,,,per_unit,,unspecified
+price_1SoOGFHJtj9hmvRfAWuXNdOe,prod_Tlw8bx6c9E2wvi,"2,000 to 10,000",,txcd_10103000,,1/11/26 13:00,106,usd,,,,,per_unit,,unspecified
+price_1SoOFpHJtj9hmvRfrmQrIxZF,prod_Tlw8VRIkirN6nI,"2,000 to 5,000",,txcd_10103000,,1/11/26 13:00,41,usd,,,,,per_unit,,unspecified
+price_1SoOFIHJtj9hmvRf9MOCsXQj,prod_Tlw7LmXZbTzafB,"1,000 to 10,000",,txcd_10103000,,1/11/26 12:59,122,usd,,,,,per_unit,,unspecified
+price_1SoOElHJtj9hmvRf4VRTLXqS,prod_Tlw6ub4dA1dZTU,"1,000 to 5,000",,txcd_10103000,,1/11/26 12:59,57,usd,,,,,per_unit,,unspecified
+price_1SoOEGHJtj9hmvRfJPEpIuCD,prod_Tlw6cPQCCzWNZD,"1,000 to 2,000",,txcd_10103000,,1/11/26 12:58,16,usd,,,,,per_unit,,unspecified
+price_1SoODoHJtj9hmvRfngBO2ZcA,prod_Tlw6rKJqc5NByM,"500 to 10,000",,txcd_10103000,,1/11/26 12:58,130,usd,,,,,per_unit,,unspecified
+price_1SoODPHJtj9hmvRfRLZYYxTr,prod_Tlw5o7OitQkPbv,"500 to 5,000",,txcd_10103000,,1/11/26 12:57,65,usd,,,,,per_unit,,unspecified
+price_1SoOCwHJtj9hmvRfotRVmwHn,prod_Tlw54JwkOpBwzh,"500 to 2,000",,txcd_10103000,,1/11/26 12:57,24,usd,,,,,per_unit,,unspecified
+price_1SoOCLHJtj9hmvRfz0b7UfyP,prod_Tlw4UFhVmDhPg0,"500 to 1,000",,txcd_10103000,,1/11/26 12:56,8,usd,,,,,per_unit,,unspecified
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,

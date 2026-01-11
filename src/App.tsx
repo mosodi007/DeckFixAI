@@ -18,7 +18,7 @@ import { logout } from './services/authService';
 import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
-  const { user, userProfile, isAuthenticated } = useAuth();
+  const { user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
   const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +26,7 @@ function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [preselectedTierCredits, setPreselectedTierCredits] = useState<number | undefined>(undefined);
 
   useGoogleOneTap({
     disabled: isAuthenticated,
@@ -135,6 +136,7 @@ function App() {
   const handleGoToDashboard = () => {
     setView('dashboard');
     setAnalysisData(null);
+    setPreselectedTierCredits(undefined);
   };
 
   const handleOpenImprovementFlow = async () => {
@@ -248,6 +250,7 @@ function App() {
                           <button
                             onClick={() => {
                               setShowUserMenu(false);
+                              setPreselectedTierCredits(undefined);
                               setView('pricing');
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
@@ -299,7 +302,7 @@ function App() {
       </nav>
 
       <main>
-        {isLoading ? (
+        {(isLoading || authLoading) ? (
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -307,11 +310,15 @@ function App() {
             </div>
           </div>
         ) : view === 'pricing' ? (
-          <PricingView />
+          <PricingView preselectedTierCredits={preselectedTierCredits} />
         ) : view === 'credits' ? (
           <CreditHistoryView
             onBack={handleGoToDashboard}
             onViewUsageHistory={() => setView('usage-history')}
+            onViewPricing={(tierCredits) => {
+              setPreselectedTierCredits(tierCredits);
+              setView('pricing');
+            }}
           />
         ) : view === 'usage-history' ? (
           <UsageHistoryView onBack={() => setView('credits')} />

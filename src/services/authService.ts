@@ -93,6 +93,16 @@ export async function logout(): Promise<{ error: Error | null }> {
   return { error: null };
 }
 
+export async function signInAnonymously(): Promise<{ user: User | null; error: Error | null }> {
+  const { data, error } = await supabase.auth.signInAnonymously();
+
+  if (error) {
+    return { user: null, error: new Error(error.message) };
+  }
+
+  return { user: data.user, error: null };
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   const { data: { user } } = await supabase.auth.getUser();
   return user;

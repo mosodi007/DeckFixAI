@@ -99,235 +99,144 @@ Evaluate with HARSH VC standards:
 - Competition: Do they understand the landscape or claim "no competitors"? Why won't they get crushed?
 - Story: Is the narrative compelling or confusing? Do they know what they're asking for and why?
 
-Respond ONLY with valid JSON in this exact format:
+Be direct, specific, and actionable. Call out weak arguments. Highlight missing information. No generic feedback. If something is mediocre, say it. If it's impressive, acknowledge it but explain why. Think like you're protecting your LP's capital.
+
+Provide a thorough analysis including:
+1. Overall assessment of investment readiness
+2. Critical issues that need immediate attention
+3. Deal-breaking red flags (if any)
+4. Specific, actionable improvements for each slide
+5. Missing information that investors will ask about
+
+Return your analysis as a JSON object with this structure:
 {
-  "overallScore": <number 0-100>,
-  "summary": "<3-4 sentences of brutally honest assessment: Would you take this meeting? What's the biggest problem? Is this fundable? Be direct and unfiltered.>",
-  "clarityScore": <number 0-100>,
-  "designScore": <number 0-100>,
-  "contentScore": <number 0-100>,
-  "structureScore": <number 0-100>,
-  "overallScoreFeedback": "<4-5 sentences of harsh truth about why this deck scores what it does. Call out the specific problems. If it's weak, say why. If claims seem inflated, say so. No softening.>",
-  "investmentGradeFeedback": "<4-5 sentences explaining the investment grade (most decks are D/C range, good ones are B+, exceptional ones are A-). What are the fatal flaws? What would make this actually investable? Be specific and direct.>",
-  "fundingOddsFeedback": "<4-5 sentences with realistic funding odds. If traction is weak, say it. If the market is saturated, call it out. If the team lacks credibility, flag it. Include realistic percentage estimate of funding success.>",
-  "pageCountFeedback": "<2-3 sentences on page count. If too long, say they're wasting VC time. If too short, call out missing critical info. Specify ideal range for their stage.>",
-  "wordDensityAssessment": "<Low | Medium | High | Very High>",
-  "wordDensityFeedback": "<3-4 sentences on text density. If slides are text-heavy, say VCs won't read walls of text. If unclear, call out the communication failure. Demand visual clarity.>",
-  "strengths": ["<2-4 actual strengths - be specific, not generic. If deck is weak, list fewer strengths. Don't inflate.>"],
-  "weaknesses": ["<6-12 specific, detailed weaknesses. Find the problems. Call out missing information. Identify unrealistic assumptions. Flag weak positioning. Be thorough and harsh.>"],
+  "overallScore": <0-100>,
+  "summary": "<2-3 sentence summary of the deck's viability>",
+  "clarityScore": <0-100>,
+  "designScore": <0-100>,
+  "contentScore": <0-100>,
+  "structureScore": <0-100>,
+  "overallScoreFeedback": "<detailed explanation of the overall score>",
+  "investmentGradeFeedback": "<honest assessment of investment grade>",
+  "fundingOddsFeedback": "<realistic odds of getting funded with this deck>",
+  "pageCountFeedback": "<feedback on deck length and structure>",
+  "wordDensityAssessment": "<'Too Dense', 'Balanced', or 'Too Sparse'>",
+  "wordDensityFeedback": "<specific feedback on text density>",
+  "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
+  "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
   "issues": [
     {
-      "pageNumber": <page number or null if general>,
+      "pageNumber": <number or null>,
       "priority": "High" | "Medium" | "Low",
-      "title": "<direct issue title>",
-      "description": "<3-4 sentences explaining exactly what's wrong, why it matters to investors, and the real impact on fundability. Be specific with examples.>",
+      "title": "<issue title>",
+      "description": "<detailed description>",
       "type": "issue" | "improvement"
     }
   ],
   "dealBreakers": [
     {
-      "title": "<deal breaker that would cause immediate rejection>",
-      "description": "<3-4 sentences on why this is a deal killer. What specifically makes this unfundable? Be blunt about the severity.>",
-      "recommendation": "<2-3 sentences on exactly what needs to change. Be specific and actionable.>"
+      "title": "<deal breaker title>",
+      "description": "<why this is a deal breaker>",
+      "recommendation": "<what to do about it>"
     }
   ],
   "redFlags": [
     {
       "category": "financial" | "team" | "market" | "product" | "competition" | "traction" | "other",
       "severity": "critical" | "major" | "moderate",
-      "title": "<specific red flag that concerns VCs>",
-      "description": "<2-3 sentences describing the exact problem. Call out inconsistencies, missing data, or questionable claims.>",
-      "impact": "<2-3 sentences on how this affects funding chances. If it kills the deal, say so. Quantify impact.>"
+      "title": "<red flag title>",
+      "description": "<detailed explanation>",
+      "impact": "<impact on funding chances>"
     }
   ],
   "stageAssessment": {
-    "detectedStage": "<Pre-seed | Seed | Series A | Series B | Growth>",
+    "detectedStage": "<Pre-Seed/Seed/Series A/etc.>",
     "stageConfidence": "high" | "medium" | "low",
     "stageAppropriatenessScore": <0-100>,
-    "stageFeedback": "<3-4 sentences on whether the deck matches the claimed stage. If they're pre-seed claiming Series A metrics, call it out. If stage-inappropriate, explain why.>"
+    "stageFeedback": "<is deck appropriate for this stage?>"
   },
   "investmentReadiness": {
-    "isInvestmentReady": <true | false>,
+    "isInvestmentReady": <boolean>,
     "readinessScore": <0-100>,
-    "readinessSummary": "<4-5 sentences of unfiltered truth about whether they're ready to raise. If not ready, say why specifically. If ready, what makes them stand out? Be direct.>",
-    "criticalBlockers": ["<specific blocker with detail>", "<another blocker>", "<be thorough - identify ALL critical blockers>"],
+    "readinessSummary": "<one paragraph summary>",
+    "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
     "teamScore": <0-100>,
     "marketOpportunityScore": <0-100>,
     "productScore": <0-100>,
     "tractionScore": <0-100>,
     "financialsScore": <0-100>,
-    "teamFeedback": "<3-4 sentences: Can this team execute? Relevant experience? Domain expertise? Concerning gaps? First-time founders overpromising? Be critical of credibility.>",
-    "marketOpportunityFeedback": "<3-4 sentences: Real opportunity or fantasy TAM math? Understand customer pain? Market timing right? Competition understood? Call out market delusions.>",
-    "productFeedback": "<3-4 sentences: Real differentiation or me-too? Tech moat? Product-market fit evidence? Scalability? Call out if product seems weak or unproven.>",
-    "tractionFeedback": "<3-4 sentences: Real traction or vanity metrics? Revenue or just users? Growth rate believable? Retention data? Flag if traction is insufficient or misleading.>",
-    "financialsFeedback": "<3-4 sentences: Projections realistic or hockey stick fantasy? Unit economics make sense? CAC/LTV believable? Burn rate sustainable? Call out unrealistic assumptions.>"
+    "teamFeedback": "<detailed team assessment>",
+    "marketOpportunityFeedback": "<detailed market assessment>",
+    "productFeedback": "<detailed product assessment>",
+    "tractionFeedback": "<detailed traction assessment>",
+    "financialsFeedback": "<detailed financials assessment>"
   },
   "keyBusinessMetrics": {
-    "companyName": "<company name or 'Not specified'>",
+    "companyName": "<name or 'Not specified'>",
     "industry": "<industry or 'Not specified'>",
     "currentRevenue": "<revenue or 'Not specified'>",
-    "fundingSought": "<funding amount or 'Not specified'>",
-    "growthRate": "<growth rate or 'Not specified'>",
-    "teamSize": <number or 0>,
-    "marketSize": "<TAM/SAM/SOM or 'Not specified'>",
+    "fundingSought": "<amount or 'Not specified'>",
+    "growthRate": "<rate or 'Not specified'>",
+    "teamSize": <number>,
+    "marketSize": "<size or 'Not specified'>",
     "valuation": "<valuation or 'Not specified'>",
-    "businessModel": "<business model or 'Not specified'>",
-    "customerCount": "<customer count or 'Not specified'>"
+    "businessModel": "<model or 'Not specified'>",
+    "customerCount": "<count or 'Not specified'>"
   }
-}
+}`;
 
-SCORING PHILOSOPHY (BE HARSH):
-- Most decks are 20-50 range (weak to below average)
-- Average decent decks are 35-45
-- Good fundable decks are 55-70
-- Excellent compelling decks are 70-80
-- Only truly exceptional unicorn-potential decks score 80+
-- Penalize heavily for: missing traction, weak teams, unrealistic projections, unclear value props, saturated markets
-- Deduct points for: buzzword bingo, vague claims, missing critical slides, poor storytelling, amateur design
+async function analyzeWithOpenAI(text: string, pageCount: number): Promise<OpenAIAnalysis> {
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
 
-REQUIREMENTS (NON-NEGOTIABLE):
-- Include 6-12 weaknesses minimum - dig deep and find problems
-- Include 8-15 issues with specific page numbers and detailed explanations
-- Include 4-10 red flags minimum - if you don't see at least 4 concerns, you're not looking hard enough
-- Include 2-6 deal breakers for truly critical problems (if there are none, still identify potential ones)
-- All feedback must be 3-5 sentences minimum - be thorough and specific
-- Call out unrealistic claims, missing information, weak positioning, and amateur mistakes
-- If something seems too good to be true, say so
-- If the market is crowded, flag the competitive risk
-- If the team seems inexperienced, question execution capability
-- Every score must be justified with specific reasoning
+  const prompt = `${ANALYSIS_PROMPT}
 
-This is about preparing founders for REAL VC scrutiny. Brutal honesty serves them better than false encouragement.`;
-
-async function analyzeWithVision(
-  imageUrls: string[],
-  supabaseUrl: string,
-  openaiKey: string,
-  pageCount: number
-): Promise<OpenAIAnalysis> {
-  console.log(`Analyzing ${imageUrls.length} slide images with OpenAI Vision...`);
-
-  const maxImages = Math.min(imageUrls.length, 10);
-  const selectedImages = imageUrls.slice(0, maxImages);
-
-  const imageContent = selectedImages.map((url) => {
-    const fullUrl = url.startsWith('http') ? url : `${supabaseUrl}/storage/v1/object/public/${url}`;
-    console.log(`Image URL: ${fullUrl}`);
-    return {
-      type: 'image_url' as const,
-      image_url: {
-        url: fullUrl,
-        detail: 'high' as const
-      }
-    };
-  });
+Pitch Deck Content (${pageCount} pages):
+${text}`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${openaiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: ANALYSIS_PROMPT },
+        {
+          role: 'system',
+          content: 'You are a senior VC partner providing brutally honest pitch deck analysis. Return only valid JSON with no markdown formatting or code blocks.'
+        },
         {
           role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Analyze this ${pageCount}-page pitch deck. I'm showing you ${selectedImages.length} slides. Please provide a comprehensive VC-style analysis.`
-            },
-            ...imageContent
-          ]
+          content: prompt
         }
       ],
-      max_tokens: 8000,
       temperature: 0.7,
       response_format: { type: 'json_object' }
     }),
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI Vision API error:', errorText);
-    throw new Error(`OpenAI API error: ${response.status}`);
+    const error = await response.text();
+    console.error('OpenAI API error:', error);
+    throw new Error(`OpenAI API error: ${response.status} ${error}`);
   }
 
-  const result = await response.json();
-  const content = result.choices?.[0]?.message?.content;
+  const data = await response.json();
+  const content = data.choices[0].message.content;
 
-  if (!content) {
-    throw new Error('No response from OpenAI Vision');
-  }
-
-  console.log('OpenAI Vision response length:', content.length);
-  console.log('First 500 chars:', content.substring(0, 500));
-
+  let analysis: OpenAIAnalysis;
   try {
-    return JSON.parse(content);
+    analysis = JSON.parse(content);
   } catch (parseError) {
-    console.error('JSON parse error:', parseError);
-    console.error('Response content:', content.substring(0, 2000));
-    throw new Error(`Invalid JSON in Vision response: ${parseError.message}. Check function logs for details.`);
-  }
-}
-
-async function analyzeWithText(
-  text: string,
-  openaiKey: string,
-  pageCount: number
-): Promise<OpenAIAnalysis> {
-  console.log('Analyzing text content with OpenAI...');
-
-  const maxChars = 25000;
-  const textToAnalyze = text.substring(0, maxChars);
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${openaiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: ANALYSIS_PROMPT },
-        {
-          role: 'user',
-          content: `Analyze this ${pageCount}-page pitch deck:\n\n${textToAnalyze}`
-        }
-      ],
-      max_tokens: 8000,
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI API error:', errorText);
-    throw new Error(`OpenAI API error: ${response.status}`);
+    console.error('Failed to parse OpenAI response:', content);
+    throw new Error('Failed to parse AI analysis response');
   }
 
-  const result = await response.json();
-  const content = result.choices?.[0]?.message?.content;
-
-  if (!content) {
-    throw new Error('No response from OpenAI');
-  }
-
-  console.log('OpenAI Text response length:', content.length);
-  console.log('First 500 chars:', content.substring(0, 500));
-
-  try {
-    return JSON.parse(content);
-  } catch (parseError) {
-    console.error('JSON parse error:', parseError);
-    console.error('Response content:', content.substring(0, 2000));
-    throw new Error(`Invalid JSON in response: ${parseError.message}. Check function logs for details.`);
-  }
+  return analysis;
 }
 
 Deno.serve(async (req: Request) => {
@@ -339,24 +248,14 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
-    }
-
-    if (!openaiKey) {
-      console.error('OPENAI_API_KEY environment variable is not set');
-      throw new Error('OpenAI API key is not configured. Please add OPENAI_API_KEY to Edge Function secrets.');
-    }
-
-    console.log('Environment check passed');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+
     let user = null;
 
     if (authHeader) {
@@ -393,7 +292,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const file = formData.get('file') as File;
-    const sessionId = formData.get('sessionId') as string;
     const clientAnalysisId = formData.get('analysisId') as string;
     const imageUrlsJson = formData.get('imageUrls') as string;
 
@@ -436,10 +334,17 @@ Deno.serve(async (req: Request) => {
     const analysisId = clientAnalysisId || crypto.randomUUID();
     console.log('Analysis ID:', analysisId);
 
+    if (!user?.id) {
+      console.error('No authenticated user found. Auth header present:', !!authHeader);
+      throw new Error('Authentication required. Please refresh the page and try again.');
+    }
+
+    console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
+
     const analysisRecord = {
       id: analysisId,
-      user_id: user?.id || null,
-      session_id: !user?.id ? sessionId : null,
+      user_id: user.id,
+      session_id: null,
       file_name: file.name,
       file_size: file.size,
       overall_score: 0,
@@ -453,73 +358,52 @@ Deno.serve(async (req: Request) => {
       .insert(analysisRecord);
 
     if (analysisError) {
-      console.error('Failed to insert analysis:', analysisError);
-      throw new Error(`Failed to save analysis: ${analysisError.message}`);
+      console.error('Failed to create analysis record:', analysisError);
+      throw new Error(`Database error: ${analysisError.message}`);
     }
 
-    console.log('Initial analysis record created');
+    console.log('Analysis record created, starting AI analysis...');
 
-    const pageRecords = pages.map((page, i) => {
-      let storagePath = imageUrls[i] || null;
-      if (storagePath && storagePath.startsWith('http')) {
-        const match = storagePath.match(/\/storage\/v1\/object\/public\/(.+)$/);
-        if (match) {
-          storagePath = match[1];
-        }
-      }
-      return {
-        analysis_id: analysisId,
-        page_number: i + 1,
-        title: `Slide ${i + 1}`,
-        score: 50,
-        content: page.text.substring(0, 1000),
-        image_url: storagePath,
-      };
-    });
+    const pageRecords = pages.map((page, index) => ({
+      analysis_id: analysisId,
+      page_number: page.pageNumber,
+      title: `Slide ${page.pageNumber}`,
+      content: page.text,
+      score: 0,
+      image_url: imageUrls[index] || null,
+      thumbnail_url: imageUrls[index] || null,
+    }));
 
     const { error: pagesError } = await supabase
       .from('analysis_pages')
       .insert(pageRecords);
 
     if (pagesError) {
-      console.error('Failed to insert pages:', pagesError);
+      console.error('Failed to insert page records:', pagesError);
     }
 
-    const contentTextLength = text.replace(/--- PAGE \d+ ---/g, '').replace(/--- END PAGE \d+ ---/g, '').replace(/--- PDF METADATA ---[\s\S]*?--- END METADATA ---/g, '').trim().length;
-    const isImageBasedPDF = contentTextLength < 500;
-
-    console.log(`Content text length: ${contentTextLength} chars, isImageBased: ${isImageBasedPDF}`);
-
-    let analysis: OpenAIAnalysis;
-
-    if (isImageBasedPDF && imageUrls.length > 0) {
-      console.log('Using OpenAI Vision for image-based PDF analysis...');
-      analysis = await analyzeWithVision(imageUrls, supabaseUrl, openaiKey, pageCount);
-    } else if (text.length > 100) {
-      console.log('Using text-based analysis...');
-      analysis = await analyzeWithText(text, openaiKey, pageCount);
-    } else if (imageUrls.length > 0) {
-      console.log('Minimal text, falling back to Vision analysis...');
-      analysis = await analyzeWithVision(imageUrls, supabaseUrl, openaiKey, pageCount);
-    } else {
-      throw new Error('Unable to analyze: No text content and no slide images available');
+    let openAIAnalysis: OpenAIAnalysis;
+    try {
+      openAIAnalysis = await analyzeWithOpenAI(text, pageCount);
+      console.log('AI analysis completed successfully');
+    } catch (aiError: any) {
+      console.error('AI analysis failed:', aiError);
+      throw new Error(`AI analysis failed: ${aiError.message}`);
     }
-
-    console.log('Analysis complete, overall score:', analysis.overallScore);
 
     const { error: updateError } = await supabase
       .from('analyses')
       .update({
-        overall_score: Math.min(100, Math.max(0, analysis.overallScore)),
-        summary: analysis.summary,
-        investment_ready: analysis.investmentReadiness?.isInvestmentReady || false,
-        funding_stage: analysis.stageAssessment?.detectedStage || null,
-        word_density: analysis.wordDensityAssessment || 'Medium',
-        overall_score_feedback: analysis.overallScoreFeedback || null,
-        investment_grade_feedback: analysis.investmentGradeFeedback || null,
-        funding_odds_feedback: analysis.fundingOddsFeedback || null,
-        page_count_feedback: analysis.pageCountFeedback || null,
-        word_density_feedback: analysis.wordDensityFeedback || null,
+        overall_score: openAIAnalysis.overallScore,
+        summary: openAIAnalysis.summary,
+        overall_score_feedback: openAIAnalysis.overallScoreFeedback,
+        investment_grade_feedback: openAIAnalysis.investmentGradeFeedback,
+        funding_odds_feedback: openAIAnalysis.fundingOddsFeedback,
+        page_count_feedback: openAIAnalysis.pageCountFeedback,
+        word_density: openAIAnalysis.wordDensityAssessment,
+        word_density_feedback: openAIAnalysis.wordDensityFeedback,
+        investment_ready: openAIAnalysis.investmentReadiness.isInvestmentReady,
+        funding_stage: openAIAnalysis.stageAssessment.detectedStage,
       })
       .eq('id', analysisId);
 
@@ -527,51 +411,24 @@ Deno.serve(async (req: Request) => {
       console.error('Failed to update analysis:', updateError);
     }
 
-    const metricsRecord = {
-      analysis_id: analysisId,
-      strengths: analysis.strengths || [],
-      weaknesses: analysis.weaknesses || [],
-      clarity_score: Math.min(100, Math.max(0, analysis.clarityScore || 50)),
-      design_score: Math.min(100, Math.max(0, analysis.designScore || 50)),
-      content_score: Math.min(100, Math.max(0, analysis.contentScore || 50)),
-      structure_score: Math.min(100, Math.max(0, analysis.structureScore || 50)),
-    };
-
     const { error: metricsError } = await supabase
       .from('analysis_metrics')
-      .insert(metricsRecord);
+      .insert({
+        analysis_id: analysisId,
+        clarity_score: openAIAnalysis.clarityScore,
+        design_score: openAIAnalysis.designScore,
+        content_score: openAIAnalysis.contentScore,
+        structure_score: openAIAnalysis.structureScore,
+        strengths: openAIAnalysis.strengths,
+        weaknesses: openAIAnalysis.weaknesses,
+      });
 
     if (metricsError) {
       console.error('Failed to insert metrics:', metricsError);
     }
 
-    if (analysis.keyBusinessMetrics) {
-      const kbm = analysis.keyBusinessMetrics;
-      const keyMetricsRecord = {
-        analysis_id: analysisId,
-        company_name: kbm.companyName || 'Not specified',
-        industry: kbm.industry || 'Not specified',
-        current_revenue: kbm.currentRevenue || 'Not specified',
-        funding_sought: kbm.fundingSought || 'Not specified',
-        growth_rate: kbm.growthRate || 'Not specified',
-        team_size: kbm.teamSize || 0,
-        market_size: kbm.marketSize || 'Not specified',
-        valuation: kbm.valuation || 'Not specified',
-        business_model: kbm.businessModel || 'Not specified',
-        customer_count: kbm.customerCount || 'Not specified',
-      };
-
-      const { error: keyMetricsError } = await supabase
-        .from('key_business_metrics')
-        .insert(keyMetricsRecord);
-
-      if (keyMetricsError) {
-        console.error('Failed to insert key business metrics:', keyMetricsError);
-      }
-    }
-
-    if (analysis.issues?.length > 0) {
-      const issueRecords = analysis.issues.map(issue => ({
+    if (openAIAnalysis.issues && openAIAnalysis.issues.length > 0) {
+      const issueRecords = openAIAnalysis.issues.map(issue => ({
         analysis_id: analysisId,
         page_number: issue.pageNumber,
         priority: issue.priority,
@@ -589,31 +446,78 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (analysis.dealBreakers?.length > 0) {
-      const dealBreakerRecords = analysis.dealBreakers.map(db => ({
-        analysis_id: analysisId,
-        title: db.title,
-        description: db.description,
-        recommendation: db.recommendation,
-      }));
+    if (openAIAnalysis.keyBusinessMetrics) {
+      const { error: keyMetricsError } = await supabase
+        .from('key_business_metrics')
+        .insert({
+          analysis_id: analysisId,
+          company_name: openAIAnalysis.keyBusinessMetrics.companyName,
+          industry: openAIAnalysis.keyBusinessMetrics.industry,
+          current_revenue: openAIAnalysis.keyBusinessMetrics.currentRevenue,
+          funding_sought: openAIAnalysis.keyBusinessMetrics.fundingSought,
+          growth_rate: openAIAnalysis.keyBusinessMetrics.growthRate,
+          team_size: openAIAnalysis.keyBusinessMetrics.teamSize,
+          market_size: openAIAnalysis.keyBusinessMetrics.marketSize,
+          valuation: openAIAnalysis.keyBusinessMetrics.valuation,
+          business_model: openAIAnalysis.keyBusinessMetrics.businessModel,
+          customer_count: openAIAnalysis.keyBusinessMetrics.customerCount,
+        });
 
-      const { error: dealBreakersError } = await supabase
-        .from('analysis_deal_breakers')
-        .insert(dealBreakerRecords);
-
-      if (dealBreakersError) {
-        console.error('Failed to insert deal breakers:', dealBreakersError);
+      if (keyMetricsError) {
+        console.error('Failed to insert key metrics:', keyMetricsError);
       }
     }
 
-    if (analysis.redFlags?.length > 0) {
-      const redFlagRecords = analysis.redFlags.map(rf => ({
+    if (openAIAnalysis.stageAssessment) {
+      const { error: stageError } = await supabase
+        .from('analysis_stage_assessment')
+        .insert({
+          analysis_id: analysisId,
+          detected_stage: openAIAnalysis.stageAssessment.detectedStage,
+          stage_confidence: openAIAnalysis.stageAssessment.stageConfidence,
+          stage_appropriateness_score: openAIAnalysis.stageAssessment.stageAppropriatenessScore,
+          stage_specific_feedback: openAIAnalysis.stageAssessment.stageFeedback,
+        });
+
+      if (stageError) {
+        console.error('Failed to insert stage assessment:', stageError);
+      }
+    }
+
+    if (openAIAnalysis.investmentReadiness) {
+      const { error: readinessError } = await supabase
+        .from('analysis_investment_readiness')
+        .insert({
+          analysis_id: analysisId,
+          is_investment_ready: openAIAnalysis.investmentReadiness.isInvestmentReady,
+          readiness_score: openAIAnalysis.investmentReadiness.readinessScore,
+          readiness_summary: openAIAnalysis.investmentReadiness.readinessSummary,
+          critical_blockers: openAIAnalysis.investmentReadiness.criticalBlockers,
+          team_score: openAIAnalysis.investmentReadiness.teamScore,
+          market_opportunity_score: openAIAnalysis.investmentReadiness.marketOpportunityScore,
+          product_score: openAIAnalysis.investmentReadiness.productScore,
+          traction_score: openAIAnalysis.investmentReadiness.tractionScore,
+          financials_score: openAIAnalysis.investmentReadiness.financialsScore,
+          team_feedback: openAIAnalysis.investmentReadiness.teamFeedback,
+          market_opportunity_feedback: openAIAnalysis.investmentReadiness.marketOpportunityFeedback,
+          product_feedback: openAIAnalysis.investmentReadiness.productFeedback,
+          traction_feedback: openAIAnalysis.investmentReadiness.tractionFeedback,
+          financials_feedback: openAIAnalysis.investmentReadiness.financialsFeedback,
+        });
+
+      if (readinessError) {
+        console.error('Failed to insert investment readiness:', readinessError);
+      }
+    }
+
+    if (openAIAnalysis.redFlags && openAIAnalysis.redFlags.length > 0) {
+      const redFlagRecords = openAIAnalysis.redFlags.map(flag => ({
         analysis_id: analysisId,
-        category: rf.category,
-        severity: rf.severity,
-        title: rf.title,
-        description: rf.description,
-        impact: rf.impact,
+        category: flag.category,
+        severity: flag.severity,
+        title: flag.title,
+        description: flag.description,
+        impact: flag.impact,
       }));
 
       const { error: redFlagsError } = await supabase
@@ -625,78 +529,51 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (analysis.stageAssessment) {
-      const stageRecord = {
+    if (openAIAnalysis.dealBreakers && openAIAnalysis.dealBreakers.length > 0) {
+      const dealBreakerRecords = openAIAnalysis.dealBreakers.map(breaker => ({
         analysis_id: analysisId,
-        detected_stage: analysis.stageAssessment.detectedStage,
-        stage_confidence: analysis.stageAssessment.stageConfidence,
-        stage_appropriateness_score: Math.min(100, Math.max(0, analysis.stageAssessment.stageAppropriatenessScore)),
-        stage_specific_feedback: analysis.stageAssessment.stageFeedback,
-      };
+        title: breaker.title,
+        description: breaker.description,
+        recommendation: breaker.recommendation,
+      }));
 
-      const { error: stageError } = await supabase
-        .from('analysis_stage_assessment')
-        .insert(stageRecord);
+      const { error: dealBreakersError } = await supabase
+        .from('analysis_deal_breakers')
+        .insert(dealBreakerRecords);
 
-      if (stageError) {
-        console.error('Failed to insert stage assessment:', stageError);
+      if (dealBreakersError) {
+        console.error('Failed to insert deal breakers:', dealBreakersError);
       }
     }
-
-    if (analysis.investmentReadiness) {
-      const ir = analysis.investmentReadiness;
-      const readinessRecord = {
-        analysis_id: analysisId,
-        is_investment_ready: ir.isInvestmentReady,
-        readiness_score: Math.min(100, Math.max(0, ir.readinessScore)),
-        readiness_summary: ir.readinessSummary,
-        critical_blockers: ir.criticalBlockers || [],
-        team_score: Math.min(100, Math.max(0, ir.teamScore)),
-        market_opportunity_score: Math.min(100, Math.max(0, ir.marketOpportunityScore)),
-        product_score: Math.min(100, Math.max(0, ir.productScore)),
-        traction_score: Math.min(100, Math.max(0, ir.tractionScore)),
-        financials_score: Math.min(100, Math.max(0, ir.financialsScore)),
-        team_feedback: ir.teamFeedback,
-        market_opportunity_feedback: ir.marketOpportunityFeedback,
-        product_feedback: ir.productFeedback,
-        traction_feedback: ir.tractionFeedback,
-        financials_feedback: ir.financialsFeedback,
-      };
-
-      const { error: readinessError } = await supabase
-        .from('analysis_investment_readiness')
-        .insert(readinessRecord);
-
-      if (readinessError) {
-        console.error('Failed to insert investment readiness:', readinessError);
-      }
-    }
-
-    console.log('All analysis data saved successfully');
 
     const result: AnalysisResult = {
       analysisId,
-      overallScore: analysis.overallScore,
-      summary: analysis.summary,
+      overallScore: openAIAnalysis.overallScore,
+      summary: openAIAnalysis.summary,
       totalPages: pageCount,
     };
+
+    console.log('Analysis complete:', result);
 
     return new Response(
       JSON.stringify(result),
       {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
       }
     );
-
   } catch (error: any) {
     console.error('Error in analyze-deck function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
       }
     );
   }

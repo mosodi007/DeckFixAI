@@ -3,9 +3,11 @@ import { Sparkles, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
 import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages } from '../services/storageService';
-import { getOrCreateSessionId } from '../services/sessionService';
 import { v4 as uuidv4 } from 'uuid';
 import { SEOContentSection } from './upload/SEOContentSection';
+import { useAuth } from '../contexts/AuthContext';
+import { LoginModal } from './auth/LoginModal';
+import { SignUpModal } from './auth/SignUpModal';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
@@ -13,11 +15,25 @@ interface UploadViewProps {
 }
 
 export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
+  const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [shouldOpenFilePicker, setShouldOpenFilePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
+
+  const handleChooseFileClick = () => {
+    if (!user) {
+      setShowLoginModal(true);
+      setShouldOpenFilePicker(true);
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,11 +79,49 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type === 'application/pdf') {
-        handleAnalyze(file);
+        if (!user) {
+          setPendingFile(file);
+          setShowLoginModal(true);
+          setShouldOpenFilePicker(false);
+        } else {
+          handleAnalyze(file);
+        }
       } else {
         alert('Please drop a PDF file');
       }
     }
+  };
+
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(false);
+
+    if (pendingFile) {
+      handleAnalyze(pendingFile);
+      setPendingFile(null);
+    } else if (shouldOpenFilePicker) {
+      setShouldOpenFilePicker(false);
+      setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 100);
+    }
+  };
+
+  const handleAuthCancel = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(false);
+    setPendingFile(null);
+    setShouldOpenFilePicker(false);
+  };
+
+  const handleSwitchToSignUp = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(true);
+  };
+
+  const handleSwitchToLogin = () => {
+    setShowSignUpModal(false);
+    setShowLoginModal(true);
   };
 
   const handleAnalyze = async (file: File) => {
@@ -78,7 +132,6 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
     try {
       const analysisId = uuidv4();
-      const sessionId = isAuthenticated ? undefined : getOrCreateSessionId();
 
       setAnalysisProgress(10);
 
@@ -96,7 +149,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
       setAnalysisProgress(60);
 
-      const result = await analyzeDeck(file, analysisId, imageUrls, sessionId);
+      const result = await analyzeDeck(file, analysisId, imageUrls);
 
       setAnalysisProgress(100);
 
@@ -186,7 +239,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                       className="hidden"
                     />
                     <button
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={handleChooseFileClick}
                       className="inline-flex items-center gap-3 px-10 py-4 bg-slate-900 text-white text-lg font-semibold rounded-xl hover:bg-slate-800 transition-all hover:shadow-xl hover:scale-105"
                     >
                       <Upload className="w-6 h-6" />
@@ -238,6 +291,22 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
           <SEOContentSection />
         </div>
       </div>
+
+      {showLoginModal && (
+        <LoginModal
+          onClose={handleAuthCancel}
+          onSwitchToSignUp={handleSwitchToSignUp}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {showSignUpModal && (
+        <SignUpModal
+          onClose={handleAuthCancel}
+          onSwitchToLogin={handleSwitchToLogin}
+          onSignUpSuccess={handleLoginSuccess}
+        />
+      )}
     </div>
   );
 }

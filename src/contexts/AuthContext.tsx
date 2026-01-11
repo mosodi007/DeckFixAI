@@ -52,29 +52,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     getCurrentUser().then(async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
-        await loadUserProfile(currentUser.id);
+        console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
+        setUser(currentUser);
+        if (currentUser.email) {
+          await loadUserProfile(currentUser.id);
+        }
       }
+      setLoading(false);
+    }).catch((error) => {
+      console.error('Error during authentication initialization:', error);
       setLoading(false);
     });
 
     const subscription = onAuthStateChange(async (updatedUser) => {
-      if (updatedUser && !user) {
-        const sessionId = getSessionId();
-        if (sessionId) {
-          try {
-            await migrateSessionAnalyses(sessionId, updatedUser.id);
-            clearSessionId();
-            console.log('Migrated session analyses to user account');
-          } catch (error) {
-            console.error('Failed to migrate session analyses:', error);
-          }
+      const previousUser = user;
+      const previousWasAnonymous = previousUser && previousUser.is_anonymous;
+      const newUserIsAuthenticated = updatedUser && !updatedUser.is_anonymous;
+
+      if (previousWasAnonymous && newUserIsAuthenticated && previousUser) {
+        try {
+          await migrateSessionAnalyses(previousUser.id, updatedUser.id);
+          console.log('Migrated anonymous analyses to authenticated user account');
+        } catch (error) {
+          console.error('Failed to migrate analyses:', error);
+        }
+      }
+
+      const sessionId = getSessionId();
+      if (sessionId && newUserIsAuthenticated) {
+        try {
+          await migrateSessionAnalyses(sessionId, updatedUser.id);
+          clearSessionId();
+          console.log('Migrated session analyses to user account');
+        } catch (error) {
+          console.error('Failed to migrate session analyses:', error);
         }
       }
 
       setUser(updatedUser);
-      if (updatedUser) {
+      if (updatedUser && updatedUser.email) {
         await loadUserProfile(updatedUser.id);
       } else {
         setUserProfile(null);

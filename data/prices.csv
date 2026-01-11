@@ -1,0 +1,11 @@
+Price ID,Product ID,Product Name,Product Statement Descriptor,Product Tax Code,Description,Created (UTC),Amount,Currency,Interval,Interval Count,Usage Type,Aggregate Usage,Billing Scheme,Trial Period Days,Tax Behavior
+price_1SoMbLHJtj9hmvRfvMUZZV0a,prod_TluQwiGH2QTBUZ,DeckFix Pro Annually 10000,,txcd_10103000,,2026-01-11 11:14,1343.90,usd,year,1,licensed,,per_unit,,unspecified
+price_1SoMaIHJtj9hmvRfaWfekpc3,prod_TluPy1T2bKuMXG,DeckFix Pro Annually 5000,,txcd_10103000,,2026-01-11 11:13,719.90,usd,year,1,licensed,,per_unit,,unspecified
+price_1SoMZIHJtj9hmvRfvAMzJuNw,prod_TluOFN4Dh3tCQ3,DeckFix Pro Annually 2000,,txcd_10103000,,2026-01-11 11:12,326.30,usd,year,1,licensed,,per_unit,,unspecified
+price_1SoMY8HJtj9hmvRfA1bQX4x2,prod_TluMJj82lKUCme,DeckFix Pro Annually 1000,,txcd_10103000,,2026-01-11 11:11,172.70,usd,year,1,licensed,,per_unit,,unspecified
+price_1SoMVqHJtj9hmvRf5rAPfrws,prod_TluKrJJJk3GWOU,DeckFix Pro Annually 500,,txcd_10103000,,2026-01-11 11:08,95.90,usd,year,1,licensed,,per_unit,,unspecified
+price_1SoMTGHJtj9hmvRfSF2IqmEO,prod_TluHrTqju71TbS,DeckFix Pro Monthly 10000,,txcd_10103000,,2026-01-11 11:06,139.99,usd,month,1,licensed,,per_unit,,unspecified
+price_1SoMRKHJtj9hmvRf5YjizXFL,prod_TluFpg5GqvTSNm,DeckFix Pro Monthly 5000,,txcd_10103000,,2026-01-11 11:04,74.99,usd,month,1,licensed,,per_unit,,unspecified
+price_1SoMO6HJtj9hmvRfoIRqZXz2,prod_TluC2sZ7ADTEty,DeckFix Pro Monthly 2000,,txcd_10103000,,2026-01-11 11:00,33.99,usd,month,1,licensed,,per_unit,,inclusive
+price_1SoMLpHJtj9hmvRfYDFoR7ru,prod_TluAfg9HbEVQoP,DeckFix Pro Monthly 1000,,txcd_10103000,,2026-01-11 10:58,17.99,usd,month,1,licensed,,per_unit,,unspecified
+price_1SoMKmHJtj9hmvRfR7QVv0UH,prod_Tlu9ORyDZ2T3IV,DeckFix Pro Monthly 500,,txcd_10103000,,2026-01-11 10:57,9.99,usd,month,1,licensed,,per_unit,,inclusive

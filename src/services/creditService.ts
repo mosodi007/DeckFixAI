@@ -461,6 +461,197 @@ export async function submitContactRequest(request: ContactRequest): Promise<{ s
   return { success: true };
 }
 
+export async function getUserProCreditTier(): Promise<ProCreditTier | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data: stripeData, error: stripeError } = await supabase
+    .from('stripe_subscriptions')
+    .select('price_id, customer_id')
+    .eq('customer_id', (await supabase
+      .from('stripe_customers')
+      .select('customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle())?.data?.customer_id || '')
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (stripeError || !stripeData?.price_id) {
+    return null;
+  }
+
+  const { data: tiers, error: tiersError } = await supabase
+    .from('pro_credit_tiers')
+    .select('*')
+    .or(`stripe_price_id_monthly.eq.${stripeData.price_id},stripe_price_id_annual.eq.${stripeData.price_id}`)
+    .maybeSingle();
+
+  if (tiersError || !tiers) {
+    return null;
+  }
+
+  return {
+    id: tiers.id,
+    credits: tiers.credits,
+    priceMonthly: parseFloat(tiers.price_monthly),
+    priceAnnual: parseFloat(tiers.price_annual),
+    stripePriceIdMonthly: tiers.stripe_price_id_monthly,
+    stripePriceIdAnnual: tiers.stripe_price_id_annual,
+    displayOrder: tiers.display_order,
+    isActive: tiers.is_active,
+  };
+}
+
+export async function getUserCurrentBillingPeriod(): Promise<'monthly' | 'annual' | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data: customerData } = await supabase
+    .from('stripe_customers')
+    .select('customer_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!customerData) {
+    return null;
+  }
+
+  const { data: stripeData } = await supabase
+    .from('stripe_subscriptions')
+    .select('price_id')
+    .eq('customer_id', customerData.customer_id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (!stripeData?.price_id) {
+    return null;
+  }
+
+  const { data: tierData } = await supabase
+    .from('pro_credit_tiers')
+    .select('stripe_price_id_monthly, stripe_price_id_annual')
+    .or(`stripe_price_id_monthly.eq.${stripeData.price_id},stripe_price_id_annual.eq.${stripeData.price_id}`)
+    .maybeSingle();
+
+  if (!tierData) {
+    return null;
+  }
+
+  if (tierData.stripe_price_id_monthly === stripeData.price_id) {
+    return 'monthly';
+  } else if (tierData.stripe_price_id_annual === stripeData.price_id) {
+    return 'annual';
+  }
+
+  return null;
+}
+
+export async function getScheduledBillingChange(): Promise<{
+  scheduledPriceId: string | null;
+  scheduledChangeDate: number | null;
+  scheduledBillingPeriod: 'monthly' | 'annual' | null;
+  scheduledTier: ProCreditTier | null;
+} | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data: customerData } = await supabase
+    .from('stripe_customers')
+    .select('customer_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!customerData) {
+    return null;
+  }
+
+  const { data: stripeData } = await supabase
+    .from('stripe_subscriptions')
+    .select('scheduled_price_id, scheduled_change_date')
+    .eq('customer_id', customerData.customer_id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (!stripeData?.scheduled_price_id || !stripeData?.scheduled_change_date) {
+    return null;
+  }
+
+  const { data: tierData } = await supabase
+    .from('pro_credit_tiers')
+    .select('*')
+    .or(`stripe_price_id_monthly.eq.${stripeData.scheduled_price_id},stripe_price_id_annual.eq.${stripeData.scheduled_price_id}`)
+    .maybeSingle();
+
+  if (!tierData) {
+    return null;
+  }
+
+  let scheduledBillingPeriod: 'monthly' | 'annual' | null = null;
+  if (tierData.stripe_price_id_monthly === stripeData.scheduled_price_id) {
+    scheduledBillingPeriod = 'monthly';
+  } else if (tierData.stripe_price_id_annual === stripeData.scheduled_price_id) {
+    scheduledBillingPeriod = 'annual';
+  }
+
+  const scheduledTier: ProCreditTier = {
+    id: tierData.id,
+    credits: tierData.credits,
+    priceMonthly: parseFloat(tierData.price_monthly),
+    priceAnnual: parseFloat(tierData.price_annual),
+    stripePriceIdMonthly: tierData.stripe_price_id_monthly,
+    stripePriceIdAnnual: tierData.stripe_price_id_annual,
+    displayOrder: tierData.display_order,
+    isActive: tierData.is_active,
+  };
+
+  return {
+    scheduledPriceId: stripeData.scheduled_price_id,
+    scheduledChangeDate: stripeData.scheduled_change_date,
+    scheduledBillingPeriod,
+    scheduledTier,
+  };
+}
+
+export async function getSubscriptionPeriodEnd(): Promise<Date | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data: customerData } = await supabase
+    .from('stripe_customers')
+    .select('customer_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!customerData) {
+    return null;
+  }
+
+  const { data: stripeData } = await supabase
+    .from('stripe_subscriptions')
+    .select('current_period_end')
+    .eq('customer_id', customerData.customer_id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (!stripeData?.current_period_end) {
+    return null;
+  }
+
+  return new Date(stripeData.current_period_end * 1000);
+}
+
 export function formatCredits(credits: number): string {
   return credits.toLocaleString('en-US');
 }

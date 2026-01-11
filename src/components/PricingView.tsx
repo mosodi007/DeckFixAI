@@ -1,24 +1,226 @@
 import { useState, useEffect } from 'react';
-import { Check, ChevronDown, Mail, Sparkles } from 'lucide-react';
-import { getProCreditTiers, formatCredits, type ProCreditTier } from '../services/creditService';
+import { Check, ChevronDown, Mail, Sparkles, Loader2 } from 'lucide-react';
+import { getProCreditTiers, getUserProCreditTier, getUserCurrentBillingPeriod, getScheduledBillingChange, formatCredits, type ProCreditTier } from '../services/creditService';
 import { ContactSalesModal } from './ContactSalesModal';
+import { createCheckoutSession, getSuccessUrl, getCancelUrl } from '../services/stripeService';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../services/authService';
+import { UpgradePreviewModal } from './UpgradePreviewModal';
+import { getUpgradePreview, formatCurrency, type UpgradePreview } from '../services/upgradeService';
 
-export function PricingView() {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
+interface PricingViewProps {
+  preselectedTierCredits?: number;
+}
+
+export function PricingView({ preselectedTierCredits }: PricingViewProps = {}) {
+  const { user } = useAuth();
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual');
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
+  const [currentTier, setCurrentTier] = useState<ProCreditTier | null>(null);
+  const [currentBillingPeriod, setCurrentBillingPeriod] = useState<'monthly' | 'annual' | null>(null);
+  const [scheduledBillingPeriod, setScheduledBillingPeriod] = useState<'monthly' | 'annual' | null>(null);
+  const [scheduledChangeDate, setScheduledChangeDate] = useState<number | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPricing();
-  }, []);
+  }, [user]);
 
   async function loadPricing() {
     setLoading(true);
-    const tiers = await getProCreditTiers();
+    const [tiers, userTier, userBillingPeriod, scheduledChange] = await Promise.all([
+      getProCreditTiers(),
+      getUserProCreditTier(),
+      getUserCurrentBillingPeriod(),
+      getScheduledBillingChange()
+    ]);
     setProTiers(tiers);
+    setCurrentTier(userTier);
+    setCurrentBillingPeriod(userBillingPeriod);
+    setScheduledBillingPeriod(scheduledChange?.scheduledBillingPeriod || null);
+    setScheduledChangeDate(scheduledChange?.scheduledChangeDate || null);
+
+    if (preselectedTierCredits) {
+      const tierIndex = tiers.findIndex(t => t.credits === preselectedTierCredits);
+      if (tierIndex !== -1) {
+        setSelectedTierIndex(tierIndex);
+      }
+    } else if (userTier) {
+      const tierIndex = tiers.findIndex(t => t.id === userTier.id);
+      if (tierIndex !== -1) {
+        setSelectedTierIndex(tierIndex);
+      }
+    }
+
     setLoading(false);
+  }
+
+  async function handleChangePlan() {
+    if (!user) {
+      setError('Please log in to change your plan');
+      return;
+    }
+
+    if (!selectedTier) {
+      setError('Please select a credit tier');
+      return;
+    }
+
+    const priceId = billingPeriod === 'monthly'
+      ? selectedTier.stripePriceIdMonthly
+      : selectedTier.stripePriceIdAnnual;
+
+    if (!priceId) {
+      setError('Pricing not configured for this tier. Please contact support.');
+      return;
+    }
+
+    setError(null);
+
+    const isSameTier = currentTier && currentTier.id === selectedTier.id;
+    const isDifferentBillingPeriod = currentBillingPeriod && currentBillingPeriod !== billingPeriod;
+
+    if (isSameTier && isDifferentBillingPeriod) {
+      proceedWithCheckout(priceId);
+    } else if (currentTier && selectedTier.credits > currentTier.credits) {
+      setPreviewLoading(true);
+      setShowUpgradeModal(true);
+
+      try {
+        const preview = await getUpgradePreview(priceId);
+        setUpgradePreview(preview);
+      } catch (err) {
+        console.error('Preview error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load upgrade preview');
+        setShowUpgradeModal(false);
+      } finally {
+        setPreviewLoading(false);
+      }
+    } else {
+      proceedWithCheckout(priceId);
+    }
+  }
+
+  async function proceedWithCheckout(priceId: string) {
+    setCheckoutLoading(true);
+    setError(null);
+    setShowUpgradeModal(false);
+
+    try {
+      const result = await createCheckoutSession({
+        priceId,
+        mode: 'subscription',
+        successUrl: getSuccessUrl('/dashboard'),
+        cancelUrl: getCancelUrl('/pricing'),
+      });
+
+      if (result.success && result.url) {
+        if (result.updated) {
+          if (result.isBillingPeriodChange && result.scheduledChange) {
+            const newPeriod = billingPeriod === 'annual' ? 'annual' : 'monthly';
+            alert(`Your billing period will change to ${newPeriod} at the end of your current billing cycle. You will not be charged until then.`);
+            await loadPricing();
+            setCheckoutLoading(false);
+          } else if (result.isDowngrade) {
+            alert('Your plan will be downgraded at the end of your current billing period.');
+            window.location.href = result.url;
+          } else {
+            alert('Your plan has been upgraded successfully!');
+            window.location.href = result.url;
+          }
+        } else {
+          window.location.href = result.url;
+        }
+      } else {
+        throw new Error(result.error || 'Failed to process plan change');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setCheckoutLoading(false);
+    }
+  }
+
+  function handleConfirmUpgrade() {
+    if (!upgradePreview || !upgradePreview.stripePriceId) return;
+
+    proceedWithOneTimeUpgrade(upgradePreview.stripePriceId);
+  }
+
+  async function proceedWithOneTimeUpgrade(priceId: string) {
+    setCheckoutLoading(true);
+    setError(null);
+    setShowUpgradeModal(false);
+
+    try {
+      const result = await createCheckoutSession({
+        priceId,
+        mode: 'payment',
+        successUrl: getSuccessUrl('/dashboard'),
+        cancelUrl: getCancelUrl('/pricing'),
+      });
+
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        throw new Error(result.error || 'Failed to process upgrade');
+      }
+    } catch (err) {
+      console.error('Upgrade checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start upgrade checkout');
+      setCheckoutLoading(false);
+    }
+  }
+
+  async function handleDowngradeToFree() {
+    if (!user) {
+      setError('Please log in to downgrade');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to downgrade to the Free plan? Your subscription will be cancelled at the end of the current billing period.')) {
+      return;
+    }
+
+    setCheckoutLoading(true);
+    setError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cancel-subscription`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to cancel subscription');
+      }
+
+      alert('Your subscription will be cancelled at the end of the current billing period. You will be moved to the Free plan.');
+      await loadPricing();
+    } catch (err) {
+      console.error('Cancellation error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+    } finally {
+      setCheckoutLoading(false);
+    }
   }
 
   const selectedTier = proTiers[selectedTierIndex];
@@ -107,6 +309,12 @@ export function PricingView() {
             </div>
           </div>
 
+          {error && (
+            <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             <div className="relative rounded-2xl p-8 border bg-white border-slate-200 shadow-lg transition-all hover:shadow-xl">
               <div className="text-center mb-6">
@@ -136,9 +344,27 @@ export function PricingView() {
                 ))}
               </ul>
 
-              <button className="w-full py-3 rounded-xl font-semibold transition-all bg-slate-900 text-white hover:bg-slate-800 opacity-50 cursor-not-allowed" disabled>
-                Current Plan
+              <button
+                onClick={currentTier ? handleDowngradeToFree : undefined}
+                disabled={checkoutLoading || !currentTier}
+                className="w-full py-3 rounded-xl font-semibold transition-all bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : !currentTier ? (
+                  'Current Plan'
+                ) : (
+                  'Downgrade to Free'
+                )}
               </button>
+              {currentTier && (
+                <p className="text-xs text-center mt-2 text-slate-500">
+                  Cancels subscription at end of billing period
+                </p>
+              )}
             </div>
 
             <div className="relative rounded-2xl p-8 border bg-slate-900 border-slate-800 transform scale-105 shadow-2xl transition-all hover:shadow-3xl">
@@ -202,9 +428,55 @@ export function PricingView() {
                 ))}
               </ul>
 
-              <button className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg">
-                Upgrade to Pro
+              <button
+                onClick={handleChangePlan}
+                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && !scheduledBillingPeriod) || (scheduledBillingPeriod && scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id)}
+                className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : scheduledBillingPeriod && scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id ? (
+                  'Scheduled Change'
+                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && !scheduledBillingPeriod ? (
+                  'Current Plan'
+                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && !scheduledBillingPeriod ? (
+                  billingPeriod === 'annual' ? 'Change to Annual Plan' : 'Change to Monthly Plan'
+                ) : currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits ? (
+                  'Downgrade'
+                ) : currentTier !== null && selectedTier && selectedTier.credits > currentTier.credits ? (
+                  'View Upgrade Options'
+                ) : (
+                  'Upgrade to Pro'
+                )}
               </button>
+              {!user && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  Please log in to change your plan
+                </p>
+              )}
+              {scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id && scheduledChangeDate && (
+                <p className="text-xs text-center mt-2 text-blue-400 font-medium">
+                  {billingPeriod === 'annual' ? 'Annual' : 'Monthly'} Plan will take effect from: {new Date(scheduledChangeDate * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              )}
+              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && !scheduledBillingPeriod && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  You are currently on this plan
+                </p>
+              )}
+              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && !scheduledBillingPeriod && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  Change will take effect at the end of your current billing cycle
+                </p>
+              )}
+              {currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits && currentTier.id !== selectedTier?.id && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  Downgrade will take effect at the end of your billing period
+                </p>
+              )}
             </div>
 
             <div className="relative rounded-2xl p-8 border bg-white border-slate-200 shadow-lg transition-all hover:shadow-xl">
@@ -242,55 +514,19 @@ export function PricingView() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <Sparkles className="w-6 h-6 text-slate-900" />
-              How Credit Pricing Works
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">2-3</span>
-                  </div>
-                  <h4 className="font-semibold text-slate-900">Low Complexity</h4>
-                </div>
-                <p className="text-sm text-slate-700">
-                  Simple fixes: 1-2 minor issues, short content, spelling or grammar corrections
-                </p>
-              </div>
-              <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">4-6</span>
-                  </div>
-                  <h4 className="font-semibold text-slate-900">Medium Complexity</h4>
-                </div>
-                <p className="text-sm text-slate-700">
-                  Moderate fixes: 3-4 issues, medium content length, structural improvements
-                </p>
-              </div>
-              <div className="p-4 bg-red-50 rounded-xl border border-red-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">7-10</span>
-                  </div>
-                  <h4 className="font-semibold text-slate-900">High Complexity</h4>
-                </div>
-                <p className="text-sm text-slate-700">
-                  Complex fixes: 5+ issues, long content, critical severity, major rewrites
-                </p>
-              </div>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <p className="text-sm text-slate-700">
-                <strong className="text-slate-900">Fair & Transparent:</strong> You always see the estimated cost before generating a fix.
-                We analyze issue count, severity, content length, and required changes to calculate a fair price.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
+
+      <UpgradePreviewModal
+        isOpen={showUpgradeModal}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setUpgradePreview(null);
+        }}
+        onConfirm={handleConfirmUpgrade}
+        preview={upgradePreview}
+        loading={previewLoading}
+      />
 
       <ContactSalesModal
         isOpen={showContactModal}

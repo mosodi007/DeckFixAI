@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Check, ChevronDown, Mail, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, Mail, Sparkles, Loader2 } from 'lucide-react';
 import { getProCreditTiers, formatCredits, type ProCreditTier } from '../services/creditService';
 import { ContactSalesModal } from './ContactSalesModal';
+import { redirectToCheckout, getSuccessUrl, getCancelUrl } from '../services/stripeService';
+import { useAuth } from '../contexts/AuthContext';
 
 export function PricingView() {
+  const { user } = useAuth();
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPricing();
@@ -19,6 +24,43 @@ export function PricingView() {
     const tiers = await getProCreditTiers();
     setProTiers(tiers);
     setLoading(false);
+  }
+
+  async function handleUpgradeToPro() {
+    if (!user) {
+      setError('Please log in to upgrade');
+      return;
+    }
+
+    if (!selectedTier) {
+      setError('Please select a credit tier');
+      return;
+    }
+
+    const priceId = billingPeriod === 'monthly'
+      ? selectedTier.stripePriceIdMonthly
+      : selectedTier.stripePriceIdAnnual;
+
+    if (!priceId) {
+      setError('Pricing not configured for this tier. Please contact support.');
+      return;
+    }
+
+    setCheckoutLoading(true);
+    setError(null);
+
+    try {
+      await redirectToCheckout({
+        priceId,
+        mode: 'subscription',
+        successUrl: getSuccessUrl('/dashboard'),
+        cancelUrl: getCancelUrl('/pricing'),
+      });
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setCheckoutLoading(false);
+    }
   }
 
   const selectedTier = proTiers[selectedTierIndex];
@@ -106,6 +148,12 @@ export function PricingView() {
               </button>
             </div>
           </div>
+
+          {error && (
+            <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             <div className="relative rounded-2xl p-8 border bg-white border-slate-200 shadow-lg transition-all hover:shadow-xl">
@@ -202,9 +250,25 @@ export function PricingView() {
                 ))}
               </ul>
 
-              <button className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg">
-                Upgrade to Pro
+              <button
+                onClick={handleUpgradeToPro}
+                disabled={checkoutLoading || !user}
+                className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Upgrade to Pro'
+                )}
               </button>
+              {!user && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  Please log in to upgrade
+                </p>
+              )}
             </div>
 
             <div className="relative rounded-2xl p-8 border bg-white border-slate-200 shadow-lg transition-all hover:shadow-xl">

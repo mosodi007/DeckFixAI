@@ -91,6 +91,20 @@ async function handleEvent(event: Stripe.Event) {
       await syncCustomerFromStripe(customerId);
     } else if (mode === 'payment' && payment_status === 'paid') {
       try {
+        // Get user_id from stripe customer
+        const { data: customerData, error: customerError } = await supabase
+          .from('stripe_customers')
+          .select('user_id')
+          .eq('customer_id', customerId)
+          .maybeSingle();
+
+        if (customerError || !customerData) {
+          console.error('Error fetching user from stripe customer:', customerError);
+          return;
+        }
+
+        const userId = customerData.user_id;
+
         // Extract the necessary information from the session
         const {
           id: checkout_session_id,
@@ -99,6 +113,13 @@ async function handleEvent(event: Stripe.Event) {
           amount_total,
           currency,
         } = stripeData as Stripe.Checkout.Session;
+
+        // Get the line items to extract the price_id
+        const session = await stripe.checkout.sessions.retrieve(checkout_session_id, {
+          expand: ['line_items'],
+        });
+
+        const priceId = session.line_items?.data[0]?.price?.id;
 
         // Insert the order into the stripe_orders table
         const { error: orderError } = await supabase.from('stripe_orders').insert({
@@ -109,13 +130,19 @@ async function handleEvent(event: Stripe.Event) {
           amount_total,
           currency,
           payment_status,
-          status: 'completed', // assuming we want to mark it as completed since payment is successful
+          status: 'completed',
         });
 
         if (orderError) {
           console.error('Error inserting order:', orderError);
           return;
         }
+
+        // Allocate credits for the purchase
+        if (priceId) {
+          await allocateCreditsForOneTimePayment(userId, priceId, checkout_session_id);
+        }
+
         console.info(`Successfully processed one-time payment for session: ${checkout_session_id}`);
       } catch (error) {
         console.error('Error processing one-time payment:', error);
@@ -127,6 +154,20 @@ async function handleEvent(event: Stripe.Event) {
 // based on the excellent https://github.com/t3dotgg/stripe-recommendations
 async function syncCustomerFromStripe(customerId: string) {
   try {
+    // Get user_id from stripe customer
+    const { data: customerData, error: customerError } = await supabase
+      .from('stripe_customers')
+      .select('user_id')
+      .eq('customer_id', customerId)
+      .maybeSingle();
+
+    if (customerError || !customerData) {
+      console.error('Error fetching user from stripe customer:', customerError);
+      throw new Error('Failed to get user_id from stripe customer');
+    }
+
+    const userId = customerData.user_id;
+
     // fetch latest subscription data from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -152,17 +193,19 @@ async function syncCustomerFromStripe(customerId: string) {
         console.error('Error updating subscription status:', noSubError);
         throw new Error('Failed to update subscription status in database');
       }
+      return;
     }
 
     // assumes that a customer can only have a single subscription
     const subscription = subscriptions.data[0];
+    const priceId = subscription.items.data[0].price.id;
 
     // store subscription state
     const { error: subError } = await supabase.from('stripe_subscriptions').upsert(
       {
         customer_id: customerId,
         subscription_id: subscription.id,
-        price_id: subscription.items.data[0].price.id,
+        price_id: priceId,
         current_period_start: subscription.current_period_start,
         current_period_end: subscription.current_period_end,
         cancel_at_period_end: subscription.cancel_at_period_end,
@@ -183,9 +226,142 @@ async function syncCustomerFromStripe(customerId: string) {
       console.error('Error syncing subscription:', subError);
       throw new Error('Failed to sync subscription in database');
     }
+
+    // Allocate credits if subscription is active
+    if (subscription.status === 'active' || subscription.status === 'trialing') {
+      await allocateCreditsForSubscription(userId, priceId, subscription.id);
+    }
+
     console.info(`Successfully synced subscription for customer: ${customerId}`);
   } catch (error) {
     console.error(`Failed to sync subscription for customer ${customerId}:`, error);
+    throw error;
+  }
+}
+
+async function allocateCreditsForSubscription(
+  userId: string,
+  priceId: string,
+  subscriptionId: string
+) {
+  try {
+    // Get credit amount from price_id
+    const { data: creditAmount, error: creditError } = await supabase.rpc(
+      'get_credits_from_price_id',
+      { price_id: priceId }
+    );
+
+    if (creditError) {
+      console.error('Error getting credits from price_id:', creditError);
+      throw new Error('Failed to get credit amount');
+    }
+
+    if (!creditAmount || creditAmount === 0) {
+      console.warn(`No credits found for price_id: ${priceId}`);
+      return;
+    }
+
+    // Check if we've already allocated credits for this subscription period
+    const { data: existingTransaction } = await supabase
+      .from('credit_transactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('metadata->>subscription_id', subscriptionId)
+      .eq('transaction_type', 'subscription_renewal')
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .maybeSingle();
+
+    if (existingTransaction) {
+      console.info(`Credits already allocated for subscription ${subscriptionId} in the last 24 hours`);
+      return;
+    }
+
+    // Allocate credits
+    const { error: allocateError } = await supabase.rpc(
+      'allocate_credits_from_stripe',
+      {
+        p_user_id: userId,
+        p_credits: creditAmount,
+        p_transaction_type: 'subscription_renewal',
+        p_stripe_metadata: {
+          subscription_id: subscriptionId,
+          price_id: priceId,
+          timestamp: new Date().toISOString(),
+        },
+      }
+    );
+
+    if (allocateError) {
+      console.error('Error allocating credits:', allocateError);
+      throw new Error('Failed to allocate credits');
+    }
+
+    console.info(`Successfully allocated ${creditAmount} credits to user ${userId}`);
+  } catch (error) {
+    console.error('Error in allocateCreditsForSubscription:', error);
+    throw error;
+  }
+}
+
+async function allocateCreditsForOneTimePayment(
+  userId: string,
+  priceId: string,
+  checkoutSessionId: string
+) {
+  try {
+    // Get credit amount from price_id
+    const { data: creditAmount, error: creditError } = await supabase.rpc(
+      'get_credits_from_price_id',
+      { price_id: priceId }
+    );
+
+    if (creditError) {
+      console.error('Error getting credits from price_id:', creditError);
+      throw new Error('Failed to get credit amount');
+    }
+
+    if (!creditAmount || creditAmount === 0) {
+      console.warn(`No credits found for price_id: ${priceId}`);
+      return;
+    }
+
+    // Check if we've already allocated credits for this checkout session
+    const { data: existingTransaction } = await supabase
+      .from('credit_transactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('metadata->>checkout_session_id', checkoutSessionId)
+      .eq('transaction_type', 'purchase')
+      .maybeSingle();
+
+    if (existingTransaction) {
+      console.info(`Credits already allocated for checkout session ${checkoutSessionId}`);
+      return;
+    }
+
+    // Allocate credits
+    const { error: allocateError } = await supabase.rpc(
+      'allocate_credits_from_stripe',
+      {
+        p_user_id: userId,
+        p_credits: creditAmount,
+        p_transaction_type: 'purchase',
+        p_stripe_metadata: {
+          checkout_session_id: checkoutSessionId,
+          price_id: priceId,
+          timestamp: new Date().toISOString(),
+        },
+      }
+    );
+
+    if (allocateError) {
+      console.error('Error allocating credits:', allocateError);
+      throw new Error('Failed to allocate credits');
+    }
+
+    console.info(`Successfully allocated ${creditAmount} credits to user ${userId}`);
+  } catch (error) {
+    console.error('Error in allocateCreditsForOneTimePayment:', error);
     throw error;
   }
 }

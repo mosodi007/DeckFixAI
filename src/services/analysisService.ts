@@ -142,9 +142,17 @@ export async function analyzeDeck(
   console.log('API URL:', `${supabaseUrl}/functions/v1/analyze-deck`);
   console.log('API key present:', supabaseKey ? `Yes (${supabaseKey.substring(0, 20)}...)` : 'No - MISSING');
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+  if (sessionError) {
+    console.error('Failed to refresh session:', sessionError);
+    throw new Error('Authentication failed. Please refresh the page and try again.');
+  }
+
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
+    console.log('Using refreshed auth token');
+  } else {
+    console.warn('No active session found');
   }
 
   const response = await fetch(

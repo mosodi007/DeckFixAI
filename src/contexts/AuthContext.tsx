@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { getCurrentUser, onAuthStateChange, getUserProfile } from '../services/authService';
+import { getCurrentUser, onAuthStateChange, getUserProfile, supabase } from '../services/authService';
 import { migrateSessionAnalyses } from '../services/analysisService';
 import { getSessionId, clearSessionId } from '../services/sessionService';
 
@@ -51,19 +51,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   useEffect(() => {
-    getCurrentUser().then(async (currentUser) => {
-      if (currentUser) {
-        console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
-        setUser(currentUser);
-        if (currentUser.email) {
-          await loadUserProfile(currentUser.id);
+    async function initAuth() {
+      try {
+        const { data: { session }, error } = await supabase.auth.refreshSession();
+
+        if (error || !session) {
+          console.log('No valid session found');
+          setUser(null);
+          setLoading(false);
+          return;
         }
+
+        const currentUser = session.user;
+        if (currentUser) {
+          console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
+          setUser(currentUser);
+          if (currentUser.email) {
+            await loadUserProfile(currentUser.id);
+          }
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error during authentication initialization:', error);
+        setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
-    }).catch((error) => {
-      console.error('Error during authentication initialization:', error);
-      setLoading(false);
-    });
+    }
+
+    initAuth();
 
     const subscription = onAuthStateChange(async (updatedUser) => {
       const previousUser = user;

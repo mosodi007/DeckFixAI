@@ -22,18 +22,23 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [shouldOpenFilePicker, setShouldOpenFilePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
+
+  const handleChooseFileClick = () => {
+    if (!user) {
+      setShowLoginModal(true);
+      setShouldOpenFilePicker(true);
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'application/pdf') {
-      if (!user) {
-        setPendingFile(file);
-        setShowLoginModal(true);
-      } else {
-        handleAnalyze(file);
-      }
+      handleAnalyze(file);
     } else if (file) {
       alert('Please select a PDF file');
     }
@@ -77,6 +82,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         if (!user) {
           setPendingFile(file);
           setShowLoginModal(true);
+          setShouldOpenFilePicker(false);
         } else {
           handleAnalyze(file);
         }
@@ -89,9 +95,15 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
     setShowSignUpModal(false);
+
     if (pendingFile) {
       handleAnalyze(pendingFile);
       setPendingFile(null);
+    } else if (shouldOpenFilePicker) {
+      setShouldOpenFilePicker(false);
+      setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 100);
     }
   };
 
@@ -99,6 +111,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     setShowLoginModal(false);
     setShowSignUpModal(false);
     setPendingFile(null);
+    setShouldOpenFilePicker(false);
   };
 
   const handleSwitchToSignUp = () => {
@@ -226,7 +239,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                       className="hidden"
                     />
                     <button
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={handleChooseFileClick}
                       className="inline-flex items-center gap-3 px-10 py-4 bg-slate-900 text-white text-lg font-semibold rounded-xl hover:bg-slate-800 transition-all hover:shadow-xl hover:scale-105"
                     >
                       <Upload className="w-6 h-6" />

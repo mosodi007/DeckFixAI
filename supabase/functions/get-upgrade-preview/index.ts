@@ -41,18 +41,23 @@ Deno.serve(async (req: Request) => {
     }
 
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
       return corsResponse({ error: 'Missing authorization header' }, 401);
     }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    console.log('User authenticated:', !!user, 'Error:', authError?.message);
 
     if (authError || !user) {
-      return corsResponse({ error: 'Unauthorized' }, 401);
+      return corsResponse({ error: 'Unauthorized: ' + (authError?.message || 'No user found') }, 401);
     }
 
     const { target_price_id } = await req.json();
+    console.log('Target price ID:', target_price_id);
 
     if (!target_price_id) {
       return corsResponse({ error: 'Missing target_price_id' }, 400);

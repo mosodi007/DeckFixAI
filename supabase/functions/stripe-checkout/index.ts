@@ -224,13 +224,23 @@ Deno.serve(async (req) => {
 
               console.log(`Scheduled billing period change for subscription ${subscription.subscription_id} to take effect at ${new Date(currentPeriodEnd * 1000).toISOString()}`);
 
-              // The database will be updated by the webhook when the schedule phase changes
+              // Update database with scheduled change information
+              await supabase
+                .from('stripe_subscriptions')
+                .update({
+                  schedule_id: schedule.id,
+                  scheduled_price_id: price_id,
+                  scheduled_change_date: currentPeriodEnd,
+                })
+                .eq('subscription_id', subscription.subscription_id);
+
               return corsResponse({
                 sessionId: null,
                 url: success_url,
                 updated: true,
                 isBillingPeriodChange: true,
                 scheduledChange: true,
+                scheduledDate: currentPeriodEnd,
               });
             } else if (isUpgrade) {
               const currentPeriodEnd = new Date(currentSub.current_period_end * 1000);

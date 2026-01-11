@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, ChevronDown, Mail, Sparkles, Loader2 } from 'lucide-react';
-import { getProCreditTiers, getUserProCreditTier, getUserCurrentBillingPeriod, formatCredits, type ProCreditTier } from '../services/creditService';
+import { getProCreditTiers, getUserProCreditTier, getUserCurrentBillingPeriod, getScheduledBillingChange, formatCredits, type ProCreditTier } from '../services/creditService';
 import { ContactSalesModal } from './ContactSalesModal';
 import { createCheckoutSession, getSuccessUrl, getCancelUrl } from '../services/stripeService';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,8 @@ export function PricingView() {
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
   const [currentTier, setCurrentTier] = useState<ProCreditTier | null>(null);
   const [currentBillingPeriod, setCurrentBillingPeriod] = useState<'monthly' | 'annual' | null>(null);
+  const [scheduledBillingPeriod, setScheduledBillingPeriod] = useState<'monthly' | 'annual' | null>(null);
+  const [scheduledChangeDate, setScheduledChangeDate] = useState<number | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -29,14 +31,17 @@ export function PricingView() {
 
   async function loadPricing() {
     setLoading(true);
-    const [tiers, userTier, userBillingPeriod] = await Promise.all([
+    const [tiers, userTier, userBillingPeriod, scheduledChange] = await Promise.all([
       getProCreditTiers(),
       getUserProCreditTier(),
-      getUserCurrentBillingPeriod()
+      getUserCurrentBillingPeriod(),
+      getScheduledBillingChange()
     ]);
     setProTiers(tiers);
     setCurrentTier(userTier);
     setCurrentBillingPeriod(userBillingPeriod);
+    setScheduledBillingPeriod(scheduledChange?.scheduledBillingPeriod || null);
+    setScheduledChangeDate(scheduledChange?.scheduledChangeDate || null);
 
     if (userTier) {
       const tierIndex = tiers.findIndex(t => t.id === userTier.id);
@@ -112,12 +117,15 @@ export function PricingView() {
           if (result.isBillingPeriodChange && result.scheduledChange) {
             const newPeriod = billingPeriod === 'annual' ? 'annual' : 'monthly';
             alert(`Your billing period will change to ${newPeriod} at the end of your current billing cycle. You will not be charged until then.`);
+            await loadPricing();
+            setCheckoutLoading(false);
           } else if (result.isDowngrade) {
             alert('Your plan will be downgraded at the end of your current billing period.');
+            window.location.href = result.url;
           } else {
             alert('Your plan has been upgraded successfully!');
+            window.location.href = result.url;
           }
-          window.location.href = result.url;
         } else {
           window.location.href = result.url;
         }
@@ -413,7 +421,7 @@ export function PricingView() {
 
               <button
                 onClick={handleChangePlan}
-                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod)}
+                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod) || (scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id)}
                 className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {checkoutLoading ? (
@@ -421,6 +429,8 @@ export function PricingView() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Loading...
                   </>
+                ) : scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id ? (
+                  'Scheduled Change'
                 ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod ? (
                   'Current Plan'
                 ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod ? (
@@ -438,12 +448,17 @@ export function PricingView() {
                   Please log in to change your plan
                 </p>
               )}
-              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && (
+              {scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id && scheduledChangeDate && (
+                <p className="text-xs text-center mt-2 text-blue-400 font-medium">
+                  {billingPeriod === 'annual' ? 'Annual' : 'Monthly'} Plan will take effect from: {new Date(scheduledChangeDate * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              )}
+              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && !scheduledBillingPeriod && (
                 <p className="text-xs text-center mt-2 text-slate-400">
                   You are currently on this plan
                 </p>
               )}
-              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && (
+              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && !scheduledBillingPeriod && (
                 <p className="text-xs text-center mt-2 text-slate-400">
                   Change will take effect at the end of your current billing cycle
                 </p>

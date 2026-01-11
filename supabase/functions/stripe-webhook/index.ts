@@ -223,6 +223,9 @@ async function syncCustomerFromStripe(customerId: string) {
       payment_method_brand: cardBrand,
       payment_method_last4: cardLast4,
       status: subscription.status,
+      schedule_id: null,
+      scheduled_price_id: null,
+      scheduled_change_date: null,
     };
 
     const { error: upsertError } = await supabase

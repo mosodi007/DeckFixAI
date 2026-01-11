@@ -82,8 +82,8 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
           </header>
 
           <section className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
-            <div className="p-12">
-              <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-dashed border-slate-300 rounded-2xl p-6 md:p-12 text-center hover:border-slate-400 transition-all">
+            <div className="p-1">
+              <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-dashed border-slate-300 rounded-2xl p-12 md:p-12 text-center hover:border-slate-400 transition-all">
                 <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Upload className="w-12 h-12 text-white" />
                 </div>

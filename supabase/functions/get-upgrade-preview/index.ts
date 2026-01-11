@@ -58,11 +58,27 @@ Deno.serve(async (req: Request) => {
       return corsResponse({ error: 'Missing target_price_id' }, 400);
     }
 
-    // Get user's current subscription
+    // Get user's Stripe customer ID first
+    const { data: customer, error: customerError } = await supabase
+      .from('stripe_customers')
+      .select('customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (customerError) {
+      console.error('Error fetching customer:', customerError);
+      return corsResponse({ error: 'Failed to fetch customer data' }, 500);
+    }
+
+    if (!customer || !customer.customer_id) {
+      return corsResponse({ error: 'No Stripe customer found' }, 404);
+    }
+
+    // Get user's current subscription using customer_id
     const { data: subscription, error: subError } = await supabase
       .from('stripe_subscriptions')
       .select('subscription_id, price_id, status')
-      .eq('user_id', user.id)
+      .eq('customer_id', customer.customer_id)
       .eq('status', 'active')
       .maybeSingle();
 

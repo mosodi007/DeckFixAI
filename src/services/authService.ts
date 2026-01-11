@@ -51,6 +51,38 @@ export async function login(data: LoginData): Promise<{ user: User | null; error
   return { user: authData.user, error: null };
 }
 
+export async function signInWithGoogle(): Promise<{ error: Error | null }> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}`,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+    },
+  });
+
+  if (error) {
+    return { error: new Error(error.message) };
+  }
+
+  return { error: null };
+}
+
+export async function signInWithGoogleOneTap(credential: string): Promise<{ user: User | null; error: Error | null }> {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: credential,
+  });
+
+  if (error) {
+    return { user: null, error: new Error(error.message) };
+  }
+
+  return { user: data.user, error: null };
+}
+
 export async function logout(): Promise<{ error: Error | null }> {
   const { error } = await supabase.auth.signOut();
 

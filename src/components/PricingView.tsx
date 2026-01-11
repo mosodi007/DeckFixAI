@@ -421,7 +421,7 @@ export function PricingView() {
 
               <button
                 onClick={handleChangePlan}
-                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod) || (scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id)}
+                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && !scheduledBillingPeriod) || (scheduledBillingPeriod && scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id)}
                 className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {checkoutLoading ? (
@@ -429,11 +429,11 @@ export function PricingView() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Loading...
                   </>
-                ) : scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id ? (
+                ) : scheduledBillingPeriod && scheduledBillingPeriod === billingPeriod && currentTier !== null && currentTier.id === selectedTier?.id ? (
                   'Scheduled Change'
-                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod ? (
+                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && !scheduledBillingPeriod ? (
                   'Current Plan'
-                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod ? (
+                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && !scheduledBillingPeriod ? (
                   billingPeriod === 'annual' ? 'Change to Annual Plan' : 'Change to Monthly Plan'
                 ) : currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits ? (
                   'Downgrade'

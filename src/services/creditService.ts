@@ -415,11 +415,16 @@ export async function getProCreditTiers(): Promise<ProCreditTier[]> {
     return [];
   }
 
+  if (!data || data.length === 0) {
+    console.warn('No pro credit tiers found');
+    return [];
+  }
+
   return data.map(tier => ({
     id: tier.id,
     credits: tier.credits,
-    priceMonthly: tier.price_monthly,
-    priceAnnual: tier.price_annual,
+    priceMonthly: parseFloat(tier.price_monthly),
+    priceAnnual: parseFloat(tier.price_annual),
     stripePriceIdMonthly: tier.stripe_price_id_monthly,
     stripePriceIdAnnual: tier.stripe_price_id_annual,
     displayOrder: tier.display_order,

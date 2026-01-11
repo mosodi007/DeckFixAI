@@ -95,7 +95,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                 <p className="text-slate-600 mb-8 max-w-md mx-auto">
                   {isAnalyzing
                     ? 'AI is analyzing your pitch deck for investor readiness...'
-                    : 'Upload your startup pitch deck PDF to get instant AI-powered analysis, scoring, and fixes that make your deck stand out to VCs and investors'}
+                    : 'Choose your file or drag n drop to start analyzing'}
                 </p>
 
                 {isAnalyzing ? (

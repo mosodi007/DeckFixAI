@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, ChevronDown, Mail, Sparkles, Loader2 } from 'lucide-react';
-import { getProCreditTiers, getUserProCreditTier, formatCredits, type ProCreditTier } from '../services/creditService';
+import { getProCreditTiers, getUserProCreditTier, getUserCurrentBillingPeriod, formatCredits, type ProCreditTier } from '../services/creditService';
 import { ContactSalesModal } from './ContactSalesModal';
 import { createCheckoutSession, getSuccessUrl, getCancelUrl } from '../services/stripeService';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,7 @@ export function PricingView() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [proTiers, setProTiers] = useState<ProCreditTier[]>([]);
   const [currentTier, setCurrentTier] = useState<ProCreditTier | null>(null);
+  const [currentBillingPeriod, setCurrentBillingPeriod] = useState<'monthly' | 'annual' | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -28,12 +29,14 @@ export function PricingView() {
 
   async function loadPricing() {
     setLoading(true);
-    const [tiers, userTier] = await Promise.all([
+    const [tiers, userTier, userBillingPeriod] = await Promise.all([
       getProCreditTiers(),
-      getUserProCreditTier()
+      getUserProCreditTier(),
+      getUserCurrentBillingPeriod()
     ]);
     setProTiers(tiers);
     setCurrentTier(userTier);
+    setCurrentBillingPeriod(userBillingPeriod);
 
     if (userTier) {
       const tierIndex = tiers.findIndex(t => t.id === userTier.id);
@@ -67,7 +70,12 @@ export function PricingView() {
 
     setError(null);
 
-    if (currentTier && selectedTier.credits > currentTier.credits) {
+    const isSameTier = currentTier && currentTier.id === selectedTier.id;
+    const isDifferentBillingPeriod = currentBillingPeriod && currentBillingPeriod !== billingPeriod;
+
+    if (isSameTier && isDifferentBillingPeriod) {
+      proceedWithCheckout(priceId);
+    } else if (currentTier && selectedTier.credits > currentTier.credits) {
       setPreviewLoading(true);
       setShowUpgradeModal(true);
 
@@ -402,7 +410,7 @@ export function PricingView() {
 
               <button
                 onClick={handleChangePlan}
-                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id)}
+                disabled={checkoutLoading || !user || (currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod)}
                 className="w-full py-3 rounded-xl font-semibold transition-all bg-blue-500 text-white hover:bg-blue-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {checkoutLoading ? (
@@ -410,8 +418,10 @@ export function PricingView() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Loading...
                   </>
-                ) : currentTier !== null && currentTier.id === selectedTier?.id ? (
+                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod ? (
                   'Current Plan'
+                ) : currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod ? (
+                  billingPeriod === 'annual' ? 'Change to Annual Plan' : 'Change to Monthly Plan'
                 ) : currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits ? (
                   'Downgrade'
                 ) : currentTier !== null && selectedTier && selectedTier.credits > currentTier.credits ? (
@@ -425,9 +435,14 @@ export function PricingView() {
                   Please log in to change your plan
                 </p>
               )}
-              {currentTier !== null && currentTier.id === selectedTier?.id && (
+              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod === billingPeriod && (
                 <p className="text-xs text-center mt-2 text-slate-400">
                   You are currently on this plan
+                </p>
+              )}
+              {currentTier !== null && currentTier.id === selectedTier?.id && currentBillingPeriod !== billingPeriod && (
+                <p className="text-xs text-center mt-2 text-slate-400">
+                  Switch to {billingPeriod === 'annual' ? 'annual billing (save 20%)' : 'monthly billing'}
                 </p>
               )}
               {currentTier !== null && selectedTier && selectedTier.credits < currentTier.credits && currentTier.id !== selectedTier?.id && (

@@ -77,7 +77,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
               Fix Your Pitch Deck & Make It Investor-Ready in Minutes
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              AI-powered pitch deck analyzer and fixer. Get instant VC-standard feedback, identify weaknesses, and receive actionable improvements to increase your chances of securing funding from investors.
+              Get VC-standard feedback, scoring, and actionable fixes to make your startup pitch deck investor-ready and increase funding chances.
             </p>
           </header>
 

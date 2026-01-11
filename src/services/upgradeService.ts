@@ -37,6 +37,7 @@ export async function getUpgradePreview(targetPriceId: string): Promise<UpgradeP
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ target_price_id: targetPriceId }),

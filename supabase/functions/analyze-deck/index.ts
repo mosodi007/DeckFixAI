@@ -96,7 +96,7 @@ Evaluate with HARSH VC standards:
 - Team: Can they execute? Do they have relevant expertise or are they learning on investor dollars? Any red flags in backgrounds?
 - Traction: Real proof points or vanity metrics? Revenue or just users? Growth trajectory believable?
 - Financials: Are projections grounded in reality or hockey sticks with no basis? Do they know their numbers?
-- Competition: Do they understand the landscape or claim "no competitors"? Why won't they get crushed?
+- Competition: Do they understand the landscape or claim \"no competitors\"? Why won't they get crushed?
 - Story: Is the narrative compelling or confusing? Do they know what they're asking for and why?
 
 Be direct, specific, and actionable. Call out weak arguments. Highlight missing information. No generic feedback. If something is mediocre, say it. If it's impressive, acknowledge it but explain why. Think like you're protecting your LP's capital.
@@ -110,78 +110,78 @@ Provide a thorough analysis including:
 
 Return your analysis as a JSON object with this structure:
 {
-  "overallScore": <0-100>,
-  "summary": "<2-3 sentence summary of the deck's viability>",
-  "clarityScore": <0-100>,
-  "designScore": <0-100>,
-  "contentScore": <0-100>,
-  "structureScore": <0-100>,
-  "overallScoreFeedback": "<detailed explanation of the overall score>",
-  "investmentGradeFeedback": "<honest assessment of investment grade>",
-  "fundingOddsFeedback": "<realistic odds of getting funded with this deck>",
-  "pageCountFeedback": "<feedback on deck length and structure>",
-  "wordDensityAssessment": "<'Too Dense', 'Balanced', or 'Too Sparse'>",
-  "wordDensityFeedback": "<specific feedback on text density>",
-  "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
-  "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
-  "issues": [
+  \"overallScore\": <0-100>,
+  \"summary\": \"<2-3 sentence summary of the deck's viability>\",
+  \"clarityScore\": <0-100>,
+  \"designScore\": <0-100>,
+  \"contentScore\": <0-100>,
+  \"structureScore\": <0-100>,
+  \"overallScoreFeedback\": \"<detailed explanation of the overall score>\",
+  \"investmentGradeFeedback\": \"<honest assessment of investment grade>\",
+  \"fundingOddsFeedback\": \"<realistic odds of getting funded with this deck>\",
+  \"pageCountFeedback\": \"<feedback on deck length and structure>\",
+  \"wordDensityAssessment\": \"<'Too Dense', 'Balanced', or 'Too Sparse'>\",
+  \"wordDensityFeedback\": \"<specific feedback on text density>\",
+  \"strengths\": [\"<specific strength 1>\", \"<specific strength 2>\", ...],
+  \"weaknesses\": [\"<specific weakness 1>\", \"<specific weakness 2>\", ...],
+  \"issues\": [
     {
-      "pageNumber": <number or null>,
-      "priority": "High" | "Medium" | "Low",
-      "title": "<issue title>",
-      "description": "<detailed description>",
-      "type": "issue" | "improvement"
+      \"pageNumber\": <number or null>,
+      \"priority\": \"High\" | \"Medium\" | \"Low\",
+      \"title\": \"<issue title>\",
+      \"description\": \"<detailed description>\",
+      \"type\": \"issue\" | \"improvement\"
     }
   ],
-  "dealBreakers": [
+  \"dealBreakers\": [
     {
-      "title": "<deal breaker title>",
-      "description": "<why this is a deal breaker>",
-      "recommendation": "<what to do about it>"
+      \"title\": \"<deal breaker title>\",
+      \"description\": \"<why this is a deal breaker>\",
+      \"recommendation\": \"<what to do about it>\"
     }
   ],
-  "redFlags": [
+  \"redFlags\": [
     {
-      "category": "financial" | "team" | "market" | "product" | "competition" | "traction" | "other",
-      "severity": "critical" | "major" | "moderate",
-      "title": "<red flag title>",
-      "description": "<detailed explanation>",
-      "impact": "<impact on funding chances>"
+      \"category\": \"financial\" | \"team\" | \"market\" | \"product\" | \"competition\" | \"traction\" | \"other\",
+      \"severity\": \"critical\" | \"major\" | \"moderate\",
+      \"title\": \"<red flag title>\",
+      \"description\": \"<detailed explanation>\",
+      \"impact\": \"<impact on funding chances>\"
     }
   ],
-  "stageAssessment": {
-    "detectedStage": "<Pre-Seed/Seed/Series A/etc.>",
-    "stageConfidence": "high" | "medium" | "low",
-    "stageAppropriatenessScore": <0-100>,
-    "stageFeedback": "<is deck appropriate for this stage?>"
+  \"stageAssessment\": {
+    \"detectedStage\": \"<Pre-Seed/Seed/Series A/etc.>\",
+    \"stageConfidence\": \"high\" | \"medium\" | \"low\",
+    \"stageAppropriatenessScore\": <0-100>,
+    \"stageFeedback\": \"<is deck appropriate for this stage?>\"
   },
-  "investmentReadiness": {
-    "isInvestmentReady": <boolean>,
-    "readinessScore": <0-100>,
-    "readinessSummary": "<one paragraph summary>",
-    "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
-    "teamScore": <0-100>,
-    "marketOpportunityScore": <0-100>,
-    "productScore": <0-100>,
-    "tractionScore": <0-100>,
-    "financialsScore": <0-100>,
-    "teamFeedback": "<detailed team assessment>",
-    "marketOpportunityFeedback": "<detailed market assessment>",
-    "productFeedback": "<detailed product assessment>",
-    "tractionFeedback": "<detailed traction assessment>",
-    "financialsFeedback": "<detailed financials assessment>"
+  \"investmentReadiness\": {
+    \"isInvestmentReady\": <boolean>,
+    \"readinessScore\": <0-100>,
+    \"readinessSummary\": \"<one paragraph summary>\",
+    \"criticalBlockers\": [\"<blocker 1>\", \"<blocker 2>\", ...],
+    \"teamScore\": <0-100>,
+    \"marketOpportunityScore\": <0-100>,
+    \"productScore\": <0-100>,
+    \"tractionScore\": <0-100>,
+    \"financialsScore\": <0-100>,
+    \"teamFeedback\": \"<detailed team assessment>\",
+    \"marketOpportunityFeedback\": \"<detailed market assessment>\",
+    \"productFeedback\": \"<detailed product assessment>\",
+    \"tractionFeedback\": \"<detailed traction assessment>\",
+    \"financialsFeedback\": \"<detailed financials assessment>\"
   },
-  "keyBusinessMetrics": {
-    "companyName": "<name or 'Not specified'>",
-    "industry": "<industry or 'Not specified'>",
-    "currentRevenue": "<revenue or 'Not specified'>",
-    "fundingSought": "<amount or 'Not specified'>",
-    "growthRate": "<rate or 'Not specified'>",
-    "teamSize": <number>,
-    "marketSize": "<size or 'Not specified'>",
-    "valuation": "<valuation or 'Not specified'>",
-    "businessModel": "<model or 'Not specified'>",
-    "customerCount": "<count or 'Not specified'>"
+  \"keyBusinessMetrics\": {
+    \"companyName\": \"<name or 'Not specified'>\",
+    \"industry\": \"<industry or 'Not specified'>\",
+    \"currentRevenue\": \"<revenue or 'Not specified'>\",
+    \"fundingSought\": \"<amount or 'Not specified'>\",
+    \"growthRate\": \"<rate or 'Not specified'>\",
+    \"teamSize\": <number>,
+    \"marketSize\": \"<size or 'Not specified'>\",
+    \"valuation\": \"<valuation or 'Not specified'>\",
+    \"businessModel\": \"<model or 'Not specified'>\",
+    \"customerCount\": \"<count or 'Not specified'>\"
   }
 }`;
 
@@ -266,14 +266,18 @@ Deno.serve(async (req: Request) => {
       );
 
       const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (!userError && userData?.user) {
+      if (userError) {
+        console.error('JWT validation error:', userError);
+        throw new Error(`Authentication failed: ${userError.message}. Please sign out and sign in again.`);
+      }
+      if (userData?.user) {
         user = userData.user;
-        console.log('Authenticated user:', user.id);
+        console.log('Authenticated user:', user.id, 'Is anonymous:', user.is_anonymous);
       }
     }
 
     if (!user) {
-      console.log('Anonymous user - creating analysis');
+      throw new Error('Authentication required. Please sign in to analyze your pitch deck.');
     }
 
     const contentType = req.headers.get('content-type') || '';
@@ -333,12 +337,6 @@ Deno.serve(async (req: Request) => {
 
     const analysisId = clientAnalysisId || crypto.randomUUID();
     console.log('Analysis ID:', analysisId);
-
-    if (!user?.id) {
-      console.error('No authenticated user found. Auth header present:', !!authHeader);
-      throw new Error('Authentication required. Please refresh the page and try again.');
-    }
-
     console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
 
     const analysisRecord = {

@@ -158,7 +158,14 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       }, 500);
     } catch (error) {
       console.error('Analysis failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.';
+
+      if (errorMessage.includes('Authentication') || errorMessage.includes('sign in') || errorMessage.includes('sign out')) {
+        alert(`${errorMessage}\n\nTry refreshing the page and signing in again.`);
+      } else {
+        alert(errorMessage);
+      }
+
       setIsAnalyzing(false);
       setAnalysisProgress(0);
     }

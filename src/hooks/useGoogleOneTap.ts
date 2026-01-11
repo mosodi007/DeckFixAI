@@ -59,7 +59,11 @@ export function useGoogleOneTap({ disabled = false, onSuccess, onError }: UseGoo
                 console.error('Google One Tap sign-in error:', error);
                 onError?.(error);
               } else if (user) {
-                console.log('Google One Tap sign-in successful');
+                console.log('Google One Tap sign-in successful, user ID:', user.id);
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                console.log('Session established');
                 onSuccess?.();
               }
             } catch (err) {

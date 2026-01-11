@@ -142,25 +142,15 @@ export async function analyzeDeck(
   console.log('API URL:', `${supabaseUrl}/functions/v1/analyze-deck`);
   console.log('API key present:', supabaseKey ? `Yes (${supabaseKey.substring(0, 20)}...)` : 'No - MISSING');
 
-  let session = null;
+  const { data: { session } } = await supabase.auth.getSession();
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
-  if (!sessionError && sessionData?.session) {
-    session = sessionData.session;
-  }
-
-  if (!session) {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    session = currentSession;
-  }
-
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
-    console.log('Using auth token');
-  } else {
+  if (!session?.access_token) {
     console.error('No active session found');
     throw new Error('Please sign in to analyze your pitch deck.');
   }
+
+  headers['Authorization'] = `Bearer ${session.access_token}`;
+  console.log('Using auth token');
 
   const response = await fetch(
     `${supabaseUrl}/functions/v1/analyze-deck`,

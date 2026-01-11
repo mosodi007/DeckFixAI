@@ -18,7 +18,7 @@ import { logout } from './services/authService';
 import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
-  const { user, userProfile, isAuthenticated } = useAuth();
+  const { user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
   const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -302,7 +302,7 @@ function App() {
       </nav>
 
       <main>
-        {isLoading ? (
+        {(isLoading || authLoading) ? (
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -328,10 +328,19 @@ function App() {
             onNewUpload={() => setView('upload')}
           />
         ) : view === 'upload' ? (
-          <UploadView
-            onAnalysisComplete={handleAnalysisComplete}
-            isAuthenticated={isAuthenticated}
-          />
+          user ? (
+            <UploadView
+              onAnalysisComplete={handleAnalysisComplete}
+              isAuthenticated={isAuthenticated}
+            />
+          ) : (
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-slate-600">Initializing...</p>
+              </div>
+            </div>
+          )
         ) : view === 'analysis' ? (
           <AnalysisView
             data={analysisData}

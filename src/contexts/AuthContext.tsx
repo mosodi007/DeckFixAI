@@ -53,16 +53,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     getCurrentUser().then(async (currentUser) => {
       if (!currentUser) {
-        const { user: anonUser } = await signInAnonymously();
+        console.log('No user found, signing in anonymously...');
+        const { user: anonUser, error } = await signInAnonymously();
+        if (error) {
+          console.error('Failed to sign in anonymously:', error);
+          setLoading(false);
+          return;
+        }
+        console.log('Anonymous sign-in successful:', anonUser?.id);
         setUser(anonUser);
         setLoading(false);
       } else {
+        console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
         setUser(currentUser);
         if (currentUser.email) {
           await loadUserProfile(currentUser.id);
         }
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error('Error during authentication initialization:', error);
+      setLoading(false);
     });
 
     const subscription = onAuthStateChange(async (updatedUser) => {

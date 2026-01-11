@@ -196,8 +196,12 @@ Deno.serve(async (req) => {
 
     return corsResponse({ sessionId: session.id, url: session.url });
   } catch (error: any) {
-    console.error(`Checkout error: ${error.message}`);
-    return corsResponse({ error: error.message }, 500);
+    console.error(`Checkout error:`, error);
+    return corsResponse({
+      error: error.message || 'Unknown error',
+      details: error.type || 'unknown',
+      raw: error.toString()
+    }, 500);
   }
 });
 

@@ -389,6 +389,9 @@ async function allocateCreditsForOneTimePayment(
         .eq('subscription_id', currentSub.subscription_id);
 
       console.info(`Successfully upgraded subscription ${currentSub.subscription_id} to ${upgradeData.to_tier_credits} credits tier`);
+
+      // Immediately sync to allocate the new tier's credits
+      await syncCustomerFromStripe(customerData.customer_id);
       return;
     }
 

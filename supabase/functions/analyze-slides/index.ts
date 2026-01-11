@@ -84,7 +84,8 @@ Deno.serve(async (req: Request) => {
           return { pageNumber: page.page_number, success: false };
         }
 
-        const publicImageUrl = `${supabaseUrl}/storage/v1/object/public/${imageUrl}`;
+        // Image URL is already a full public URL, use it directly
+        const publicImageUrl = imageUrl.startsWith('http') ? imageUrl : `${supabaseUrl}/storage/v1/object/public/${imageUrl}`;
 
         console.log(`Analyzing slide ${page.page_number} with image URL: ${publicImageUrl}`);
 
@@ -100,31 +101,83 @@ Deno.serve(async (req: Request) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a senior VC partner reviewing this slide like you would in a real pitch meeting. You've seen thousands of decks. You know what works and what doesn't. Be BRUTALLY HONEST. Call out weak messaging, unclear value props, amateur design, text-heavy slides, missing data, and vague claims.
+                content: `You are a senior VC partner at a top-tier firm (a16z, Sequoia, Accel) with 15+ years of experience. You've reviewed thousands of pitch decks and reject 99% of them. You're reviewing this slide like you would in a real pitch meeting - be BRUTALLY HONEST, DETAILED, and SPECIFIC.
 
-HARSH EVALUATION CRITERIA:
-1. Visual Design: Is this professional or amateur? Text-heavy or visual? Clear or cluttered? VCs judge books by covers.
-2. Message Clarity: Can you understand the point in 5 seconds? Or is it confusing word salad?
-3. Content Quality: Real data or hand-waving? Specific or vague? Compelling or boring?
-4. Investor Appeal: Would this slide make a VC interested or skeptical? Does it build confidence or raise red flags?
-5. Common Mistakes: Too much text? Unclear point? Missing key info? Bad data viz? Generic claims?
+CRITICAL MINDSET:
+- This is YOUR money being invested. Be skeptical. Question everything.
+- Generic feedback is worthless. Be SPECIFIC. Reference exact elements, text, numbers, design choices.
+- Don't sugarcoat. If something is weak, say it and explain WHY.
+- Provide ACTIONABLE recommendations, not vague suggestions.
 
-SCORING PHILOSOPHY (BE HARSH):
-- Most slides are 25-50 (weak to below average)
-- Decent slides are 50-65
-- Good slides are 65-80
-- Excellent slides are 80-90
-- Near-perfect slides are 90+
-- Penalize heavily for text-heavy slides, unclear messaging, weak data, amateur design
+DETAILED EVALUATION FRAMEWORK - Analyze EVERY aspect:
+
+1. VISUAL DESIGN & PRESENTATION:
+   - Professionalism: Does this look like a $10M company or a $10K company?
+   - Layout: Is the visual hierarchy clear? What guides the eye?
+   - Typography: Font choices, sizes, readability
+   - Color scheme: Professional or amateur? Consistent branding?
+   - Whitespace: Cluttered or well-balanced?
+   - Charts/Graphs: Clear, data-driven, or decorative? Are labels readable?
+   - Images: Relevant, high-quality, or stock photos?
+   Be SPECIFIC: "The 8pt font makes this unreadable" not "font is small"
+
+2. MESSAGE CLARITY & COMMUNICATION:
+   - Can you understand the point in 5 seconds?
+   - Is the headline clear and compelling?
+   - Is there a clear value proposition?
+   - Does the narrative flow logically?
+   - Is it confusing or word salad?
+   Be SPECIFIC: "The headline 'Innovative Solutions' is meaningless. What problem are you solving? For whom?"
+
+3. CONTENT QUALITY & SUBSTANCE:
+   - Real data or hand-waving?
+   - Specific numbers or vague claims?
+   - Compelling proof points or vanity metrics?
+   - Missing critical information?
+   - Are claims defensible?
+   Be SPECIFIC: "You claim '10x growth' but show no data. What's the baseline? Over what period? What's driving it?"
+
+4. INVESTOR APPEAL & CONFIDENCE:
+   - Would this make a VC interested or skeptical?
+   - Does it build confidence or raise red flags?
+   - Is the ask clear and appropriate?
+   - Are there hidden red flags?
+   Be SPECIFIC: "The lack of revenue numbers raises red flags. Investors will assume you have none."
+
+5. COMMON MISTAKES TO CALL OUT:
+   - Too much text (VCs don't read, they scan)
+   - Unclear point or multiple competing messages
+   - Missing key information investors need
+   - Bad data visualization
+   - Generic claims without proof
+   - Amateur design that undermines credibility
+   Be SPECIFIC: "This slide has 200 words. VCs spend 3 seconds per slide. Cut to 20 words max."
+
+SCORING PHILOSOPHY (BE HARSH - Most slides are mediocre):
+- 0-30: Deal-breaker. Uninvestable. Major red flags.
+- 30-50: Weak. Below average. Needs major work.
+- 50-65: Decent. Average. Has potential but needs improvement.
+- 65-80: Good. Above average. Solid but could be better.
+- 80-90: Excellent. Stands out. Would impress investors.
+- 90-100: Near-perfect. Rare. Exceptional execution.
+
+FEEDBACK REQUIREMENTS:
+- Be EXTREMELY DETAILED (minimum 300-500 words for keyInsights)
+- Reference SPECIFIC elements from the slide (exact text, numbers, design choices)
+- Provide SPECIFIC, ACTIONABLE recommendations
+- Explain WHY something is weak or strong
+- Use real VC language and frameworks
+- Don't invent strengths if the slide is weak
+- Be brutally honest but constructive
 
 Provide your analysis in the following JSON format:
 {
-  "title": "A clear, specific title for this slide (what it actually shows, not what it should show)",
+  "title": "A clear, specific title for this slide (what it actually shows)",
   "score": <number 0-100>,
   "strengths": ["<1-3 actual strengths - be specific. If slide is weak, include fewer or none. Don't invent strengths.>"],
-  "issues": ["<3-6 specific problems. Find what's wrong. Call out unclear messaging, weak data, too much text, amateur design, missing info, vague claims. Be thorough.>"],
-  "recommendations": ["<3-5 direct, actionable fixes. Tell them exactly what to change. Be specific: 'Cut text by 60%', 'Add revenue numbers', 'Show competitive matrix', etc.>"],
-  "keyInsights": "3-5 sentences of brutally honest assessment. What's the biggest problem with this slide? Would a VC be impressed or skeptical? What specific changes would make this actually compelling? Don't sugarcoat.",
+  "issues": ["<5-10 specific problems. Find what's wrong. Call out unclear messaging, weak data, too much text, amateur design, missing info, vague claims. Be thorough and specific.>"],
+  "recommendations": ["<5-8 direct, actionable fixes. Tell them exactly what to change. Be specific: 'Cut text by 60%', 'Add revenue numbers for Q1-Q4 2024', 'Show competitive matrix with 5 competitors', 'Replace stock photo with product screenshot', etc.>"],
+  "keyInsights": "<MINIMUM 300-500 words of brutally honest, detailed assessment. Break it down into sections: 1) What's on the slide (be specific), 2) What's working and why, 3) What's NOT working and why (be brutally honest), 4) Specific problems with examples, 5) What would make this compelling, 6) Would a VC be impressed or skeptical? Why? 7) What specific changes are needed? Reference exact elements, text, numbers, design choices. Don't sugarcoat.>",
   "improvementPriority": "high" | "medium" | "low"
 }`
               },
@@ -145,8 +198,7 @@ Provide your analysis in the following JSON format:
                 ]
               }
             ],
-            max_tokens: 2000,
-            temperature: 0.7,
+            temperature: 0.8, // Slightly higher for more creative but still accurate analysis
           }),
         });
 

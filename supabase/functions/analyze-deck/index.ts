@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { extractTextFromPDF } from './pdfExtractor.ts';
+import { analyzePDFImages } from './imageAnalyzer.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,91 +86,156 @@ interface OpenAIAnalysis {
   };
 }
 
-const ANALYSIS_PROMPT = `You are a senior VC partner with 15+ years of experience who has reviewed thousands of pitch decks and rejects 99% of them. You've seen every trick, every inflated claim, and every amateur mistake. Your job is to provide BRUTALLY HONEST feedback that reflects how real VCs think - not what founders want to hear, but what they NEED to hear before facing actual investors.
+const ANALYSIS_PROMPT = `You are a senior VC partner with 15+ years of experience at a top-tier firm (a16z, Sequoia, Accel, etc.) who has reviewed thousands of pitch decks and rejects 99% of them. You've seen every trick, every inflated claim, and every amateur mistake. Your job is to provide BRUTALLY HONEST, DETAILED, CONTEXT-AWARE feedback that reflects how real VCs think - not what founders want to hear, but what they NEED to hear before facing actual investors.
 
-CRITICAL MINDSET: Assume this is YOUR money being invested. Be skeptical. Question everything. Call out BS. Don't sugarcoat. Founders pay for honesty, not encouragement.
+CRITICAL MINDSET: 
+- Assume this is YOUR money being invested. Be skeptical. Question everything. Call out BS. Don't sugarcoat.
+- Founders pay for honesty, not encouragement. Generic feedback is worthless - be specific and actionable.
+- Think like you're protecting your LP's capital. Would YOU invest? Why or why not?
+- Consider the funding stage - what's appropriate for Pre-Seed vs Seed vs Series A?
 
-Evaluate with HARSH VC standards:
-- Problem/Solution: Is this a real problem worth solving? Is the solution actually differentiated or just another me-too product?
-- Market: Is this a real opportunity or made-up TAM math? Do they understand their market or just reciting generalities?
-- Business Model: Can this actually make money? Are unit economics believable or fantasy? Is CAC/LTV realistic?
-- Team: Can they execute? Do they have relevant expertise or are they learning on investor dollars? Any red flags in backgrounds?
-- Traction: Real proof points or vanity metrics? Revenue or just users? Growth trajectory believable?
-- Financials: Are projections grounded in reality or hockey sticks with no basis? Do they know their numbers?
-- Competition: Do they understand the landscape or claim "no competitors"? Why won't they get crushed?
-- Story: Is the narrative compelling or confusing? Do they know what they're asking for and why?
+EVALUATION FRAMEWORK - Be EXTREMELY DETAILED and CONTEXT-SPECIFIC:
 
-Be direct, specific, and actionable. Call out weak arguments. Highlight missing information. No generic feedback. If something is mediocre, say it. If it's impressive, acknowledge it but explain why. Think like you're protecting your LP's capital.
+1. PROBLEM/SOLUTION FIT:
+   - Is this a REAL problem worth solving? How big is the pain? Who actually has this problem?
+   - Is the solution actually differentiated or just another me-too product? What's the moat?
+   - Is there evidence of problem-solution fit? Customer interviews? Early traction?
+   - Be specific: "The problem is vague" is useless. Say: "The problem statement 'helping businesses grow' is meaningless. What specific pain point? Which businesses? What evidence do you have that this is a real problem?"
+
+2. MARKET OPPORTUNITY:
+   - Is this a real opportunity or made-up TAM math? Challenge their assumptions.
+   - Do they understand their market or just reciting generalities from Google?
+   - Is the market timing right? Why now?
+   - Be specific: "The TAM calculation is flawed because [specific reason]. You're assuming [X] but reality is [Y]."
+
+3. BUSINESS MODEL & UNIT ECONOMICS:
+   - Can this actually make money? Are unit economics believable or fantasy?
+   - Is CAC/LTV realistic? What's the payback period?
+   - How do they acquire customers? Is the channel scalable?
+   - Be specific: "Your CAC of $50 is unrealistic because [specific reason]. Similar companies in [industry] see CACs of [X] because [Y]."
+
+4. TEAM & EXECUTION:
+   - Can they execute? Do they have relevant expertise or are they learning on investor dollars?
+   - Any red flags in backgrounds? Gaps in skillset?
+   - Is the team complete? Missing critical roles?
+   - Be specific: "The team lacks [specific skill] which is critical for [reason]. Consider adding [specific recommendation]."
+
+5. TRACTION & VALIDATION:
+   - Real proof points or vanity metrics? Revenue or just users?
+   - Growth trajectory believable? What's driving growth?
+   - Is the traction meaningful for the stage?
+   - Be specific: "Your '10,000 users' metric is misleading because [reason]. Investors care about [specific metric] which you haven't shown."
+
+6. FINANCIALS & PROJECTIONS:
+   - Are projections grounded in reality or hockey sticks with no basis?
+   - Do they know their numbers? Can they explain assumptions?
+   - Are the assumptions defensible?
+   - Be specific: "Your 10x growth projection is unrealistic because [specific reason]. Based on [data point], realistic growth would be [X]."
+
+7. COMPETITIVE LANDSCAPE:
+   - Do they understand the landscape or claim "no competitors"?
+   - Why won't they get crushed? What's the defensibility?
+   - How do they differentiate? Is it meaningful?
+   - Be specific: "You claim 'no competitors' but [Company X] does [Y]. Your differentiation of [Z] isn't meaningful because [reason]."
+
+8. STORY & NARRATIVE:
+   - Is the narrative compelling or confusing? Does it flow logically?
+   - Do they know what they're asking for and why?
+   - Is the ask appropriate for the stage and traction?
+   - Be specific: "The narrative jumps from [X] to [Y] without connecting [Z]. Investors will be confused about [specific point]."
+
+9. DESIGN & PRESENTATION:
+   - Is the deck professionally designed or looks amateur?
+   - Does the visual hierarchy guide the reader effectively?
+   - Are charts/graphs clear and data-driven or decorative?
+   - Be specific: "The design looks unprofessional because [specific reason]. The [element] distracts from [message]."
+
+10. MISSING CRITICAL INFORMATION:
+    - What will investors ask that's not answered?
+    - What red flags are hidden?
+    - What assumptions need validation?
+    - Be specific: "Investors will ask about [specific question] which isn't addressed. You need to add [specific information]."
+
+FEEDBACK REQUIREMENTS:
+- Be BRUTALLY HONEST but constructive. Don't just criticize - provide actionable fixes.
+- Be SPECIFIC and CONTEXT-AWARE. Reference exact slides, numbers, claims.
+- Provide ACTIONABLE RECOMMENDATIONS, not just problems.
+- Use REAL VC LANGUAGE and frameworks (TAM/SAM/SOM, unit economics, defensibility, etc.)
+- Consider the FUNDING STAGE - what's appropriate for Pre-Seed vs Seed vs Series A?
+- Call out WEAK ARGUMENTS with specific reasons why they're weak.
+- Highlight MISSING INFORMATION that investors will ask about.
+- If something is MEDIOCRE, say it and explain why.
+- If something is IMPRESSIVE, acknowledge it but explain why it matters.
 
 Provide a thorough analysis including:
-1. Overall assessment of investment readiness
-2. Critical issues that need immediate attention
-3. Deal-breaking red flags (if any)
-4. Specific, actionable improvements for each slide
-5. Missing information that investors will ask about
+1. Overall assessment of investment readiness with SPECIFIC reasons
+2. Critical issues that need immediate attention with ACTIONABLE fixes
+3. Deal-breaking red flags (if any) with SPECIFIC examples
+4. Specific, actionable improvements for each slide with BEFORE/AFTER guidance
+5. Missing information that investors will ask about with SPECIFIC additions needed
 
 Return your analysis as a JSON object with this structure:
 {
   "overallScore": <0-100>,
-  "summary": "<2-3 sentence summary of the deck's viability>",
+  "summary": "<MINIMUM 100 words: comprehensive summary of the deck's viability with specific reasons, key strengths, critical weaknesses>",
   "clarityScore": <0-100>,
   "designScore": <0-100>,
   "contentScore": <0-100>,
   "structureScore": <0-100>,
-  "overallScoreFeedback": "<detailed explanation of the overall score>",
-  "investmentGradeFeedback": "<honest assessment of investment grade>",
-  "fundingOddsFeedback": "<realistic odds of getting funded with this deck>",
-  "pageCountFeedback": "<feedback on deck length and structure>",
+  "overallScoreFeedback": "<MINIMUM 500 words: detailed explanation of the overall score with specific reasons, examples from the deck, and context>",
+  "investmentGradeFeedback": "<MINIMUM 300 words: honest assessment of investment grade with specific reasons why this grade, what's missing, what's working>",
+  "fundingOddsFeedback": "<MINIMUM 300 words: realistic odds of getting funded with this deck, specific reasons why, what would improve odds, what hurts odds>",
+  "pageCountFeedback": "<MINIMUM 200 words: feedback on deck length and structure, is it appropriate, what's missing, what's too much>",
   "wordDensityAssessment": "<'Too Dense', 'Balanced', or 'Too Sparse'>",
-  "wordDensityFeedback": "<specific feedback on text density>",
-  "strengths": ["<specific strength 1>", "<specific strength 2>", ...],
-  "weaknesses": ["<specific weakness 1>", "<specific weakness 2>", ...],
+  "wordDensityFeedback": "<MINIMUM 200 words: specific feedback on text density with examples from specific slides>",
+  "strengths": ["<MINIMUM 50 words per strength - be specific and reference exact slides/numbers>", "<specific strength 2>", ...],
+  "weaknesses": ["<MINIMUM 50 words per weakness - be specific and reference exact slides/numbers>", "<specific weakness 2>", ...],
   "issues": [
     {
       "pageNumber": <number or null>,
       "priority": "High" | "Medium" | "Low",
-      "title": "<issue title>",
-      "description": "<detailed description>",
+      "title": "<specific issue title referencing exact slide content>",
+      "description": "<MINIMUM 150 words: detailed description with specific examples, why it's a problem, what impact it has, what to fix>",
       "type": "issue" | "improvement"
     }
   ],
   "dealBreakers": [
     {
-      "title": "<deal breaker title>",
-      "description": "<why this is a deal breaker>",
-      "recommendation": "<what to do about it>"
+      "title": "<specific deal breaker title>",
+      "description": "<MINIMUM 200 words: why this is a deal breaker with specific examples, impact on funding, severity>",
+      "recommendation": "<MINIMUM 150 words: what to do about it with specific, actionable steps>"
     }
   ],
   "redFlags": [
     {
       "category": "financial" | "team" | "market" | "product" | "competition" | "traction" | "other",
       "severity": "critical" | "major" | "moderate",
-      "title": "<red flag title>",
-      "description": "<detailed explanation>",
-      "impact": "<impact on funding chances>"
+      "title": "<specific red flag title>",
+      "description": "<MINIMUM 200 words: detailed explanation with specific examples from the deck>",
+      "impact": "<MINIMUM 150 words: impact on funding chances with specific reasons and severity>"
     }
   ],
   "stageAssessment": {
     "detectedStage": "<Pre-Seed/Seed/Series A/etc.>",
     "stageConfidence": "high" | "medium" | "low",
     "stageAppropriatenessScore": <0-100>,
-    "stageFeedback": "<is deck appropriate for this stage?>"
+    "stageFeedback": "<MINIMUM 300 words: is deck appropriate for this stage? What's missing? What's appropriate? Specific recommendations>"
   },
   "investmentReadiness": {
     "isInvestmentReady": <boolean>,
     "readinessScore": <0-100>,
-    "readinessSummary": "<one paragraph summary>",
+    "readinessSummary": "<MINIMUM 400 words: comprehensive summary of investment readiness with specific reasons, blockers, what's needed>",
     "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
     "teamScore": <0-100>,
     "marketOpportunityScore": <0-100>,
     "productScore": <0-100>,
     "tractionScore": <0-100>,
     "financialsScore": <0-100>,
-    "teamFeedback": "<detailed team assessment>",
-    "marketOpportunityFeedback": "<detailed market assessment>",
-    "productFeedback": "<detailed product assessment>",
-    "tractionFeedback": "<detailed traction assessment>",
-    "financialsFeedback": "<detailed financials assessment>"
+    "teamFeedback": "<MINIMUM 300 words: detailed team assessment with specific strengths, gaps, red flags, recommendations>",
+    "marketOpportunityFeedback": "<MINIMUM 300 words: detailed market assessment with specific TAM/SAM/SOM analysis, market timing, competitive landscape>",
+    "productFeedback": "<MINIMUM 300 words: detailed product assessment with specific differentiation, moat, problem-solution fit>",
+    "tractionFeedback": "<MINIMUM 300 words: detailed traction assessment with specific metrics, growth drivers, validation proof points>",
+    "financialsFeedback": "<MINIMUM 300 words: detailed financials assessment with specific unit economics, projections, assumptions, defensibility>"
   },
   "keyBusinessMetrics": {
     "companyName": "<name or 'Not specified'>",
@@ -185,16 +251,67 @@ Return your analysis as a JSON object with this structure:
   }
 }`;
 
-async function analyzeWithOpenAI(text: string, pageCount: number): Promise<OpenAIAnalysis> {
+async function analyzeWithOpenAI(
+  text: string, 
+  pageCount: number,
+  imageAnalyses?: Array<{ pageNumber: number; textContent: string; visualDescription: string; combinedContent: string }>
+): Promise<OpenAIAnalysis> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY environment variable is not set');
   }
 
+  // Build comprehensive content from both text extraction and vision analysis
+  let fullContent = '';
+  
+  if (imageAnalyses && imageAnalyses.length > 0) {
+    // Use Vision API extracted content (more reliable)
+    console.log('Using Vision API extracted content for analysis');
+    const visionContent = imageAnalyses
+      .map(analysis => `Page ${analysis.pageNumber}:\n${analysis.combinedContent}`)
+      .join('\n\n---\n\n');
+    fullContent = visionContent;
+    
+    // Append traditional text extraction as supplement if available
+    if (text && text.trim().length > 0) {
+      fullContent += `\n\n---\n\nAdditional Text Extraction:\n${text}`;
+    }
+  } else {
+    // Fallback to traditional text extraction
+    console.log('Using traditional text extraction (Vision API not available)');
+    fullContent = text || 'No content could be extracted from the PDF.';
+  }
+
   const prompt = `${ANALYSIS_PROMPT}
 
 Pitch Deck Content (${pageCount} pages):
-${text}`;
+${fullContent}
+
+ANALYSIS INSTRUCTIONS:
+1. Read through ALL pages carefully. Understand the full narrative and context.
+2. For EACH slide, provide specific, detailed feedback:
+   - What's on the slide (be specific about content)
+   - What's working and why
+   - What's NOT working and why (be brutally honest)
+   - Specific, actionable recommendations to fix it
+   - Missing information that should be added
+3. Consider the VISUAL DESIGN of each slide:
+   - Layout quality and professionalism (be specific: "The text is too small" not "design is bad")
+   - Visual hierarchy and readability (what guides the eye? Is it effective?)
+   - Use of charts, graphs, and data visualization (are they clear? Do they tell a story?)
+   - Color scheme and branding consistency (does it look professional?)
+   - Overall design polish (does it look like a $10M company or a $10K company?)
+4. Provide CONTEXT-AWARE feedback:
+   - Consider the funding stage - is this appropriate for Pre-Seed, Seed, or Series A?
+   - Compare to industry standards - how does this stack up?
+   - Reference specific numbers, claims, or statements from the deck
+5. Be BRUTALLY HONEST but CONSTRUCTIVE:
+   - Don't sugarcoat - if something is weak, say it and explain why
+   - Provide SPECIFIC fixes, not generic advice
+   - Use real VC frameworks and language
+   - Give actionable recommendations that can be implemented
+
+Remember: Generic feedback is worthless. Be specific, detailed, and actionable. Reference exact slides, numbers, and claims.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -203,18 +320,18 @@ ${text}`;
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o', // Use GPT-4o for better analysis quality
       messages: [
         {
           role: 'system',
-          content: 'You are a senior VC partner providing brutally honest pitch deck analysis. Return only valid JSON with no markdown formatting or code blocks.'
+          content: 'You are a senior VC partner at a top-tier firm providing brutally honest, detailed, context-aware pitch deck analysis. You analyze both content AND visual design. Your feedback must be specific, actionable, and reference exact slides, numbers, and claims from the deck. No generic statements. Return only valid JSON with no markdown formatting or code blocks.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      temperature: 0.7,
+      temperature: 0.8, // Slightly higher for more creative but still accurate analysis
       response_format: { type: 'json_object' }
     }),
   });
@@ -255,8 +372,13 @@ Deno.serve(async (req: Request) => {
 
     const authHeader = req.headers.get('Authorization');
     console.log('Auth header present:', !!authHeader);
+    if (authHeader) {
+      console.log('Auth header length:', authHeader.length);
+      console.log('Auth header starts with Bearer:', authHeader.startsWith('Bearer '));
+    }
 
     let user = null;
+    let authError = null;
 
     if (authHeader) {
       const supabaseClient = createClient(
@@ -266,14 +388,22 @@ Deno.serve(async (req: Request) => {
       );
 
       const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (userError) {
+        authError = userError;
+        console.error('Auth error:', userError.message);
+      }
       if (!userError && userData?.user) {
         user = userData.user;
-        console.log('Authenticated user:', user.id);
+        console.log('Authenticated user:', user.id, 'Is anonymous:', user.is_anonymous);
+      } else if (!userError && !userData?.user) {
+        console.log('No user data returned from auth.getUser()');
       }
+    } else {
+      console.log('No Authorization header provided');
     }
 
     if (!user) {
-      console.log('Anonymous user - creating analysis');
+      console.log('No authenticated user found');
     }
 
     const contentType = req.headers.get('content-type') || '';
@@ -319,24 +449,110 @@ Deno.serve(async (req: Request) => {
     let text: string;
     let pageCount: number;
     let pages: Array<{ pageNumber: number; text: string }>;
+    let imageAnalyses: Array<{ pageNumber: number; textContent: string; visualDescription: string; combinedContent: string }> | undefined;
 
+    // Step 1: Extract text from PDF (fallback method)
     try {
       const result = await extractTextFromPDF(arrayBuffer);
       text = result.text;
       pageCount = result.pageCount;
       pages = result.pages;
-      console.log(`PDF extraction: ${text.length} characters from ${pageCount} pages`);
+      
+      console.log(`PDF text extraction: ${text.length} characters from ${pageCount} pages`);
     } catch (pdfError: any) {
-      console.error('PDF extraction failed:', pdfError);
-      throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
+      console.error('PDF text extraction failed:', pdfError);
+      // Don't throw - we'll use Vision API instead
+      text = '';
+      pageCount = imageUrls.length || 0;
+      pages = [];
     }
 
     const analysisId = clientAnalysisId || crypto.randomUUID();
     console.log('Analysis ID:', analysisId);
 
+    // Step 2: Use OpenAI Vision API to analyze page images (primary method)
+    if (imageUrls && imageUrls.length > 0) {
+      console.log(`Starting Vision API analysis for ${imageUrls.length} page images...`);
+      try {
+        const apiKey = Deno.env.get('OPENAI_API_KEY');
+        if (!apiKey) {
+          throw new Error('OPENAI_API_KEY environment variable is not set');
+        }
+        
+        imageAnalyses = await analyzePDFImages(imageUrls, apiKey);
+        
+        // Update pageCount if we got more pages from images
+        if (imageAnalyses.length > pageCount) {
+          pageCount = imageAnalyses.length;
+        }
+        
+        // Merge Vision API results with traditional extraction
+        pages = imageAnalyses.map(analysis => ({
+          pageNumber: analysis.pageNumber,
+          text: analysis.textContent
+        }));
+        
+        // Combine all extracted text
+        text = imageAnalyses.map(a => a.combinedContent).join('\n\n---\n\n');
+        
+        console.log(`Vision API analysis complete: ${imageAnalyses.filter(a => a.textContent.length > 0).length} pages with content`);
+      } catch (visionError: any) {
+        console.error('Vision API analysis failed:', visionError);
+        console.warn('Falling back to traditional text extraction');
+        // Continue with text extraction as fallback
+      }
+    } else {
+      console.warn('No image URLs provided. Using traditional text extraction only.');
+    }
+
+    // Validate that we have some content to analyze
+    if ((!text || text.trim().length === 0) && (!imageAnalyses || imageAnalyses.length === 0)) {
+      console.error('ERROR: No content extracted from PDF using any method.');
+      return new Response(
+        JSON.stringify({ 
+          error: 'No content could be extracted from this PDF. Please ensure your PDF contains readable text or images.',
+          analysisId 
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
     if (!user?.id) {
       console.error('No authenticated user found. Auth header present:', !!authHeader);
-      throw new Error('Authentication required. Please refresh the page and try again.');
+      if (authError) {
+        console.error('Authentication error details:', authError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Authentication failed. Your session may have expired. Please log in again and try again.',
+            details: authError.message 
+          }),
+          {
+            status: 401,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+      return new Response(
+        JSON.stringify({ 
+          error: 'Authentication required. Please log in and try again.' 
+        }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
     console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
@@ -364,27 +580,45 @@ Deno.serve(async (req: Request) => {
 
     console.log('Analysis record created, starting AI analysis...');
 
-    const pageRecords = pages.map((page, index) => ({
-      analysis_id: analysisId,
-      page_number: page.pageNumber,
-      title: `Slide ${page.pageNumber}`,
-      content: page.text,
-      score: 0,
-      image_url: imageUrls[index] || null,
-      thumbnail_url: imageUrls[index] || null,
-    }));
+    const pageRecords = pages.map((page, index) => {
+      // Use Vision API extracted content if available, otherwise use traditional extraction
+      let pageText = page.text || '';
+      
+      if (imageAnalyses && imageAnalyses[index]) {
+        pageText = imageAnalyses[index].combinedContent || imageAnalyses[index].textContent || pageText;
+      }
+      
+      console.log(`Preparing page ${page.pageNumber} record: ${pageText.length} characters`);
+      
+      return {
+        analysis_id: analysisId,
+        page_number: page.pageNumber,
+        title: `Slide ${page.pageNumber}`,
+        content: pageText,
+        score: 0,
+        image_url: imageUrls[index] || null,
+        thumbnail_url: imageUrls[index] || null,
+      };
+    });
 
+    console.log(`Inserting ${pageRecords.length} page records into database`);
     const { error: pagesError } = await supabase
       .from('analysis_pages')
       .insert(pageRecords);
 
     if (pagesError) {
       console.error('Failed to insert page records:', pagesError);
+      console.error('Page records data:', JSON.stringify(pageRecords.map(p => ({ 
+        page_number: p.page_number, 
+        content_length: p.content?.length || 0 
+      }))));
+    } else {
+      console.log('Successfully inserted page records');
     }
 
     let openAIAnalysis: OpenAIAnalysis;
     try {
-      openAIAnalysis = await analyzeWithOpenAI(text, pageCount);
+      openAIAnalysis = await analyzeWithOpenAI(text, pageCount, imageAnalyses);
       console.log('AI analysis completed successfully');
     } catch (aiError: any) {
       console.error('AI analysis failed:', aiError);
@@ -443,6 +677,73 @@ Deno.serve(async (req: Request) => {
 
       if (issuesError) {
         console.error('Failed to insert issues:', issuesError);
+      }
+
+      // Group issues by page number and create per-slide feedback
+      const issuesByPage: Record<number, Array<{ title: string; description: string; priority: string }>> = {};
+      issueRecords.forEach(issue => {
+        if (issue.page_number) {
+          if (!issuesByPage[issue.page_number]) {
+            issuesByPage[issue.page_number] = [];
+          }
+          issuesByPage[issue.page_number].push({
+            title: issue.title,
+            description: issue.description,
+            priority: issue.priority
+          });
+        }
+      });
+
+      // Update pages with feedback and recommendations from issues
+      for (const [pageNumStr, pageIssues] of Object.entries(issuesByPage)) {
+        const pageNum = parseInt(pageNumStr);
+        const highPriorityIssues = pageIssues.filter(i => i.priority === 'High');
+        const mediumPriorityIssues = pageIssues.filter(i => i.priority === 'Medium');
+        const lowPriorityIssues = pageIssues.filter(i => i.priority === 'Low');
+
+        // Create detailed feedback from issues
+        let feedback = '';
+        if (highPriorityIssues.length > 0) {
+          feedback += `CRITICAL ISSUES (High Priority):\n\n`;
+          highPriorityIssues.forEach((issue, idx) => {
+            feedback += `${idx + 1}. ${issue.title}\n${issue.description}\n\n`;
+          });
+        }
+        if (mediumPriorityIssues.length > 0) {
+          feedback += `IMPORTANT ISSUES (Medium Priority):\n\n`;
+          mediumPriorityIssues.forEach((issue, idx) => {
+            feedback += `${idx + 1}. ${issue.title}\n${issue.description}\n\n`;
+          });
+        }
+        if (lowPriorityIssues.length > 0) {
+          feedback += `IMPROVEMENTS (Low Priority):\n\n`;
+          lowPriorityIssues.forEach((issue, idx) => {
+            feedback += `${idx + 1}. ${issue.title}\n${issue.description}\n\n`;
+          });
+        }
+
+        // Create recommendations array
+        const recommendations = pageIssues
+          .filter(i => i.priority === 'High' || i.priority === 'Medium')
+          .map(i => i.description)
+          .slice(0, 5); // Limit to top 5 recommendations
+
+        if (feedback || recommendations.length > 0) {
+          const { error: updatePageError } = await supabase
+            .from('analysis_pages')
+            .update({
+              feedback: feedback.trim() || null,
+              recommendations: recommendations.length > 0 ? recommendations : null,
+            })
+            .eq('analysis_id', analysisId)
+            .eq('page_number', pageNum);
+
+          if (updatePageError) {
+            console.error(`Failed to update feedback for page ${pageNum}:`, updatePageError);
+          } else {
+            console.log(`Updated feedback for page ${pageNum}`);
+          }
+        }
       }
     }
 

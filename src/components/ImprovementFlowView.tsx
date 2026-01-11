@@ -204,7 +204,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         currentPage.content,
         currentPage.feedback,
         currentPage.recommendations,
-        currentPage.image_url,
+        currentPage?.imageUrl || currentPage?.image_url || null,
         creditCost,
         complexityScore
       );
@@ -402,7 +402,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                           pageNumber: page.page_number,
                           title: page.title,
                           score: page.score,
-                          thumbnail: page.thumbnail
+                          thumbnail: page.thumbnailUrl || page.thumbnail || page.imageUrl || page.image_url || null
                         }}
                         isSelected={selectedPage === page.page_number}
                         issueCount={sortedIssues.filter(i => i.pageNumber === page.page_number).length}
@@ -423,14 +423,19 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
 
           {/* Right Panel - Slide Viewer & Issues */}
           <div className="lg:col-span-8 space-y-6">
-            {selectedPage > 0 && (
-              <SlideViewer
-                slideNumber={selectedPage}
-                imageUrl={deckPages.find((p: any) => p.page_number === selectedPage)?.image_url}
-                title={deckPages.find((p: any) => p.page_number === selectedPage)?.title || `Slide ${selectedPage}`}
-                score={deckPages.find((p: any) => p.page_number === selectedPage)?.score || 0}
-              />
-            )}
+            {selectedPage > 0 && (() => {
+              const currentPage = deckPages.find((p: any) => p.page_number === selectedPage);
+              // Handle both camelCase (from getAnalysis) and snake_case (fallback) formats
+              const imageUrl = currentPage?.imageUrl || currentPage?.image_url || null;
+              return (
+                <SlideViewer
+                  slideNumber={selectedPage}
+                  imageUrl={imageUrl}
+                  title={currentPage?.title || `Slide ${selectedPage}`}
+                  score={currentPage?.score || 0}
+                />
+              );
+            })()}
 
             <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/60 p-6 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">

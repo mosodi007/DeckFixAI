@@ -127,6 +127,12 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
   const handleAnalyze = async (file: File) => {
     if (!file) return;
 
+    // Ensure user is authenticated before starting
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisProgress(0);
 
@@ -158,7 +164,16 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       }, 500);
     } catch (error) {
       console.error('Analysis failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.';
+      
+      // If authentication error, show login modal
+      if (errorMessage.includes('Authentication') || errorMessage.includes('log in')) {
+        alert('Your session has expired. Please log in again.');
+        setShowLoginModal(true);
+      } else {
+        alert(errorMessage);
+      }
+      
       setIsAnalyzing(false);
       setAnalysisProgress(0);
     }

@@ -14,6 +14,11 @@ export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 function getPublicImageUrl(storagePath: string | null): string | null {
   if (!storagePath) return null;
+  // If it's already a full URL, return it as-is
+  if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
+    return storagePath;
+  }
+  // Otherwise, construct the public URL from storage path
   return `${supabaseUrl}/storage/v1/object/public/${storagePath}`;
 }
 
@@ -142,10 +147,56 @@ export async function analyzeDeck(
   console.log('API URL:', `${supabaseUrl}/functions/v1/analyze-deck`);
   console.log('API key present:', supabaseKey ? `Yes (${supabaseKey.substring(0, 20)}...)` : 'No - MISSING');
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
+  // Get session and refresh if needed
+  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  
+  // Check if session is expired or about to expire (within 2 minutes)
+  let needsRefresh = false;
+  if (session?.expires_at) {
+    const expiresAt = new Date(session.expires_at * 1000);
+    const now = new Date();
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+    
+    // Refresh if expired or expires within 2 minutes
+    if (timeUntilExpiry < 120000) {
+      needsRefresh = true;
+      console.log(`Session ${timeUntilExpiry < 0 ? 'expired' : 'expiring soon'} (${Math.round(timeUntilExpiry / 1000)}s), refreshing...`);
+    }
+  } else if (!session) {
+    // No session at all, try to refresh anyway (might have a refresh token)
+    needsRefresh = true;
+    console.log('No session found, attempting refresh...');
   }
+
+  // Refresh session if needed
+  if (needsRefresh) {
+    try {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError && refreshData.session) {
+        session = refreshData.session;
+        console.log('Session refreshed successfully');
+      } else {
+        console.error('Failed to refresh session:', refreshError);
+        // If refresh fails and we had no session, throw error
+        if (!session) {
+          throw new Error('No active session. Please log in and try again.');
+        }
+      }
+    } catch (refreshErr: any) {
+      console.error('Error refreshing session:', refreshErr);
+      if (!session) {
+        throw new Error('Session expired. Please log in and try again.');
+      }
+    }
+  }
+
+  if (!session?.access_token) {
+    console.error('No valid session found. Session error:', sessionError);
+    throw new Error('Authentication required. Please log in and try again.');
+  }
+
+  headers['Authorization'] = `Bearer ${session.access_token}`;
+  console.log('Authorization header added, token length:', session.access_token.length);
 
   const response = await fetch(
     `${supabaseUrl}/functions/v1/analyze-deck`,
@@ -164,10 +215,19 @@ export async function analyzeDeck(
       const error = await response.json();
       errorMessage = error.error || errorMessage;
       console.error('Error from API:', error);
+      
+      // Provide more helpful error messages
+      if (response.status === 401) {
+        errorMessage = 'Authentication failed. Please log in and try again.';
+      }
     } catch (e) {
       const text = await response.text();
       console.error('Error response text:', text);
       errorMessage = text || errorMessage;
+      
+      if (response.status === 401) {
+        errorMessage = 'Authentication required. Please log in and try again.';
+      }
     }
     throw new Error(errorMessage);
   }
@@ -315,8 +375,19 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       title: p.title,
       score: p.score,
       content: p.content,
-      feedback: p.feedback,
-      recommendations: p.recommendations,
+      feedback: p.feedback || p.brutal_feedback || p.critical_feedback || null,
+      recommendations: (() => {
+        if (!p.recommendations) return [];
+        if (Array.isArray(p.recommendations)) return p.recommendations;
+        if (typeof p.recommendations === 'string') {
+          try {
+            return JSON.parse(p.recommendations);
+          } catch {
+            return [p.recommendations];
+          }
+        }
+        return [];
+      })(),
       idealVersion: p.ideal_version,
       imageUrl: getPublicImageUrl(p.image_url),
       thumbnailUrl: getPublicImageUrl(p.thumbnail_url),

@@ -57,8 +57,28 @@ export interface UserSubscription {
   stripeSubscriptionId: string | null;
   stripeCustomerId: string | null;
   cancelAtPeriodEnd: boolean;
+  selectedCreditTier: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProCreditTier {
+  id: string;
+  credits: number;
+  priceMonthly: number;
+  priceAnnual: number;
+  stripePriceIdMonthly: string | null;
+  stripePriceIdAnnual: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface ContactRequest {
+  name: string;
+  email: string;
+  company?: string;
+  estimatedUsage?: string;
+  message?: string;
 }
 
 export async function getUserCreditBalance(): Promise<UserCredits | null> {
@@ -274,12 +294,17 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return [];
   }
 
+  if (!data || data.length === 0) {
+    console.warn('No subscription plans found');
+    return [];
+  }
+
   return data.map(plan => ({
     id: plan.id,
     name: plan.name,
     monthlyCredits: plan.monthly_credits,
-    priceMonthly: plan.price_monthly,
-    priceAnnual: plan.price_annual,
+    priceMonthly: parseFloat(plan.price_monthly),
+    priceAnnual: parseFloat(plan.price_annual),
     stripePriceIdMonthly: plan.stripe_price_id_monthly,
     stripePriceIdAnnual: plan.stripe_price_id_annual,
     features: plan.features || [],
@@ -299,11 +324,16 @@ export async function getCreditPackages(): Promise<CreditPackage[]> {
     return [];
   }
 
+  if (!data || data.length === 0) {
+    console.warn('No credit packages found');
+    return [];
+  }
+
   return data.map(pkg => ({
     id: pkg.id,
     name: pkg.name,
     credits: pkg.credits,
-    price: pkg.price,
+    price: parseFloat(pkg.price),
     stripePriceId: pkg.stripe_price_id,
     isActive: pkg.is_active,
   }));
@@ -348,6 +378,7 @@ export async function getUserSubscription(): Promise<UserSubscription | null> {
     stripeSubscriptionId: data.stripe_subscription_id,
     stripeCustomerId: data.stripe_customer_id,
     cancelAtPeriodEnd: data.cancel_at_period_end,
+    selectedCreditTier: data.selected_credit_tier,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -373,11 +404,63 @@ export async function getSubscriptionPlanById(planId: string): Promise<Subscript
     id: data.id,
     name: data.name,
     monthlyCredits: data.monthly_credits,
-    priceMonthly: data.price_monthly,
-    priceAnnual: data.price_annual,
+    priceMonthly: parseFloat(data.price_monthly),
+    priceAnnual: parseFloat(data.price_annual),
     stripePriceIdMonthly: data.stripe_price_id_monthly,
     stripePriceIdAnnual: data.stripe_price_id_annual,
     features: data.features || [],
     isActive: data.is_active,
   };
+}
+
+export async function getProCreditTiers(): Promise<ProCreditTier[]> {
+  const { data, error } = await supabase
+    .from('pro_credit_tiers')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching pro credit tiers:', error);
+    return [];
+  }
+
+  if (!data || data.length === 0) {
+    console.warn('No pro credit tiers found');
+    return [];
+  }
+
+  return data.map(tier => ({
+    id: tier.id,
+    credits: tier.credits,
+    priceMonthly: parseFloat(tier.price_monthly),
+    priceAnnual: parseFloat(tier.price_annual),
+    stripePriceIdMonthly: tier.stripe_price_id_monthly,
+    stripePriceIdAnnual: tier.stripe_price_id_annual,
+    displayOrder: tier.display_order,
+    isActive: tier.is_active,
+  }));
+}
+
+export async function submitContactRequest(request: ContactRequest): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('contact_requests')
+    .insert({
+      name: request.name,
+      email: request.email,
+      company: request.company,
+      estimated_usage: request.estimatedUsage,
+      message: request.message,
+    });
+
+  if (error) {
+    console.error('Error submitting contact request:', error);
+    return { success: false, error: 'Failed to submit contact request' };
+  }
+
+  return { success: true };
+}
+
+export function formatCredits(credits: number): string {
+  return credits.toLocaleString('en-US');
 }

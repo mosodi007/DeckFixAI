@@ -219,7 +219,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                 ) : null
               ) : (
                 <button
-                  className="px-5 py-2.5 bg-white text-slate rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-2"
+                  className="px-5 py-2.5 bg-white text-black rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-2"
                 >
                   Upgrade to Pro
                 </button>

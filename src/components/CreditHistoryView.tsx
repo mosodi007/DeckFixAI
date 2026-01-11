@@ -33,9 +33,10 @@ import {
 interface CreditHistoryViewProps {
   onBack: () => void;
   onViewUsageHistory: () => void;
+  onViewPricing: () => void;
 }
 
-export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryViewProps) {
+export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }: CreditHistoryViewProps) {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
@@ -250,6 +251,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
               </div>
               {currentProTier ? (
                 <button
+                  onClick={onViewPricing}
                   className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
                 >
                   <Settings className="w-4 h-4" />
@@ -257,6 +259,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                 </button>
               ) : (
                 <button
+                  onClick={onViewPricing}
                   className="px-5 py-2.5 bg-white text-black rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
                 >
                   Upgrade to Pro
@@ -319,6 +322,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
             <div className="space-y-3">
               {!currentProTier && (
                 <button
+                  onClick={onViewPricing}
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                 >
                   <Sparkles className="w-5 h-5" />
@@ -326,13 +330,6 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>
               )}
-
-              <button
-                className="w-full px-6 py-4 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
-              >
-                <Settings className="w-5 h-5" />
-                Manage Billing
-              </button>
 
               <button
                 onClick={() => setShowTransactions(!showTransactions)}
@@ -362,7 +359,10 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
             {/* See All Plans Link */}
             <div className="mt-6 pt-6 border-t border-slate-200 text-center">
-              <button className="text-slate-700 hover:text-slate-900 font-semibold text-sm transition-colors flex items-center justify-center gap-2 mx-auto group">
+              <button
+                onClick={onViewPricing}
+                className="text-slate-700 hover:text-slate-900 font-semibold text-sm transition-colors flex items-center justify-center gap-2 mx-auto group"
+              >
                 <span>See all available plans</span>
                 <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </button>

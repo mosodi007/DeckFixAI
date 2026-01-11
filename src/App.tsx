@@ -312,6 +312,7 @@ function App() {
           <CreditHistoryView
             onBack={handleGoToDashboard}
             onViewUsageHistory={() => setView('usage-history')}
+            onViewPricing={() => setView('pricing')}
           />
         ) : view === 'usage-history' ? (
           <UsageHistoryView onBack={() => setView('credits')} />

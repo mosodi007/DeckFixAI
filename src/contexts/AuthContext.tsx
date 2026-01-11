@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { getCurrentUser, onAuthStateChange, getUserProfile, signInAnonymously } from '../services/authService';
+import { getCurrentUser, onAuthStateChange, getUserProfile } from '../services/authService';
 import { migrateSessionAnalyses } from '../services/analysisService';
 import { getSessionId, clearSessionId } from '../services/sessionService';
 
@@ -52,25 +52,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     getCurrentUser().then(async (currentUser) => {
-      if (!currentUser) {
-        console.log('No user found, signing in anonymously...');
-        const { user: anonUser, error } = await signInAnonymously();
-        if (error) {
-          console.error('Failed to sign in anonymously:', error);
-          setLoading(false);
-          return;
-        }
-        console.log('Anonymous sign-in successful:', anonUser?.id);
-        setUser(anonUser);
-        setLoading(false);
-      } else {
+      if (currentUser) {
         console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
         setUser(currentUser);
         if (currentUser.email) {
           await loadUserProfile(currentUser.id);
         }
-        setLoading(false);
       }
+      setLoading(false);
     }).catch((error) => {
       console.error('Error during authentication initialization:', error);
       setLoading(false);

@@ -6,7 +6,8 @@ import { uploadPageImages } from '../services/storageService';
 import { v4 as uuidv4 } from 'uuid';
 import { SEOContentSection } from './upload/SEOContentSection';
 import { useAuth } from '../contexts/AuthContext';
-import { signInAnonymously } from '../services/authService';
+import { LoginModal } from './auth/LoginModal';
+import { SignUpModal } from './auth/SignUpModal';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
@@ -18,13 +19,21 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'application/pdf') {
-      handleAnalyze(file);
+      if (!user) {
+        setPendingFile(file);
+        setShowLoginModal(true);
+      } else {
+        handleAnalyze(file);
+      }
     } else if (file) {
       alert('Please select a PDF file');
     }
@@ -65,11 +74,41 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type === 'application/pdf') {
-        handleAnalyze(file);
+        if (!user) {
+          setPendingFile(file);
+          setShowLoginModal(true);
+        } else {
+          handleAnalyze(file);
+        }
       } else {
         alert('Please drop a PDF file');
       }
     }
+  };
+
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(false);
+    if (pendingFile) {
+      handleAnalyze(pendingFile);
+      setPendingFile(null);
+    }
+  };
+
+  const handleAuthCancel = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(false);
+    setPendingFile(null);
+  };
+
+  const handleSwitchToSignUp = () => {
+    setShowLoginModal(false);
+    setShowSignUpModal(true);
+  };
+
+  const handleSwitchToLogin = () => {
+    setShowSignUpModal(false);
+    setShowLoginModal(true);
   };
 
   const handleAnalyze = async (file: File) => {
@@ -79,15 +118,6 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     setAnalysisProgress(0);
 
     try {
-      if (!user) {
-        console.log('No user found, signing in anonymously before upload...');
-        const { user: anonUser, error } = await signInAnonymously();
-        if (error || !anonUser) {
-          throw new Error('Failed to initialize session. Please refresh the page and try again.');
-        }
-        console.log('Anonymous sign-in successful:', anonUser.id);
-      }
-
       const analysisId = uuidv4();
 
       setAnalysisProgress(10);
@@ -248,6 +278,22 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
           <SEOContentSection />
         </div>
       </div>
+
+      {showLoginModal && (
+        <LoginModal
+          onClose={handleAuthCancel}
+          onSwitchToSignUp={handleSwitchToSignUp}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {showSignUpModal && (
+        <SignUpModal
+          onClose={handleAuthCancel}
+          onSwitchToLogin={handleSwitchToLogin}
+          onSignUpSuccess={handleLoginSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -260,6 +260,15 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
             </div>
 
             <div className="border-t border-slate-200 pt-6 space-y-4">
+              {currentPlan?.name !== 'Pro' && currentPlan?.name !== 'Custom' && (
+                <button
+                  className="w-full px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Upgrade to Pro
+                </button>
+              )}
+
               <button
                 className="w-full px-5 py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
               >

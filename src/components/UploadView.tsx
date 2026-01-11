@@ -5,6 +5,7 @@ import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages } from '../services/storageService';
 import { getOrCreateSessionId } from '../services/sessionService';
 import { v4 as uuidv4 } from 'uuid';
+import { SEOContentSection } from './upload/SEOContentSection';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
@@ -71,30 +72,30 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-7xl font-semibold text-slate-900 mb-4 tracking-tighter">
-              Make your Pitch Deck Investor-Ready in Minutes.
-            </h2>
+          <header className="text-center mb-12">
+            <h1 className="text-7xl font-semibold text-slate-900 mb-4 tracking-tighter">
+              Fix Your Pitch Deck & Make It Investor-Ready in Minutes
+            </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Receive professional AI analysis based on industry VC standards and patterns from thousands of successfully funded startups.
+              AI-powered pitch deck analyzer and fixer. Get instant VC-standard feedback, identify weaknesses, and receive actionable improvements to increase your chances of securing funding from investors.
             </p>
-          </div>
+          </header>
 
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
+          <section className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
             <div className="p-12">
               <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-slate-400 transition-all">
                 <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Upload className="w-12 h-12 text-white" />
                 </div>
 
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                  Upload Your Pitch Deck
-                </h3>
+                <h2 className="text-2xl font-bold text-slate-900 mb-3">
+                  Analyze & Fix Your Startup Pitch Deck
+                </h2>
 
                 <p className="text-slate-600 mb-8 max-w-md mx-auto">
                   {isAnalyzing
-                    ? 'Analyzing your deck with AI...'
-                    : 'Upload your PDF pitch deck to receive comprehensive analysis and improvement suggestions'}
+                    ? 'AI is analyzing your pitch deck for investor readiness...'
+                    : 'Upload your startup pitch deck PDF to get instant AI-powered analysis, scoring, and fixes that make your deck stand out to VCs and investors'}
                 </p>
 
                 {isAnalyzing ? (
@@ -139,38 +140,40 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
 
             <div className="bg-slate-50 border-t border-slate-200 px-12 py-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="text-center">
+                <article className="text-center">
                   <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                     <Sparkles className="w-7 h-7 text-slate-700" />
                   </div>
-                  <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Analysis</h4>
+                  <h3 className="font-semibold text-slate-900 mb-2">AI Pitch Deck Analyzer</h3>
                   <p className="text-sm text-slate-600">
-                    Advanced algorithms trained on thousands of successful pitch decks and funding outcomes
+                    Advanced AI trained on thousands of successful pitch decks from funded startups. Get instant feedback on what investors look for in your deck.
                   </p>
-                </div>
+                </article>
 
-                <div className="text-center">
+                <article className="text-center">
                   <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                     <TrendingUp className="w-7 h-7 text-slate-700" />
                   </div>
-                  <h4 className="font-semibold text-slate-900 mb-2">VC Perspective</h4>
+                  <h3 className="font-semibold text-slate-900 mb-2">VC-Standard Scoring</h3>
                   <p className="text-sm text-slate-600">
-                    Get insights from the investor's point of view with industry-standard evaluation metrics
+                    Evaluate your pitch deck from an investor's perspective using venture capital criteria and industry benchmarks to find investors.
                   </p>
-                </div>
+                </article>
 
-                <div className="text-center">
+                <article className="text-center">
                   <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
                     <CheckCircle2 className="w-7 h-7 text-slate-700" />
                   </div>
-                  <h4 className="font-semibold text-slate-900 mb-2">Actionable Insights</h4>
+                  <h3 className="font-semibold text-slate-900 mb-2">Automated Deck Fixes</h3>
                   <p className="text-sm text-slate-600">
-                    Receive specific recommendations to improve your deck and increase funding odds
+                    Get AI-generated improvements and fixes for each slide. Make your startup pitch deck investor-ready with specific, actionable recommendations.
                   </p>
-                </div>
+                </article>
               </div>
             </div>
-          </div>
+          </section>
+
+          <SEOContentSection />
         </div>
       </div>
     </div>

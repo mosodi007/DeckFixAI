@@ -74,7 +74,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-12">
             <h1 className="text-7xl font-semibold text-slate-900 mb-4 tracking-tighter">
-              Fix Your Pitch Deck & Make It Investor-Ready in Minutes
+              Fix Your Pitch Deck in Minutes with AI
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               Get VC-standard feedback, scoring, and actionable fixes to make your startup pitch deck investor-ready and increase funding chances by 98.6%.

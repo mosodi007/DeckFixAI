@@ -271,7 +271,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                           <div className="flex-1 text-left">
                             <div className="text-xs font-semibold text-blue-100 mb-1">Get more from Pro</div>
                             <div className="text-base font-bold">Upgrade to {nextAvailableTier.credits.toLocaleString()}</div>
-                            <div className="text-xs text-white/90">Credits Plan</div>
+                            <div className="text-xs text-black/90">Credits Plan</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-3 border-t border-white/20">

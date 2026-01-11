@@ -262,20 +262,20 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                     return (
                       <button
                         onClick={() => onViewPricing(nextAvailableTier.credits)}
-                        className="group bg-white text-black rounded-xl p-5 shadow-xl transition-all hover:shadow-2xl hover:scale-105 min-w-[260px]"
+                        className="group bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl p-5 shadow-xl transition-all hover:shadow-2xl hover:scale-105 min-w-[260px]"
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className="p-2 bg-black/20 rounded-lg">
+                          <div className="p-2 bg-white/20 rounded-lg">
                             <Sparkles className="w-5 h-5" />
                           </div>
                           <div className="flex-1 text-left">
-                            <div className="text-xs font-semibold text-black-100 mb-1">Get more from Pro</div>
+                            <div className="text-xs font-semibold text-blue-100 mb-1">Get more from Pro</div>
                             <div className="text-base font-bold">Upgrade to {nextAvailableTier.credits.toLocaleString()}</div>
-                            <div className="text-xs text-black/90">Credits Plan</div>
+                            <div className="text-xs text-white/90">Credits Plan</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-3 border-t border-white/20">
-                          <span className="text-xs font-medium text-black/200">View pricing</span>
+                          <span className="text-xs font-medium text-white/90">View pricing</span>
                           <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                         </div>
                       </button>
@@ -284,7 +284,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                     return (
                       <button
                         onClick={() => onViewPricing()}
-                        className="px-5 py-2.5 bg-black text-white rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
+                        className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
                       >
                         <Settings className="w-4 h-4" />
                         Manage Plan

@@ -284,7 +284,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                     return (
                       <button
                         onClick={() => onViewPricing()}
-                        className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
+                        className="px-5 py-2.5 bg-black text-white rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
                       >
                         <Settings className="w-4 h-4" />
                         Manage Plan

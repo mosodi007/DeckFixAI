@@ -223,7 +223,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
         {/* Main Subscription Card */}
         <div className="bg-white border border-slate-200 rounded-3xl shadow-lg overflow-hidden mb-8">
           {/* Header Section */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-700 p-8 text-white">
+          <div className="bg-black text-white">
             <div className="flex items-start justify-between gap-8 mb-6">
               <div className="flex-1">
                 <div className="text-slate-300 text-sm mb-2 font-medium">Credit Balance</div>

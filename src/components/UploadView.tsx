@@ -89,7 +89,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                 </div>
 
                 <h2 className="text-xl font-semibold text-slate-900 mb-3">
-                  Analyze & Fix Your Startup Pitch Deck
+                  Analyze & Fix Your Pitch Deck
                 </h2>
 
                 <p className="text-slate-600 mb-8 max-w-md mx-auto">

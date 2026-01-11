@@ -301,6 +301,20 @@ export async function migrateSessionAnalyses(fromUserIdOrSessionId: string, toUs
   console.log('Successfully migrated analyses to authenticated user');
 }
 
+/**
+ * Checks the status of an analysis
+ */
+export async function getAnalysisStatus(analysisId: string): Promise<'pending' | 'processing' | 'completed' | 'failed' | null> {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('status')
+    .eq('id', analysisId)
+    .single();
+
+  if (error || !data) return null;
+  return (data.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed';
+}
+
 export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
   const { data: analysis, error: analysisError } = await supabase
     .from('analyses')
@@ -309,6 +323,16 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     .single();
 
   if (analysisError) throw analysisError;
+
+  // Check if analysis is complete
+  const status = (analysis.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed';
+  if (status === 'pending' || status === 'processing') {
+    throw new Error(`Analysis is still ${status}. Please wait for it to complete.`);
+  }
+  
+  if (status === 'failed') {
+    throw new Error(`Analysis failed. ${analysis.error_message || 'Please try uploading again.'}`);
+  }
 
   const { data: pages, error: pagesError } = await supabase
     .from('analysis_pages')

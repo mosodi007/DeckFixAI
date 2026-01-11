@@ -93,6 +93,19 @@ function App() {
   };
 
   const handleAnalysisComplete = async (data: any) => {
+    console.log('handleAnalysisComplete called with:', data);
+    // Check if we should redirect to dashboard (background analysis)
+    if (data.redirectToDashboard) {
+      console.log('Redirecting to dashboard');
+      setView('dashboard');
+      // Store analysisId for potential future use
+      if (data.analysisId) {
+        localStorage.setItem('currentAnalysisId', data.analysisId);
+      }
+      return;
+    }
+
+    // Original flow: load analysis and show analysis view
     setIsLoading(true);
     try {
       const analysis = await getAnalysis(data.analysisId);

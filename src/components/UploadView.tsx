@@ -1,9 +1,8 @@
 import { useState, useRef } from 'react';
 import { Sparkles, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
-import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages } from '../services/storageService';
-import { v4 as uuidv4 } from 'uuid';
+import { createAnalysisRecord, startBackgroundAnalysis } from '../services/backgroundAnalysisService';
 import { SEOContentSection } from './upload/SEOContentSection';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../contexts/CreditContext';
@@ -18,9 +17,8 @@ interface UploadViewProps {
 export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
   const { user } = useAuth();
   const { refreshCredits } = useCredits();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -75,7 +73,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
     setIsDragging(false);
     dragCounter.current = 0;
 
-    if (isAnalyzing) return;
+    // No need to check isAnalyzing since we redirect immediately
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
@@ -135,70 +133,76 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       return;
     }
 
-    setIsAnalyzing(true);
-    setAnalysisProgress(0);
+    setIsUploading(true);
 
     try {
-      const analysisId = uuidv4();
+      // Step 1: Extract images from PDF (frontend)
+      console.log('Step 1: Extracting images from PDF...');
+      const images = await extractPageImages(file);
+      const totalPages = images.length;
+      console.log(`Step 1 complete: Extracted ${totalPages} pages`);
 
-      setAnalysisProgress(10);
+      // Step 2: Create analysis record with 'pending' status
+      console.log('Step 2: Creating analysis record...');
+      const analysisId = await createAnalysisRecord(
+        file.name,
+        file.size,
+        totalPages,
+        user.id
+      );
+      console.log(`Step 2 complete: Analysis record created with ID: ${analysisId}`);
 
-      const images = await extractPageImages(file, (progress) => {
-        const extractionProgress = 10 + (progress.currentPage / progress.totalPages) * 30;
-        setAnalysisProgress(extractionProgress);
+      // Step 3: Upload images to storage
+      console.log('Step 3: Uploading images to storage...');
+      const imageUrls = await uploadPageImages(images, analysisId);
+      console.log(`Step 3 complete: Uploaded ${imageUrls.length} images`);
+
+      // Step 4: Start background analysis (fire-and-forget)
+      // Don't await - let it run in background
+      console.log('Step 4: Starting background analysis...');
+      startBackgroundAnalysis(file, analysisId, imageUrls).catch((error) => {
+        console.error('Failed to start background analysis:', error);
+        // Error handling is done in the service, which updates status to 'failed'
       });
 
-      setAnalysisProgress(40);
+      // Step 4.5: Refresh credits after a short delay to reflect deduction
+      // Credits are deducted in the Edge Function when analysis starts
+      setTimeout(async () => {
+        try {
+          await refreshCredits();
+          console.log('Credit balance refreshed after analysis started');
+        } catch (creditError) {
+          console.error('Failed to refresh credits:', creditError);
+          // Don't fail the upload if credit refresh fails
+        }
+      }, 3000); // Wait 3 seconds for Edge Function to process and deduct credits
 
-      const imageUrls = await uploadPageImages(images, analysisId, (progress) => {
-        const uploadProgress = 40 + (progress.currentPage / progress.totalPages) * 20;
-        setAnalysisProgress(uploadProgress);
+      // Step 5: Show loader for 2-5 seconds, then redirect to Dashboard
+      // Minimum 2 seconds, maximum 5 seconds based on file size
+      const minDelay = 2000; // 2 seconds minimum
+      const maxDelay = 5000; // 5 seconds maximum
+      const delay = Math.min(maxDelay, Math.max(minDelay, totalPages * 200)); // ~200ms per page, capped at 5s
+      
+      console.log(`Waiting ${delay}ms before redirect...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+      console.log('Step 5: Redirecting to dashboard with analysisId:', analysisId);
+      onAnalysisComplete({ 
+        analysisId, 
+        redirectToDashboard: true 
       });
-
-      setAnalysisProgress(60);
-
-      const result = await analyzeDeck(file, analysisId, imageUrls);
-
-      setAnalysisProgress(100);
-
-      // Refresh credit balance after successful analysis
-      try {
-        await refreshCredits();
-        console.log('Credit balance refreshed after analysis');
-      } catch (creditError) {
-        console.error('Failed to refresh credits:', creditError);
-        // Don't fail the analysis if credit refresh fails
-      }
-
-      setTimeout(() => {
-        onAnalysisComplete({ analysisId: result.analysisId });
-      }, 500);
+      console.log('Redirect call completed');
     } catch (error) {
-      console.error('Analysis failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze deck. Please try again.';
+      console.error('Upload failed:', error);
+      setIsUploading(false);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload deck. Please try again.';
       
-      // Check if this is an insufficient credits error
-      const insufficientCreditsError = error as Error & {
-        requiresUpgrade?: boolean;
-        currentBalance?: number;
-        requiredCredits?: number;
-        pageCount?: number;
-      };
-      
-      if (insufficientCreditsError.requiresUpgrade) {
-        const { currentBalance = 0, requiredCredits = 0, pageCount = 0 } = insufficientCreditsError;
-        const message = `Insufficient Credits\n\nYou need ${requiredCredits} credits to analyze this ${pageCount}-page deck.\nYou currently have ${currentBalance} credits.\n\nPlease upgrade your plan or purchase more credits to continue.`;
-        alert(message);
-        // Note: User can navigate to pricing page manually from the navigation menu
-      } else if (errorMessage.includes('Authentication') || errorMessage.includes('log in')) {
+      if (errorMessage.includes('Authentication') || errorMessage.includes('log in')) {
         alert('Your session has expired. Please log in again.');
         setShowLoginModal(true);
       } else {
         alert(errorMessage);
       }
-      
-      setIsAnalyzing(false);
-      setAnalysisProgress(0);
     }
   };
 
@@ -223,7 +227,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                   isDragging
                     ? 'border-slate-900 bg-slate-100 scale-[1.02]'
                     : 'border-slate-300 hover:border-slate-400'
-                } ${isAnalyzing ? 'pointer-events-none' : ''}`}
+                } ${isUploading ? 'pointer-events-none opacity-75' : ''}`}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
@@ -244,28 +248,17 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                 </h2>
 
                 <p className="text-slate-600 mb-8 max-w-md mx-auto">
-                  {isAnalyzing
-                    ? 'AI is analyzing your pitch deck for investor readiness...'
+                  {isUploading
+                    ? 'Preparing your deck for analysis...'
                     : isDragging
                     ? 'Release to upload your PDF file'
                     : 'Choose your file or drag and drop to start analyzing'}
                 </p>
 
-                {isAnalyzing ? (
-                  <div className="max-w-md mx-auto">
-                    <div className="flex items-center justify-between mb-2 text-sm">
-                      <span className="text-slate-600">Analyzing...</span>
-                      <span className="text-slate-900 font-semibold">{analysisProgress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                      <div
-                        className="h-full bg-slate-900 transition-all duration-500 ease-out rounded-full"
-                        style={{ width: `${analysisProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-slate-500 mt-4">
-                      This may take 30-60 seconds depending on deck size
-                    </p>
+                {isUploading ? (
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mb-4"></div>
+                    <p className="text-sm text-slate-600">Uploading and preparing analysis...</p>
                   </div>
                 ) : (
                   <>

@@ -19,6 +19,14 @@ export function AnimatedCounter({
   const previousValueRef = useRef(value);
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const displayValueRef = useRef(value);
+
+  // Initialize displayValue on mount to match the initial value
+  useEffect(() => {
+    displayValueRef.current = value;
+    setDisplayValue(value);
+    previousValueRef.current = value;
+  }, []); // Only run on mount
 
   useEffect(() => {
     const previousValue = previousValueRef.current;
@@ -32,13 +40,18 @@ export function AnimatedCounter({
     const direction = value > previousValue ? 'up' : 'down';
     setAnimationDirection(direction);
     setIsAnimating(true);
-    previousValueRef.current = value;
-
-    const startValue = displayValue;
+    
+    // Use the current displayValueRef as the starting point for smooth transitions
+    // This ensures we always start from the last displayed value, not the state value
+    const startValue = displayValueRef.current;
     const endValue = value;
     const difference = endValue - startValue;
     const startTime = performance.now();
     startTimeRef.current = startTime;
+    
+    // Update the refs immediately so next change uses the new value
+    previousValueRef.current = value;
+    displayValueRef.current = endValue; // Will be updated during animation
 
     const animate = (currentTime: number) => {
       if (startTimeRef.current === null) return;
@@ -52,12 +65,14 @@ export function AnimatedCounter({
 
       const currentValue = Math.round(startValue + (difference * easedProgress));
       setDisplayValue(currentValue);
+      displayValueRef.current = currentValue; // Update ref during animation
 
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(animate);
       } else {
         // Ensure we end exactly at the target value
         setDisplayValue(endValue);
+        displayValueRef.current = endValue; // Final update
         // Keep animation state briefly for visual feedback
         setTimeout(() => {
           setIsAnimating(false);
@@ -67,6 +82,11 @@ export function AnimatedCounter({
       }
     };
 
+    // Cancel any existing animation
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
     animationFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
@@ -74,7 +94,7 @@ export function AnimatedCounter({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [value, duration, displayValue]);
+  }, [value, duration]); // Removed displayValue from dependencies
 
   // Get base color from className if it contains a color class
   const baseColorClass = className.match(/(text-\w+-\d+)/)?.[0] || '';

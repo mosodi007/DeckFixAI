@@ -484,6 +484,8 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  let analysisId: string | null = null;
+  
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -545,6 +547,9 @@ Deno.serve(async (req: Request) => {
     const clientAnalysisId = formData.get('analysisId') as string;
     const imageUrlsJson = formData.get('imageUrls') as string;
 
+    // Set analysisId early so it's available in catch block for status updates
+    analysisId = clientAnalysisId || crypto.randomUUID();
+
     let imageUrls: string[] = [];
     try {
       imageUrls = imageUrlsJson ? JSON.parse(imageUrlsJson) : [];
@@ -558,6 +563,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('File received:', file.name, file.type, file.size, 'bytes');
     console.log('Image URLs received:', imageUrls.length);
+    console.log('Analysis ID:', analysisId);
 
     if (file.type !== 'application/pdf') {
       throw new Error('Only PDF files are supported');
@@ -587,7 +593,7 @@ Deno.serve(async (req: Request) => {
       pages = [];
     }
 
-    const analysisId = clientAnalysisId || crypto.randomUUID();
+    // analysisId already set above
     console.log('Analysis ID:', analysisId);
 
     // Step 2: Use OpenAI Vision API to analyze page images (primary method)
@@ -714,28 +720,96 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Credit check passed: user has ${creditCheck.currentBalance} credits, needs ${creditCost}`);
 
-    const analysisRecord = {
-      id: analysisId,
-      user_id: user.id,
-      session_id: null,
-      file_name: file.name,
-      file_size: file.size,
-      overall_score: 0,
-      summary: 'Analyzing your pitch deck...',
-      total_pages: pageCount,
-      created_at: new Date().toISOString(),
-    };
-
-    const { error: analysisError } = await supabase
-      .from('analyses')
-      .insert(analysisRecord);
-
-    if (analysisError) {
-      console.error('Failed to create analysis record:', analysisError);
-      throw new Error(`Database error: ${analysisError.message}`);
+    // Deduct credits BEFORE starting analysis (user pays upfront for the analysis attempt)
+    try {
+      await deductCredits(
+        supabase,
+        user.id,
+        creditCost,
+        `Pitch deck analysis: ${file.name} (${pageCount} pages)`,
+        {
+          analysisId,
+          pageCount,
+          fileName: file.name,
+        }
+      );
+      console.log(`Successfully deducted ${creditCost} credits for analysis ${analysisId} (before analysis starts)`);
+    } catch (deductError: any) {
+      console.error('Failed to deduct credits before analysis:', deductError);
+      // If credit deduction fails, we should not proceed with analysis
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to process payment. Please try again.',
+          details: deductError.message
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
-    console.log('Analysis record created, starting AI analysis...');
+    // Check if analysis record already exists (created by frontend)
+    const { data: existingAnalysis, error: checkError } = await supabase
+      .from('analyses')
+      .select('id, status')
+      .eq('id', analysisId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error checking for existing analysis:', checkError);
+      throw new Error(`Database error: ${checkError.message}`);
+    }
+
+    if (existingAnalysis) {
+      // Analysis record already exists (created by frontend), just update status to processing
+      console.log('Analysis record already exists, updating status to processing...');
+      const { error: updateError } = await supabase
+        .from('analyses')
+        .update({
+          status: 'processing',
+          file_name: file.name,
+          file_size: file.size,
+          total_pages: pageCount,
+        })
+        .eq('id', analysisId);
+
+      if (updateError) {
+        console.error('Failed to update analysis record:', updateError);
+        throw new Error(`Database error: ${updateError.message}`);
+      }
+      console.log('Analysis record updated to processing status');
+    } else {
+      // Analysis record doesn't exist, create it (backward compatibility)
+      console.log('Analysis record does not exist, creating new record...');
+      const analysisRecord = {
+        id: analysisId,
+        user_id: user.id,
+        session_id: null,
+        file_name: file.name,
+        file_size: file.size,
+        overall_score: 0,
+        summary: 'Analyzing your pitch deck...',
+        total_pages: pageCount,
+        status: 'processing',
+        created_at: new Date().toISOString(),
+      };
+
+      const { error: analysisError } = await supabase
+        .from('analyses')
+        .insert(analysisRecord);
+
+      if (analysisError) {
+        console.error('Failed to create analysis record:', analysisError);
+        throw new Error(`Database error: ${analysisError.message}`);
+      }
+      console.log('Analysis record created with status: processing');
+    }
+
+    console.log('Starting AI analysis...');
 
     const pageRecords = pages.map((page, index) => {
       // Use Vision API extracted content if available, otherwise use traditional extraction
@@ -795,6 +869,7 @@ Deno.serve(async (req: Request) => {
         word_density_feedback: openAIAnalysis.wordDensityFeedback,
         investment_ready: openAIAnalysis.investmentReadiness.isInvestmentReady,
         funding_stage: openAIAnalysis.stageAssessment.detectedStage,
+        status: 'completed',
       })
       .eq('id', analysisId);
 
@@ -1004,25 +1079,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Deduct credits after successful analysis (1 credit per page)
-    try {
-      await deductCredits(
-        supabase,
-        user.id,
-        creditCost,
-        `Pitch deck analysis: ${file.name} (${pageCount} pages)`,
-        {
-          analysisId,
-          pageCount,
-          fileName: file.name,
-        }
-      );
-      console.log(`Successfully deducted ${creditCost} credits for analysis ${analysisId}`);
-    } catch (deductError: any) {
-      // Log error but don't fail the analysis - credits were already checked
-      console.error('Failed to deduct credits after analysis:', deductError);
-      console.warn('Analysis completed but credit deduction failed. User may need manual credit adjustment.');
-    }
+    // Credits were already deducted before analysis started
+    console.log(`Analysis completed successfully. Credits (${creditCost}) were deducted at the start of analysis.`);
 
     const result: AnalysisResult = {
       analysisId,
@@ -1044,6 +1102,29 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error: any) {
     console.error('Error in analyze-deck function:', error);
+    
+    // Update analysis status to 'failed' if we have an analysisId
+    if (analysisId) {
+      try {
+        const supabaseClient = createClient(
+          supabaseUrl,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!,
+        );
+        
+        await supabaseClient
+          .from('analyses')
+          .update({
+            status: 'failed',
+            error_message: error.message || 'Internal server error',
+          })
+          .eq('id', analysisId);
+        
+        console.log(`Updated analysis ${analysisId} status to 'failed'`);
+      } catch (statusUpdateError) {
+        console.error('Failed to update analysis status to failed:', statusUpdateError);
+      }
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       {

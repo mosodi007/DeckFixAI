@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
@@ -14,7 +14,7 @@ interface DeckAnalysis {
   overall_score: number;
   total_pages: number;
   created_at: string;
-  status: 'completed' | 'processing' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   key_strengths?: string[];
   critical_issues_count?: number;
 }
@@ -38,9 +38,33 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     loadAnalyses();
   }, [user]);
 
-  async function loadAnalyses() {
+  // Memoize pending/processing analyses to prevent unnecessary re-renders
+  const pendingOrProcessingAnalyses = useMemo(() => {
+    return analyses.filter(a => a.status === 'pending' || a.status === 'processing');
+  }, [analyses]);
+
+  // Poll for status updates on pending/processing analyses
+  useEffect(() => {
+    if (pendingOrProcessingAnalyses.length === 0) {
+      return; // No need to poll if no pending/processing analyses
+    }
+
+    const pollInterval = setInterval(() => {
+      // Reload analyses silently (without showing main loader)
+      loadAnalyses(true);
+    }, 2500); // Poll every 2.5 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOrProcessingAnalyses.length]);
+
+  async function loadAnalyses(silent = false) {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       let query = supabase
         .from('analyses')
@@ -49,7 +73,8 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
           file_name,
           overall_score,
           total_pages,
-          created_at
+          created_at,
+          status
         `)
         .order('created_at', { ascending: false });
 
@@ -63,7 +88,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
         overall_score: item.overall_score || 0,
         total_pages: item.total_pages || 0,
         created_at: item.created_at,
-        status: 'completed',
+        status: (item.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed',
         critical_issues_count: 0,
       }));
 
@@ -71,7 +96,9 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     } catch (error) {
       console.error('Error loading analyses:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
@@ -409,6 +436,24 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                       target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100"><svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>';
                     }}
                   />
+                  {/* Loader overlay for pending/processing analyses */}
+                  {(analysis.status === 'pending' || analysis.status === 'processing') && (
+                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
+                      <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+                        <p className="text-white text-sm font-medium">Analyzing...</p>
+                      </div>
+                    </div>
+                  )}
+                  {/* Error indicator for failed analyses */}
+                  {analysis.status === 'failed' && (
+                    <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center backdrop-blur-sm">
+                      <div className="text-center">
+                        <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-2" />
+                        <p className="text-red-700 text-sm font-medium">Analysis Failed</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -419,9 +464,15 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                         <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-slate-700 transition-colors">
                           {analysis.deck_name}
                         </h3>
-                        <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
-                          {(analysis.overall_score / 10).toFixed(1)}/10
-                        </span>
+                        {analysis.status === 'completed' ? (
+                          <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
+                            {(analysis.overall_score / 10).toFixed(1)}/10
+                          </span>
+                        ) : (
+                          <span className="text-sm font-semibold whitespace-nowrap text-slate-400">
+                            {analysis.status === 'failed' ? 'Failed' : 'Pending'}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-600">
                         <span className="flex items-center gap-1">
@@ -449,12 +500,23 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onViewAnalysis(analysis.id);
+                        if (analysis.status === 'completed') {
+                          onViewAnalysis(analysis.id);
+                        }
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-all hover:shadow-md"
+                      disabled={analysis.status !== 'completed'}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                        analysis.status === 'completed'
+                          ? 'bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md cursor-pointer'
+                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      }`}
                     >
-                      View Analysis
-                      <ChevronRight className="w-4 h-4" />
+                      {analysis.status === 'pending' || analysis.status === 'processing'
+                        ? 'Analysis In Progress'
+                        : analysis.status === 'failed'
+                        ? 'Analysis Failed'
+                        : 'View Analysis'}
+                      {analysis.status === 'completed' && <ChevronRight className="w-4 h-4" />}
                     </button>
 
                     <button

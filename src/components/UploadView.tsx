@@ -77,7 +77,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
               Get Expert Analysis & Instant Fix for your Pitch Deck
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Get VC assessment and expert fix to critical issues, deal breakers & red flags, increase funding odds by 98.6% and make your startup investor-ready.
+              DeckFix AI will help you analyze & fix critical issues, deal breakers & red flags that will increase funding odds by 98.6% and make your startup investor-ready.
             </p>
           </header>
 

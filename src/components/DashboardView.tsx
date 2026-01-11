@@ -158,7 +158,11 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   function formatDate(dateString: string) {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const diffMs = nowOnly.getTime() - dateOnly.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     const timeStr = date.toLocaleTimeString('en-US', {

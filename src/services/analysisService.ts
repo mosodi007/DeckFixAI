@@ -142,17 +142,24 @@ export async function analyzeDeck(
   console.log('API URL:', `${supabaseUrl}/functions/v1/analyze-deck`);
   console.log('API key present:', supabaseKey ? `Yes (${supabaseKey.substring(0, 20)}...)` : 'No - MISSING');
 
-  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
-  if (sessionError) {
-    console.error('Failed to refresh session:', sessionError);
-    throw new Error('Authentication failed. Please refresh the page and try again.');
+  let session = null;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
+  if (!sessionError && sessionData?.session) {
+    session = sessionData.session;
+  }
+
+  if (!session) {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    session = currentSession;
   }
 
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
-    console.log('Using refreshed auth token');
+    console.log('Using auth token');
   } else {
-    console.warn('No active session found');
+    console.error('No active session found');
+    throw new Error('Please sign in to analyze your pitch deck.');
   }
 
   const response = await fetch(

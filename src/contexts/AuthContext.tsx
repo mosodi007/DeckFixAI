@@ -53,16 +53,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     async function initAuth() {
       try {
-        const { data: { session }, error } = await supabase.auth.refreshSession();
+        const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
 
-        if (error || !session) {
-          console.log('No valid session found');
+        if (refreshError || !sessionData?.session) {
+          console.log('No valid session found or session expired');
+
+          await supabase.auth.signOut();
+
           setUser(null);
+          setUserProfile(null);
           setLoading(false);
           return;
         }
 
-        const currentUser = session.user;
+        const currentUser = sessionData.session.user;
         if (currentUser) {
           console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
           setUser(currentUser);
@@ -73,7 +77,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       } catch (error) {
         console.error('Error during authentication initialization:', error);
+
+        await supabase.auth.signOut().catch(() => {});
+
         setUser(null);
+        setUserProfile(null);
         setLoading(false);
       }
     }

@@ -189,10 +189,13 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
           <div className="bg-gradient-to-br from-slate-900 to-slate-700 p-8 text-white">
             <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
-                <div className="text-slate-300 text-sm mb-3 font-medium">Current Plan</div>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className={`px-4 py-2 rounded-xl text-xl font-bold border-2 ${getTierBadgeColor(currentPlan?.name || 'Free')}`}>
-                    {currentPlan?.name || 'Free'}
+                <div className="text-slate-300 text-sm mb-2 font-medium">Credit Balance</div>
+                <div className="text-6xl font-bold mb-2">{credits?.creditsBalance || 0}</div>
+                <div className="text-slate-300 text-base mb-6">credits available</div>
+
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${getTierBadgeColor(currentPlan?.name || 'Free')}`}>
+                    {currentPlan?.name || 'Free'} Plan
                   </span>
                   {subscription?.cancelAtPeriodEnd && (
                     <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
@@ -200,22 +203,28 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
                     </span>
                   )}
                 </div>
-                <div className="text-5xl font-bold mb-2">
-                  {currentPlan?.monthlyCredits || 0}
+                <div className="text-slate-300 text-sm">
+                  {currentPlan?.monthlyCredits || 0} credits/month
+                  {subscription && <span className="text-slate-400"> • Billed {subscription.billingPeriod}</span>}
                 </div>
-                <div className="text-slate-300 text-lg">credits per month</div>
-                {subscription && (
-                  <div className="text-sm text-slate-400 mt-3">
-                    Billed {subscription.billingPeriod}
-                  </div>
-                )}
               </div>
-              <button
-                className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Top Up
-              </button>
+              {currentPlan?.name === 'Pro' ? (
+                nextTier ? (
+                  <button
+                    className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg flex items-center gap-2"
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                    Upgrade Tier
+                  </button>
+                ) : null
+              ) : (
+                <button
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all shadow-lg flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Upgrade to Pro
+                </button>
+              )}
             </div>
 
             {/* Credit Usage Bar */}
@@ -240,24 +249,20 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
           {/* Content Section */}
           <div className="p-8">
-            {/* Credit Balance */}
+            {/* Next Refill & Usage History */}
             <div className="mb-8 pb-8 border-b border-slate-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-slate-600 text-sm mb-2 font-medium">Total Credit Balance</div>
-                  <div className="text-4xl font-bold text-slate-900">{credits?.creditsBalance || 0}</div>
-                  <div className="text-sm text-slate-500 mt-1">credits available</div>
+                  <div className="text-slate-600 text-sm mb-2 font-medium">Next Credit Refill</div>
+                  <div className="text-2xl font-bold text-slate-900">{nextRefillDate}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-slate-600 text-sm mb-2 font-medium">Next Refill</div>
-                  <div className="text-lg font-semibold text-slate-900">{nextRefillDate}</div>
-                  <button
-                    onClick={onViewUsageHistory}
-                    className="text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2 transition-colors mt-1"
-                  >
-                    View Usage History
-                  </button>
-                </div>
+                <button
+                  onClick={onViewUsageHistory}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-lg font-semibold transition-colors text-sm flex items-center gap-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  View Usage History
+                </button>
               </div>
             </div>
 
@@ -275,7 +280,19 @@ export function CreditHistoryView({ onBack, onViewUsageHistory }: CreditHistoryV
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              {nextTier && (
+              {nextTier && currentPlan?.name === 'Pro' && (
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4 mb-3">
+                  <div className="text-sm font-semibold text-slate-900 mb-1">Get more out of Pro</div>
+                  <div className="text-xs text-slate-600 mb-3">Upgrade to {nextTier.name} tier with {nextTier.monthlyCredits} credits/month</div>
+                  <button
+                    className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm group"
+                  >
+                    <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    Upgrade to {nextTier.name}
+                  </button>
+                </div>
+              )}
+              {nextTier && currentPlan?.name !== 'Pro' && (
                 <button
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                 >

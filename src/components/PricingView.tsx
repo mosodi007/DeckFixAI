@@ -239,7 +239,20 @@ export function PricingView({ preselectedTierCredits }: PricingViewProps = {}) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center text-slate-600">Loading pricing...</div>
+          <div className="mb-10">
+            <h1 className="text-3xl font-semibold text-slate-900 mb-2 tracking-tighter">
+              Pricing
+            </h1>
+            <p className="text-slate-600">Choose the perfect plan for your needs</p>
+          </div>
+
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-600 font-medium">Loading pricing...</p>
+              <p className="text-slate-500 text-sm mt-2">Please wait while we fetch available plans</p>
+            </div>
+          </div>
         </div>
       </div>
     );

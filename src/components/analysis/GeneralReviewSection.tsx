@@ -1,5 +1,6 @@
 import { FileText } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { normalizeScoreTo0To100 } from '../../utils/scoreUtils';
 
 interface GeneralReviewSectionProps {
   overallScore: number;
@@ -21,7 +22,7 @@ export function GeneralReviewSection({
   issues
 }: GeneralReviewSectionProps) {
   const generateReview = (): string => {
-    const scoreValue = overallScore * 10;
+    const scoreValue = normalizeScoreTo0To100(overallScore);
     const isExcellent = scoreValue >= 80;
     const isGood = scoreValue >= 70;
     const isAverage = scoreValue >= 55;

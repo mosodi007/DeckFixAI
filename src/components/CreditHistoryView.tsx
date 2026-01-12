@@ -181,8 +181,28 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing, o
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center text-slate-600">Loading subscription details...</div>
+        <div className="max-w-4xl mx-auto">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-700 hover:text-slate-900 mb-8 transition-colors font-medium"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Dashboard
+          </button>
+
+          <div className="mb-10">
+            <h1 className="text-3xl font-semibold text-slate-900 mb-2 tracking-tighter">
+              Subscription & Credits
+            </h1>
+          </div>
+
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-600 font-medium">Loading subscription details...</p>
+              <p className="text-slate-500 text-sm mt-2">Please wait while we fetch your information</p>
+            </div>
+          </div>
         </div>
       </div>
     );

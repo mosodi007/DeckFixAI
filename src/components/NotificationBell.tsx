@@ -6,12 +6,14 @@ import { useToast } from '../contexts/ToastContext';
 
 interface Notification {
   id: string;
+  user_id: string;
   type: 'analysis_complete' | 'analysis_failed' | 'credit_low' | 'referral_bonus' | 'subscription_renewal';
   title: string;
   message: string;
   link: string | null;
   read: boolean;
   created_at: string;
+  metadata?: any; // JSONB field for additional data
 }
 
 interface NotificationBellProps {
@@ -44,31 +46,51 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50); // Increased limit to catch more notifications
 
       if (error) throw error;
 
       const newNotifications = (data || []) as Notification[];
       
-      // Check for new notifications and show toast (only if we had previous notifications)
-      if (previousNotificationIds.current.size > 0) {
-        const newUnreadNotifications = newNotifications.filter(
-          n => !previousNotificationIds.current.has(n.id) && !n.read
-        );
+      // Check for new notifications and show toast
+      // Show toast for new unread notifications that weren't in previous list
+      const newUnreadNotifications = newNotifications.filter(
+        n => !previousNotificationIds.current.has(n.id) && !n.read
+      );
 
-        newUnreadNotifications.forEach((notification) => {
-          if (notification.type === 'analysis_complete') {
-            showSuccess(notification.message, 6000);
-          } else if (notification.type === 'analysis_failed') {
-            showError(notification.message, 6000);
-          } else if (notification.type === 'subscription_renewal') {
-            // This includes credit purchases and subscription renewals
-            showSuccess(notification.message, 6000);
-          } else {
-            showSuccess(notification.message, 5000);
-          }
-        });
-      }
+      // Also check for very recent notifications (created in last 60 seconds) if this is first load
+      // This handles the case where notification was created just before page load
+      const isFirstLoad = previousNotificationIds.current.size === 0;
+      const recentNotifications = isFirstLoad 
+        ? newNotifications.filter(n => {
+            const createdAt = new Date(n.created_at).getTime();
+            const now = Date.now();
+            return !n.read && (now - createdAt) < 60000; // 60 seconds
+          })
+        : [];
+
+      // Combine new notifications and recent notifications (avoid duplicates)
+      const notificationsToShow = [...newUnreadNotifications];
+      recentNotifications.forEach(notif => {
+        if (!notificationsToShow.find(n => n.id === notif.id)) {
+          notificationsToShow.push(notif);
+        }
+      });
+
+      // Show toasts for new notifications
+      notificationsToShow.forEach((notification) => {
+        console.log('Showing toast for notification:', notification.type, notification.message);
+        if (notification.type === 'analysis_complete') {
+          showSuccess(notification.message, 8000); // Longer duration for analysis complete
+        } else if (notification.type === 'analysis_failed') {
+          showError(notification.message, 6000);
+        } else if (notification.type === 'subscription_renewal') {
+          // This includes credit purchases and subscription renewals
+          showSuccess(notification.message, 6000);
+        } else {
+          showSuccess(notification.message, 5000);
+        }
+      });
 
       // Update previous notification IDs
       previousNotificationIds.current = new Set(newNotifications.map(n => n.id));
@@ -85,13 +107,17 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
     loadNotifications();
   }, [loadNotifications]);
 
-  // Poll for new notifications
+  // Poll for new notifications more frequently
   useEffect(() => {
     if (!user) return;
 
+    // Load immediately on mount
+    loadNotifications();
+    
+    // Then poll every 3 seconds for faster notification detection
     const pollInterval = setInterval(() => {
       loadNotifications();
-    }, 5000); // Poll every 5 seconds
+    }, 3000);
 
     return () => clearInterval(pollInterval);
   }, [user, loadNotifications]);

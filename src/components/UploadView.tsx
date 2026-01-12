@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
-import { Sparkles, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
-import { uploadPdf, validatePdfFile } from '../services/pdfUploadService';
-import { startAnalysis, pollJobStatus } from '../services/jobService';
+import { Upload } from 'lucide-react';
+import { extractPageImages } from '../services/pdfImageExtractor';
+import { uploadPageImages } from '../services/storageService';
+import { createAnalysisRecord, startBackgroundAnalysis } from '../services/backgroundAnalysisService';
 import { SEOContentSection } from './upload/SEOContentSection';
 import { HowItWorksSection } from './HowItWorksSection';
 import { useAuth } from '../contexts/AuthContext';
-import { useCredits } from '../contexts/CreditContext';
 import { LoginModal } from './auth/LoginModal';
 import { SignUpModal } from './auth/SignUpModal';
 
@@ -14,9 +14,8 @@ interface UploadViewProps {
   isAuthenticated: boolean;
 }
 
-export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewProps) {
+export function UploadView({ onAnalysisComplete }: UploadViewProps) {
   const { user } = useAuth();
-  const { refreshCredits, credits } = useCredits();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -133,58 +132,61 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       return;
     }
 
-    // Validate file first
-    const validation = validatePdfFile(file);
-    if (!validation.isValid) {
-      alert(validation.error || 'Invalid file');
+    // Basic validation
+    if (file.type !== 'application/pdf') {
+      alert('Please select a PDF file');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert('File size must be less than 15MB');
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // Step 1: Upload PDF directly to storage
-      console.log('Step 1: Uploading PDF to storage...');
-      const uploadResult = await uploadPdf(file, user.id);
-      console.log(`Step 1 complete: PDF uploaded to ${uploadResult.bucket}/${uploadResult.pdfPath}`);
+      // Step 1: Extract PDF pages as images
+      console.log('Step 1: Extracting PDF pages as images...');
+      const pageImages = await extractPageImages(file, (progress) => {
+        console.log(`Extracting: ${progress.currentPage}/${progress.totalPages}`);
+      });
+      console.log(`Step 1 complete: Extracted ${pageImages.length} pages`);
 
-      // Step 2: Start analysis job
-      console.log('Step 2: Starting analysis job...');
-      const { jobId, status } = await startAnalysis(
-        uploadResult.pdfPath,
-        uploadResult.bucket,
-        file.name,
-        file.size
-      );
-      console.log(`Step 2 complete: Analysis job started: ${jobId}, status: ${status}`);
-
-      // Step 3: Poll job status until complete
-      console.log('Step 3: Polling job status...');
-      const finalStatus = await pollJobStatus(
-        jobId,
-        (status) => {
-          console.log(`Job status update: ${status.status}`);
-          // Refresh credits when status changes (credits deducted on completion)
-          if (status.status === 'done') {
-            refreshCredits().catch(console.error);
-          }
-        },
-        60, // Max 60 attempts
-        2000 // Start with 2 second intervals
-      );
-
-      console.log(`Step 3 complete: Job completed with status: ${finalStatus.status}`);
-
-      if (finalStatus.status === 'failed') {
-        throw new Error(finalStatus.error || 'Analysis failed');
+      if (pageImages.length === 0) {
+        throw new Error('Failed to extract pages from PDF');
       }
 
-      // Step 4: Refresh credits and redirect to Dashboard
-      await refreshCredits();
-      
-      console.log('Step 4: Redirecting to dashboard with jobId:', jobId);
+      if (pageImages.length > 30) {
+        throw new Error('We can only analyze decks with 30 pages or less');
+      }
+
+      // Step 2: Create analysis record
+      console.log('Step 2: Creating analysis record...');
+      const analysisId = await createAnalysisRecord(
+        file.name,
+        file.size,
+        pageImages.length,
+        user.id
+      );
+      console.log(`Step 2 complete: Analysis record created: ${analysisId}`);
+
+      // Step 3: Upload images to storage
+      console.log('Step 3: Uploading images to storage...');
+      const imageUrls = await uploadPageImages(pageImages, analysisId, (progress) => {
+        console.log(`Uploading: ${progress.currentPage}/${progress.totalPages}`);
+      });
+      console.log(`Step 3 complete: Uploaded ${imageUrls.length} images`);
+
+      // Step 4: Start background analysis (fire and forget)
+      console.log('Step 4: Starting background analysis...');
+      await startBackgroundAnalysis(file, analysisId, imageUrls);
+      console.log('Step 4 complete: Background analysis started');
+
+      // Step 5: Redirect to Dashboard
+      console.log('Step 5: Redirecting to dashboard with analysisId:', analysisId);
       onAnalysisComplete({ 
-        analysisId: jobId, 
+        analysisId: analysisId, 
         redirectToDashboard: true 
       });
       console.log('Redirect call completed');

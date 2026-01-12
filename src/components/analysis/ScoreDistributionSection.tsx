@@ -1,5 +1,6 @@
 import { GlassCard } from '../ui/GlassCard';
 import { ScoreCircle } from '../ScoreCircle';
+import { normalizeScoreTo0To100 } from '../../utils/scoreUtils';
 
 interface ScoreDistributionSectionProps {
   overallScore: number;
@@ -40,7 +41,8 @@ function getScoreBenchmark(score: number) {
 }
 
 export function ScoreDistributionSection({ overallScore }: ScoreDistributionSectionProps) {
-  const benchmark = getScoreBenchmark(overallScore * 10);
+  const score0To100 = normalizeScoreTo0To100(overallScore);
+  const benchmark = getScoreBenchmark(score0To100);
 
   return (
     <GlassCard className="p-6">
@@ -51,7 +53,7 @@ export function ScoreDistributionSection({ overallScore }: ScoreDistributionSect
         </p>
       </div>
       <div className="flex items-center justify-center h-64">
-        <ScoreCircle score={overallScore * 10} size={200} />
+        <ScoreCircle score={score0To100} size={200} />
       </div>
       <GlassCard blur="md" className="mt-4 p-4" hover={false}>
         <div className="text-center space-y-2">

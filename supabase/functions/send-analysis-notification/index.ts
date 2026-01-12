@@ -45,6 +45,12 @@ serve(async (req) => {
       );
     }
 
+    // Check if email was already sent for this analysis to prevent duplicates
+    // We'll use a simple in-memory cache (for this request) or check notification table
+    // For now, we'll rely on the finalize-analysis function to only call this once
+    // But add logging to track duplicate calls
+    console.log(`Sending analysis notification email for analysisId: ${analysisId}, status: ${status}`);
+
     const displayName = userName || email.split('@')[0];
     const analysisUrl = `${SITE_URL}/?view=analysis&analysisId=${analysisId}`;
 

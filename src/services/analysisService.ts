@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeScoreTo0To10 } from '../utils/scoreUtils';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -316,19 +317,52 @@ export async function getAnalysisStatus(analysisId: string): Promise<'pending' |
 }
 
 export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
-  const { data: analysis, error: analysisError } = await supabase
-    .from('analyses')
-    .select('*')
-    .eq('id', analysisId)
-    .single();
+  // Retry fetching analysis with status check (in case of race condition)
+  let analysis: any = null;
+  let attempts = 0;
+  const maxAttempts = 5;
+  
+  while (attempts < maxAttempts) {
+    const { data, error: analysisError } = await supabase
+      .from('analyses')
+      .select('*')
+      .eq('id', analysisId)
+      .single();
 
-  if (analysisError) throw analysisError;
+    if (analysisError) {
+      if (attempts === maxAttempts - 1) throw analysisError;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+      continue;
+    }
+
+    analysis = data;
+    const status = (analysis.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed';
+    
+    // If completed or failed, we're done
+    if (status === 'completed' || status === 'failed') {
+      break;
+    }
+    
+    // If still processing, wait and retry
+    if (status === 'pending' || status === 'processing') {
+      if (attempts === maxAttempts - 1) {
+        throw new Error(`Analysis is still ${status}. Please wait for it to complete.`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+      continue;
+    }
+    
+    break;
+  }
+
+  if (!analysis) {
+    throw new Error('Analysis not found');
+  }
 
   // Check if analysis is complete
   const status = (analysis.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed';
-  if (status === 'pending' || status === 'processing') {
-    throw new Error(`Analysis is still ${status}. Please wait for it to complete.`);
-  }
   
   if (status === 'failed') {
     throw new Error(`Analysis failed. ${analysis.error_message || 'Please try uploading again.'}`);
@@ -402,13 +436,49 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
 
   if (dealBreakersError) throw dealBreakersError;
 
+  // Extract data from result jsonb column (where we store detailed analysis)
+  const resultData = analysis.result || {};
+  
+  // Derive investment grade from overall score
+  const getInvestmentGrade = (score: number): string => {
+    if (score >= 90) return 'A+';
+    if (score >= 85) return 'A';
+    if (score >= 80) return 'A-';
+    if (score >= 75) return 'B+';
+    if (score >= 70) return 'B';
+    if (score >= 65) return 'B-';
+    if (score >= 60) return 'C+';
+    if (score >= 55) return 'C';
+    if (score >= 50) return 'C-';
+    return 'D';
+  };
+  
+  // Derive funding odds from investment readiness or overall score
+  const getFundingOdds = (readiness: any, score: number): 'Very High' | 'High' | 'Low' | 'Very Low' => {
+    if (readiness?.readinessScore >= 80 || score >= 85) return 'Very High';
+    if (readiness?.readinessScore >= 65 || score >= 70) return 'High';
+    if (readiness?.readinessScore >= 50 || score >= 55) return 'Low';
+    return 'Very Low';
+  };
+  
+  // Calculate critical issues count - include all issues that need attention
+  // Count: deal breakers + all red flags (not just critical) + all high/medium priority issues
+  const criticalIssuesCount = (dealBreakers?.length || 0) + 
+    (redFlags?.length || 0) + // Count all red flags, not just critical
+    (issues?.filter((i: any) => i.priority === 'High' || i.priority === 'Medium').length || 0) +
+    (missingSlides?.length || 0); // Also count missing slides as issues
+
+  // Normalize score to 0-10 scale using unified utility
+  const overallScore = normalizeScoreTo0To10(analysis.overall_score);
+
   return {
     id: analysis.id,
     fileName: analysis.file_name,
     fileSize: analysis.file_size,
-    overallScore: analysis.overall_score,
+    overallScore,
     totalPages: analysis.total_pages,
     summary: analysis.summary,
+    businessSummary: analysis.summary, // Use summary as business summary
     createdAt: analysis.created_at,
     slidesAnalyzedAt: analysis.slides_analyzed_at || null,
     fundingStage: analysis.funding_stage,
@@ -416,16 +486,23 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     wordDensity: analysis.word_density || 'Not analyzed',
     disruptionSignal: analysis.disruption_signal || 0,
     overallScoreFeedback: analysis.overall_score_feedback || null,
+    investmentGrade: getInvestmentGrade(analysis.overall_score),
     investmentGradeFeedback: analysis.investment_grade_feedback || null,
+    fundingOdds: getFundingOdds(investmentReadiness, analysis.overall_score),
     fundingOddsFeedback: analysis.funding_odds_feedback || null,
     wordDensityFeedback: analysis.word_density_feedback || null,
     disruptionSignalFeedback: analysis.disruption_signal_feedback || null,
     pageCountFeedback: analysis.page_count_feedback || null,
+    criticalIssuesCount,
+    criticalIssuesFeedback: criticalIssuesCount > 0 
+      ? `Found ${criticalIssuesCount} critical issue${criticalIssuesCount > 1 ? 's' : ''} that need immediate attention. ${dealBreakers?.length ? `${dealBreakers.length} deal-breaker${dealBreakers.length > 1 ? 's' : ''} and ` : ''}${redFlags?.filter((f: any) => f.severity === 'critical').length || 0} critical red flag${(redFlags?.filter((f: any) => f.severity === 'critical').length || 0) > 1 ? 's' : ''}.`
+      : null,
     pages: pages?.map((p: any) => ({
-      pageNumber: p.page_number,
+      page_number: p.page_number, // Keep snake_case for compatibility
+      pageNumber: p.page_number, // Also provide camelCase
       title: p.title,
       score: p.score,
-      content: p.content,
+      content: p.content || '',
       feedback: p.feedback || p.brutal_feedback || p.critical_feedback || null,
       recommendations: (() => {
         if (!p.recommendations) return [];
@@ -442,34 +519,38 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       idealVersion: p.ideal_version,
       imageUrl: getPublicImageUrl(p.image_url),
       thumbnailUrl: getPublicImageUrl(p.thumbnail_url),
+      image_url: getPublicImageUrl(p.image_url), // Also provide snake_case
+      thumbnail_url: getPublicImageUrl(p.thumbnail_url), // Also provide snake_case
     })) || [],
     metrics: {
-      clarityScore: metrics?.clarity_score || 0,
-      designScore: metrics?.design_score || 0,
-      contentScore: metrics?.content_score || 0,
-      structureScore: metrics?.structure_score || 0,
-      strengths: metrics?.strengths || [],
-      weaknesses: metrics?.weaknesses || [],
+      // Get from result jsonb first, fallback to metrics table
+      clarityScore: resultData.clarity_score || metrics?.clarity_score || 0,
+      designScore: resultData.design_score || metrics?.design_score || 0,
+      contentScore: resultData.content_score || metrics?.content_score || 0,
+      structureScore: resultData.structure_score || metrics?.structure_score || 0,
+      strengths: resultData.strengths || metrics?.strengths || [],
+      weaknesses: resultData.weaknesses || metrics?.weaknesses || [],
     },
     keyMetrics: {
-      companyName: keyMetrics?.company_name || 'Not specified',
-      industry: keyMetrics?.industry || 'Not specified',
-      currentRevenue: keyMetrics?.current_revenue || 'Not specified',
-      fundingSought: keyMetrics?.funding_sought || 'Not specified',
-      growthRate: keyMetrics?.growth_rate || 'Not specified',
-      teamSize: keyMetrics?.team_size || 0,
-      marketSize: keyMetrics?.market_size || 'Not specified',
-      valuation: keyMetrics?.valuation || 'Not specified',
-      businessModel: keyMetrics?.business_model || 'Not specified',
-      customerCount: keyMetrics?.customer_count || 'Not specified',
+      // Get from result jsonb first, fallback to key_business_metrics table
+      companyName: resultData.key_business_metrics?.companyName || keyMetrics?.company_name || 'Not specified',
+      industry: resultData.key_business_metrics?.industry || keyMetrics?.industry || 'Not specified',
+      currentRevenue: resultData.key_business_metrics?.currentRevenue || keyMetrics?.current_revenue || 'Not specified',
+      fundingSought: resultData.key_business_metrics?.fundingSought || keyMetrics?.funding_sought || 'Not specified',
+      growthRate: resultData.key_business_metrics?.growthRate || keyMetrics?.growth_rate || 'Not specified',
+      teamSize: resultData.key_business_metrics?.teamSize || keyMetrics?.team_size || 0,
+      marketSize: resultData.key_business_metrics?.marketSize || keyMetrics?.market_size || 'Not specified',
+      valuation: resultData.key_business_metrics?.valuation || keyMetrics?.valuation || 'Not specified',
+      businessModel: resultData.key_business_metrics?.businessModel || keyMetrics?.business_model || 'Not specified',
+      customerCount: resultData.key_business_metrics?.customerCount || keyMetrics?.customer_count || 'Not specified',
     },
-    stageAssessment: stageAssessment ? {
+    stageAssessment: resultData.stageAssessment || (stageAssessment ? {
       detectedStage: stageAssessment.detected_stage,
       stageConfidence: stageAssessment.stage_confidence,
       stageAppropriatenessScore: stageAssessment.stage_appropriateness_score,
       stageFeedback: stageAssessment.stage_specific_feedback,
-    } : null,
-    investmentReadiness: investmentReadiness ? {
+    } : null),
+    investmentReadiness: resultData.investmentReadiness || (investmentReadiness ? {
       isInvestmentReady: investmentReadiness.is_investment_ready,
       readinessScore: investmentReadiness.readiness_score,
       readinessSummary: investmentReadiness.readiness_summary,
@@ -484,21 +565,22 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
       productFeedback: investmentReadiness.product_feedback,
       tractionFeedback: investmentReadiness.traction_feedback,
       financialsFeedback: investmentReadiness.financials_feedback,
-    } : null,
-    redFlags: redFlags?.map((f: any) => ({
-      id: f.id,
+    } : null),
+    // Get from result jsonb first, fallback to database tables
+    redFlags: (resultData.red_flags || redFlags || []).map((f: any) => ({
+      id: f.id || `redflag-${f.title}`,
       category: f.category,
       severity: f.severity,
       title: f.title,
       description: f.description,
       impact: f.impact,
-    })) || [],
-    dealBreakers: dealBreakers?.map((b: any) => ({
-      id: b.id,
+    })),
+    dealBreakers: (resultData.deal_breakers || dealBreakers || []).map((b: any) => ({
+      id: b.id || `dealbreaker-${b.title}`,
       title: b.title,
       description: b.description,
       recommendation: b.recommendation,
-    })) || [],
+    })),
     issues: issues?.map((i: any) => ({
       id: i.id,
       pageNumber: i.page_number,

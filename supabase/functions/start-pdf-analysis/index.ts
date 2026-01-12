@@ -1,10 +1,32 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+// CORS headers - allow specific origins for production
+const getAllowedOrigin = (requestOrigin: string | null): string => {
+  // Allow specific production domain
+  if (requestOrigin === 'https://deckfix.ai' || requestOrigin === 'https://www.deckfix.ai') {
+    return requestOrigin;
+  }
+  // Allow localhost for development
+  if (requestOrigin && (requestOrigin.startsWith('http://localhost') || requestOrigin.startsWith('http://127.0.0.1'))) {
+    return requestOrigin;
+  }
+  // Default to wildcard for other cases
+  return '*';
+};
+
+const getCorsHeaders = (origin: string | null) => {
+  const allowedOrigin = getAllowedOrigin(origin);
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  };
+  // Only include credentials header if origin is specific (not wildcard)
+  if (allowedOrigin !== '*') {
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+  return headers;
 };
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
@@ -522,6 +544,11 @@ Remember: Generic feedback is worthless. Be specific, detailed, and actionable. 
 }
 
 Deno.serve(async (req: Request) => {
+  // Get origin from request for CORS
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle OPTIONS preflight requests immediately
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -529,15 +556,28 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Wrap everything in try-catch to ensure CORS headers are always sent
   let jobId: string | null = null;
   let userId: string | null = null;
   let pageCount: number = 0;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    // Validate environment variables early
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const pdfConverterUrl = Deno.env.get('PDF_CONVERTER_SERVICE_URL') || 'http://localhost:3001';
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('Missing required environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error: Missing required environment variables' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     // #region agent log
     console.log(JSON.stringify({location:'start-pdf-analysis:537',message:'Edge Function entry - env vars check',data:{hasSupabaseUrl:!!supabaseUrl,hasServiceKey:!!supabaseServiceKey,hasAnonKey:!!supabaseAnonKey,supabaseUrlLength:supabaseUrl?.length||0,serviceKeyLength:supabaseServiceKey?.length||0,pdfConverterUrl,hasPdfConverterUrl:!!Deno.env.get('PDF_CONVERTER_SERVICE_URL')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}));
@@ -1014,25 +1054,29 @@ Deno.serve(async (req: Request) => {
 
   } catch (error: any) {
     console.error('Error in start-pdf-analysis:', error);
+    console.error('Error stack:', error.stack);
 
-    // Update job status to failed
+    // Update job status to failed (if we have a jobId)
     if (jobId) {
       try {
-        await createClient(
-          Deno.env.get('SUPABASE_URL')!,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        )
-          .from('analyses')
-          .update({
-            status: 'failed',
-            error: error.message || 'Internal server error',
-          })
-          .eq('id', jobId);
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          await supabase
+            .from('analyses')
+            .update({
+              status: 'failed',
+              error: error.message || 'Internal server error',
+            })
+            .eq('id', jobId);
+        }
       } catch (updateError) {
         console.error('Failed to update job status:', updateError);
       }
     }
 
+    // Always return response with CORS headers, even on error
     return new Response(
       JSON.stringify({
         error: error.message || 'Internal server error',
@@ -1045,4 +1089,16 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+// Add a global error handler to catch any unhandled errors
+// This ensures CORS headers are always sent
+if (typeof Deno !== 'undefined') {
+  globalThis.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+  });
+  
+  globalThis.addEventListener('error', (event) => {
+    console.error('Unhandled error:', event.error);
+  });
+}
 

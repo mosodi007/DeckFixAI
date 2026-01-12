@@ -1,6 +1,14 @@
 import { supabase } from './analysisService';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadPdfFile } from './storageService';
+import { 
+  saveUploadState, 
+  updateUploadState, 
+  removeUploadState, 
+  getUploadState,
+  isOnline,
+  onNetworkStatusChange,
+  PersistedUploadState
+} from './uploadPersistenceService';
 
 export interface AnalysisStatus {
   id: string;
@@ -8,9 +16,14 @@ export interface AnalysisStatus {
   error_message?: string | null;
 }
 
+export interface AnalysisProgress {
+  currentPage: number;
+  totalPages: number;
+  status: 'extracting' | 'analyzing' | 'finalizing';
+}
+
 /**
  * Creates an analysis record in the database with 'pending' status
- * This allows the UI to immediately show the deck while analysis runs in background
  */
 export async function createAnalysisRecord(
   fileName: string,
@@ -38,21 +51,248 @@ export async function createAnalysisRecord(
     throw new Error(`Failed to create analysis record: ${error.message}`);
   }
 
-  console.log('Analysis record created with status: pending, ID:', analysisId);
+  console.log('Analysis record created:', analysisId);
   return analysisId;
 }
 
 /**
- * Starts background analysis by calling the Edge Function
- * This is fire-and-forget - we don't wait for the response
- * 
- * Instead of sending the file in the request body (which can cause size limit issues),
- * we upload the PDF to storage first and send only the URL
+ * Analyzes a single page using the analyze-page Edge Function with retry logic
+ * Handles rate limits (429) with exponential backoff
  */
-export async function startBackgroundAnalysis(
-  file: File,
+async function analyzePage(
   analysisId: string,
-  imageUrls: string[]
+  pageNumber: number,
+  imageUrl: string,
+  accessToken: string,
+  supabaseUrl: string,
+  supabaseKey: string,
+  retries: number = 3
+): Promise<{ success: boolean; content?: string }> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-page`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
+          analysisId,
+          pageNumber,
+          imageUrl,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        const errorMessage = errorData.error || `HTTP ${response.status}`;
+        
+        // Check if it's a rate limit error (429)
+        if (response.status === 429 || errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+          // For rate limits, use longer backoff
+          const rateLimitDelay = Math.min(60000 * Math.pow(2, attempt - 1), 300000); // 1min, 2min, 4min, max 5min
+          if (attempt < retries) {
+            console.log(`Rate limit hit for page ${pageNumber}, waiting ${Math.round(rateLimitDelay / 1000)}s before retry ${attempt + 1}/${retries}...`);
+            await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+            continue;
+          }
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      return { success: result.success, content: result.content };
+      
+    } catch (error: any) {
+      lastError = error;
+      
+      // Only log errors on last attempt or if not rate limit
+      const isRateLimit = error.message?.includes('429') || error.message?.includes('rate limit');
+      if (attempt === retries || !isRateLimit) {
+        if (isRateLimit) {
+          console.error(`Page ${pageNumber} failed after ${retries} attempts: Rate limit exceeded`);
+        } else {
+          console.error(`Page ${pageNumber} failed:`, error.message);
+        }
+      }
+      
+      // If it's the last attempt, throw the error
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      // Longer delay for rate limits
+      const isRateLimitError = error.message?.includes('429') || error.message?.includes('rate limit');
+      const baseDelay = isRateLimitError ? 30000 : 2000; // 30s for rate limits, 2s for others
+      const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), isRateLimitError ? 300000 : 10000);
+      
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed to analyze page ${pageNumber} after ${retries} attempts`);
+}
+
+/**
+ * Finalizes the analysis by generating comprehensive summary
+ */
+async function finalizeAnalysis(
+  analysisId: string,
+  accessToken: string,
+  supabaseUrl: string,
+  supabaseKey: string
+): Promise<void> {
+  const response = await fetch(`${supabaseUrl}/functions/v1/finalize-analysis`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'apikey': supabaseKey,
+    },
+    body: JSON.stringify({ analysisId }),
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      errorData = { error: errorText };
+    }
+    
+    // Only log non-rate-limit errors
+    const isRateLimit = response.status === 429 || errorData.error?.includes('429') || errorData.error?.includes('rate limit');
+    if (!isRateLimit) {
+      console.error('Finalize-analysis error:', errorData.error || errorData);
+    }
+    throw new Error(errorData.error || `Failed to finalize analysis: ${response.status}`);
+  }
+
+  const result = await response.json();
+  // Only log on success, not the full result
+  if (result.success) {
+    console.log('Finalization completed successfully');
+  }
+}
+
+/**
+ * Resumes analysis from where it left off
+ * Checks if images are already uploaded and continues from the last analyzed page
+ */
+export async function resumeBackgroundAnalysis(
+  analysisId: string,
+  userId: string,
+  fileName: string,
+  fileSize: number,
+  onProgress?: (progress: AnalysisProgress) => void
+): Promise<void> {
+  const persistedState = getUploadState(analysisId);
+  
+  if (!persistedState) {
+    throw new Error('No persisted state found for this analysis');
+  }
+
+  // Check database status first
+  const { data: analysis } = await supabase
+    .from('analyses')
+    .select('status, total_pages')
+    .eq('id', analysisId)
+    .single();
+
+  if (!analysis) {
+    throw new Error('Analysis not found');
+  }
+
+  // If already completed, clean up and return
+  if (analysis.status === 'completed') {
+    removeUploadState(analysisId);
+    return;
+  }
+
+  // Check which pages have been analyzed
+  const { data: analyzedPages } = await supabase
+    .from('analysis_pages')
+    .select('page_number')
+    .eq('analysis_id', analysisId);
+
+  const analyzedPageNumbers = new Set(analyzedPages?.map(p => p.page_number) || []);
+  
+  // Get image URLs from storage - first list files to check what exists
+  const imageUrls: string[] = [];
+  const totalPages = persistedState.totalPages || analysis.total_pages;
+  
+  // List existing files first
+  const { data: existingFiles, error: listError } = await supabase.storage
+    .from('slide-images')
+    .list(analysisId);
+  
+  if (listError) {
+    console.error('Error listing files:', listError);
+    throw new Error(`Failed to list images: ${listError.message}`);
+  }
+  
+  // Create signed URLs only for files that exist
+  for (let i = 1; i <= totalPages; i++) {
+    const fileName = `page_${i}.jpg`;
+    const fileExists = existingFiles?.some(f => f.name === fileName);
+    
+    if (fileExists) {
+      const fullPath = `${analysisId}/${fileName}`;
+      const { data: signedUrlData, error: signedError } = await supabase.storage
+        .from('slide-images')
+        .createSignedUrl(fullPath, 3600);
+      
+      if (!signedError && signedUrlData?.signedUrl) {
+        imageUrls.push(signedUrlData.signedUrl);
+      } else {
+        console.warn(`Failed to create signed URL for ${fullPath}:`, signedError);
+      }
+    } else {
+      console.warn(`Image ${fileName} not found in storage`);
+    }
+  }
+  
+  if (imageUrls.length === 0) {
+    throw new Error('No images found in storage. Please re-upload.');
+  }
+
+  if (imageUrls.length === 0) {
+    throw new Error('No images found in storage. Please re-upload.');
+  }
+
+  // Continue analysis from where it left off
+  await continueAnalysisFromPage(
+    analysisId,
+    imageUrls,
+    analyzedPageNumbers,
+    persistedState,
+    onProgress
+  );
+}
+
+/**
+ * Continues analysis from a specific point
+ */
+async function continueAnalysisFromPage(
+  analysisId: string,
+  imageUrls: string[],
+  analyzedPageNumbers: Set<number>,
+  persistedState: PersistedUploadState,
+  onProgress?: (progress: AnalysisProgress) => void
 ): Promise<void> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -61,204 +301,504 @@ export async function startBackgroundAnalysis(
     throw new Error('Missing Supabase environment variables');
   }
 
-  // OPTIMIZATION: Skip PDF upload if we have image URLs
-  // The Edge Function skips PDF download when image URLs are provided, so we don't need to upload the PDF
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:64',message:'Checking if PDF upload needed',data:{analysisId,fileName:file.name,fileSize:file.size,imageUrlsCount:imageUrls.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C,D'})}).catch(()=>{});
-  // #endregion
-  let pdfUrl: string | null = null;
-  
-  if (imageUrls && imageUrls.length > 0) {
-    // We have images, skip PDF upload - Edge Function will use images directly
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:69',message:'Skipping PDF upload - using image URLs',data:{imageUrlsCount:imageUrls.length,savedBytes:file.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C,D'})}).catch(()=>{});
-    // #endregion
-    console.log(`OPTIMIZATION: Skipping PDF upload - using ${imageUrls.length} image URLs (saves ${Math.round(file.size / 1024)}KB upload)`);
-  } else {
-    // No images, we need the PDF for text extraction fallback
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:72',message:'No image URLs - uploading PDF',data:{analysisId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
-    // #endregion
-    console.log('Uploading PDF file to storage (no image URLs provided)...');
-    try {
-      pdfUrl = await uploadPdfFile(file, analysisId);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:75',message:'PDF upload completed',data:{pdfUrlLength:pdfUrl.length,pdfUrlPreview:pdfUrl.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C,D'})}).catch(()=>{});
-      // #endregion
-      console.log('PDF file uploaded, signed URL created');
-    } catch (uploadError: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:78',message:'PDF upload failed',data:{error:uploadError.message,stack:uploadError.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
-      // #endregion
-      throw uploadError;
-    }
-  }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:85',message:'Before creating payload',data:{hasPdfUrl:!!pdfUrl,imageUrlsCount:imageUrls.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
-  // Send JSON payload instead of FormData to avoid size limits
-  const payload = {
-    analysisId,
-    pdfUrl: pdfUrl || null, // Signed URL to the PDF in storage (null if using images only)
-    imageUrls, // Array of signed URLs to page images
-    fileName: file.name,
-    fileSize: file.size,
-  };
-
-  // Get session and refresh if needed
+  // Get fresh session
   let { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
-  console.log('Session check:', {
-    hasSession: !!session,
-    hasAccessToken: !!session?.access_token,
-    expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
-    sessionError: sessionError?.message
-  });
-  
-  // Check if session is expired or about to expire (within 2 minutes)
-  let needsRefresh = false;
-  if (session?.expires_at) {
-    const expiresAt = new Date(session.expires_at * 1000);
-    const now = new Date();
-    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-    
-    console.log(`Session expiry check: ${Math.round(timeUntilExpiry / 1000)}s until expiry`);
-    
-    // Refresh if expired or expires within 2 minutes
-    if (timeUntilExpiry < 120000) {
-      needsRefresh = true;
-      console.log('Session needs refresh - refreshing now...');
+  if (sessionError || !session?.access_token) {
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshData.session?.access_token) {
+      throw new Error('Authentication required. Please log in and try again.');
     }
-  } else if (!session) {
-    needsRefresh = true;
-    console.log('No session found - attempting refresh...');
+    session = refreshData.session;
   }
 
-  // Refresh session if needed
-  if (needsRefresh) {
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    throw new Error('No access token available');
+  }
+
+  const totalPages = imageUrls.length;
+  const failedPages: number[] = [];
+
+  // Update status to processing
+  await supabase
+    .from('analyses')
+    .update({ status: 'processing' })
+    .eq('id', analysisId);
+
+  // Analyze only pages that haven't been analyzed yet
+  for (let i = 0; i < imageUrls.length; i++) {
+    const pageNumber = i + 1;
+    
+    // Skip if already analyzed (only log for first few or last)
+    if (analyzedPageNumbers.has(pageNumber)) {
+      if (pageNumber <= 3 || pageNumber === totalPages) {
+        console.log(`Skipping page ${pageNumber} - already analyzed`);
+      }
+      continue;
+    }
+
+    // Wait for network if offline
+    if (!isOnline()) {
+      console.log('Network offline, waiting...');
+      await new Promise<void>((resolve) => {
+        const unsubscribe = onNetworkStatusChange((online) => {
+          if (online) {
+            unsubscribe();
+            resolve();
+          }
+        });
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          unsubscribe();
+          resolve();
+        }, 5 * 60 * 1000);
+      });
+    }
+
     try {
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (!refreshError && refreshData.session) {
-        session = refreshData.session;
-        console.log('Session refreshed successfully');
-      } else {
-        console.error('Failed to refresh session:', refreshError);
-        if (!session) {
-          throw new Error('No active session. Please log in and try again.');
-        }
+      if (onProgress) {
+        onProgress({
+          currentPage: pageNumber,
+          totalPages,
+          status: 'analyzing',
+        });
       }
-    } catch (refreshErr: any) {
-      console.error('Error refreshing session:', refreshErr);
-      if (!session) {
-        throw new Error('Session expired. Please log in and try again.');
+
+      updateUploadState(analysisId, {
+        status: 'analyzing',
+        analyzedPageCount: analyzedPageNumbers.size + (i - analyzedPageNumbers.size),
+      });
+
+      // Only log every 5 pages to reduce noise
+      if (pageNumber % 5 === 0 || pageNumber === 1 || pageNumber === totalPages) {
+        console.log(`Resuming: Analyzing page ${pageNumber}/${totalPages}...`);
+      }
+      
+      await analyzePage(analysisId, pageNumber, imageUrls[i], accessToken, supabaseUrl, supabaseKey, 3);
+      
+      // Only log completion for important pages
+      if (pageNumber % 5 === 0 || pageNumber === totalPages) {
+        console.log(`Page ${pageNumber} completed`);
+      }
+      
+      // Longer delay between pages to avoid rate limits (2 seconds)
+      if (i < imageUrls.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    } catch (error: any) {
+      // Only log if it's not a rate limit (those are handled in analyzePage)
+      const isRateLimit = error.message?.includes('429') || error.message?.includes('rate limit');
+      if (!isRateLimit) {
+        console.error(`Failed to analyze page ${pageNumber}:`, error.message);
+      }
+      failedPages.push(pageNumber);
+      
+      // Wait longer before continuing to next page if we hit rate limit
+      if (isRateLimit && i < imageUrls.length - 1) {
+        console.log('Rate limit detected, waiting 30s before continuing...');
+        await new Promise(resolve => setTimeout(resolve, 30000));
       }
     }
   }
 
-  if (!session?.access_token) {
-    console.error('No access token available. Session:', session);
-    throw new Error('Authentication required. Please log in and try again.');
+  // Finalize if we have analyzed pages
+  if (analyzedPageNumbers.size + (totalPages - failedPages.length - analyzedPageNumbers.size) > 0) {
+    try {
+      if (onProgress) {
+        onProgress({
+          currentPage: totalPages,
+          totalPages,
+          status: 'finalizing',
+        });
+      }
+
+      updateUploadState(analysisId, { status: 'finalizing' });
+
+      await finalizeAnalysis(analysisId, accessToken, supabaseUrl, supabaseKey);
+      
+      updateUploadState(analysisId, { status: 'completed' });
+      removeUploadState(analysisId);
+    } catch (error: any) {
+      console.error('Finalization error:', error);
+      updateUploadState(analysisId, { 
+        status: 'failed', 
+        error: error.message 
+      });
+    }
+  }
+}
+
+/**
+ * Starts sequential background analysis - one page at a time
+ */
+export async function startBackgroundAnalysis(
+  file: File,
+  analysisId: string,
+  imageUrls: string[],
+  onProgress?: (progress: AnalysisProgress) => void
+): Promise<void> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables');
   }
 
-  console.log('Authorization header will be set, token length:', session.access_token.length);
+  if (!imageUrls || imageUrls.length === 0) {
+    throw new Error('No image URLs provided for analysis');
+  }
 
-  const headers: Record<string, string> = {
-    'apikey': supabaseKey,
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`,
-  };
-  
-  console.log('Request headers:', {
-    hasApikey: !!headers.apikey,
-    hasContentType: !!headers['Content-Type'],
-    hasAuthorization: !!headers.Authorization,
-    authHeaderLength: headers.Authorization?.length || 0
-  });
+  const totalPages = imageUrls.length;
+  console.log(`Starting sequential analysis for ${totalPages} pages...`);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:151',message:'Before fetch to Edge Function',data:{url:`${supabaseUrl}/functions/v1/analyze-deck`,payloadSize:JSON.stringify(payload).length,hasPdfUrl:!!payload.pdfUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,D,E'})}).catch(()=>{});
-  // #endregion
-  // Fire and forget - don't await the response
-  // The Edge Function will update the status in the database
-  const fetchStartTime = Date.now();
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:156',message:'Initiating fetch request',data:{url:`${supabaseUrl}/functions/v1/analyze-deck`,method:'POST',hasHeaders:true,payloadSize:JSON.stringify(payload).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
+  // Get fresh session
+  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
-  // Create abort controller for timeout
-  // Supabase Edge Functions have a max execution time (usually 5-10 minutes depending on plan)
-  // For 20 images processed sequentially, we need at least 10 minutes
-  // Each image takes ~10-30 seconds + 500ms delay = ~4-6 minutes minimum for 20 images
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => {
-    abortController.abort();
-  }, 600000); // 10 minutes - increased to handle sequential processing of 20 images
+  if (sessionError || !session?.access_token) {
+    // Try to refresh
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshData.session?.access_token) {
+      throw new Error('Authentication required. Please log in and try again.');
+    }
+    session = refreshData.session;
+  }
+
+  const accessToken = session?.access_token;
   
-  fetch(`${supabaseUrl}/functions/v1/analyze-deck`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-    signal: abortController.signal,
-  })
-    .then(async (response) => {
-      clearTimeout(timeoutId); // Clear timeout on successful response
-      const fetchDuration = Date.now() - fetchStartTime;
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:167',message:'Edge Function response received',data:{status:response.status,statusText:response.statusText,ok:response.ok,fetchDuration},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          errorData = { error: errorText };
-        }
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:172',message:'Edge Function error response',data:{status:response.status,error:JSON.stringify(errorData),fetchDuration},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        console.error('Background analysis failed:', errorData);
-        
-        // Update status to failed
-        await supabase
-          .from('analyses')
-          .update({
-            status: 'failed',
-            error_message: errorData.error || errorData.message || 'Analysis failed',
-          })
-          .eq('id', analysisId);
-      } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:183',message:'Edge Function success',data:{analysisId,fetchDuration},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        console.log('Background analysis started successfully for:', analysisId);
-      }
-    })
-    .catch(async (error) => {
-      const fetchDuration = Date.now() - fetchStartTime;
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:189',message:'Fetch catch error',data:{error:error.message,errorName:error.name,errorStack:error.stack,fetchDuration,isTimeout:error.name==='TimeoutError'||error.name==='AbortError'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      console.error('Failed to start background analysis:', error);
-      
-      // Update status to failed
-      await supabase
-        .from('analyses')
-        .update({
-          status: 'failed',
-          error_message: error.name === 'TimeoutError' || error.name === 'AbortError' 
-            ? 'Analysis request timed out. The analysis may still be processing in the background.'
-            : error.message || 'Failed to start analysis',
-        })
-        .eq('id', analysisId);
+  if (!accessToken) {
+    throw new Error('No access token available');
+  }
+
+  // Deduct credits upfront
+  const creditCost = totalPages;
+  try {
+    const { error: deductError } = await supabase.rpc('deduct_credits', {
+      p_user_id: session.user.id,
+      p_amount: creditCost,
+      p_description: `Analysis: ${file.name} (${totalPages} pages)`,
+      p_metadata: { analysisId, pageCount: totalPages, fileName: file.name },
     });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/d8351f7d-e310-420e-b1b5-98ae441a8f6d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'backgroundAnalysisService.ts:186',message:'Request sent (fire and forget)',data:{analysisId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
-  console.log('Background analysis request sent for:', analysisId);
+    if (deductError) {
+      throw new Error(`Failed to deduct credits: ${deductError.message}`);
+    }
+    console.log(`Deducted ${creditCost} credits for analysis`);
+  } catch (creditError: any) {
+    await supabase
+      .from('analyses')
+      .update({ status: 'failed', error_message: creditError.message })
+      .eq('id', analysisId);
+    throw creditError;
+  }
+
+  // Save initial state
+  saveUploadState({
+    analysisId,
+    fileName: file.name,
+    fileSize: file.size,
+    totalPages,
+    userId: session.user.id,
+    imageUrls,
+    uploadedImageCount: imageUrls.length,
+    analyzedPageCount: 0,
+    status: 'analyzing',
+    timestamp: Date.now(),
+  });
+
+  // Update status to processing
+  await supabase
+    .from('analyses')
+    .update({ status: 'processing' })
+    .eq('id', analysisId);
+
+  // Analyze each page sequentially
+  const failedPages: number[] = [];
+  
+  for (let i = 0; i < imageUrls.length; i++) {
+    const pageNumber = i + 1;
+    const imageUrl = imageUrls[i];
+
+    // Wait for network if offline
+    if (!isOnline()) {
+      console.log('Network offline, waiting...');
+      await new Promise<void>((resolve) => {
+        const unsubscribe = onNetworkStatusChange((online) => {
+          if (online) {
+            unsubscribe();
+            resolve();
+          }
+        });
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          unsubscribe();
+          resolve();
+        }, 5 * 60 * 1000);
+      });
+    }
+
+    try {
+      // Update progress
+      if (onProgress) {
+        onProgress({
+          currentPage: pageNumber,
+          totalPages,
+          status: 'analyzing',
+        });
+      }
+
+      // Update persisted state
+      updateUploadState(analysisId, {
+        analyzedPageCount: i,
+        status: 'analyzing',
+      });
+
+      // Only log every 5 pages to reduce noise
+      if (pageNumber % 5 === 0 || pageNumber === 1 || pageNumber === totalPages) {
+        console.log(`Analyzing page ${pageNumber}/${totalPages}...`);
+      }
+      
+      await analyzePage(analysisId, pageNumber, imageUrl, accessToken, supabaseUrl, supabaseKey, 3);
+      
+      // Only log completion for important pages
+      if (pageNumber % 5 === 0 || pageNumber === totalPages) {
+        console.log(`Page ${pageNumber} completed`);
+      }
+      
+      // Update persisted state after successful analysis
+      updateUploadState(analysisId, {
+        analyzedPageCount: i + 1,
+      });
+      
+      // Longer delay between pages to avoid rate limits (2 seconds)
+      if (i < imageUrls.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    } catch (error: any) {
+      // Only log if it's not a rate limit (those are handled in analyzePage)
+      const isRateLimit = error.message?.includes('429') || error.message?.includes('rate limit');
+      if (!isRateLimit) {
+        console.error(`Failed to analyze page ${pageNumber}:`, error.message);
+      }
+      failedPages.push(pageNumber);
+      
+      // Save error state but continue
+      updateUploadState(analysisId, {
+        error: `Failed on page ${pageNumber}: ${error.message}`,
+      });
+      
+      // Wait longer before continuing to next page if we hit rate limit
+      if (isRateLimit && i < imageUrls.length - 1) {
+        console.log('Rate limit detected, waiting 30s before continuing...');
+        await new Promise(resolve => setTimeout(resolve, 30000));
+      }
+      
+      // Continue with other pages even if one fails
+      // We'll refund credits for failed pages at the end
+    }
+  }
+
+  // If all pages failed, mark as failed and refund
+  if (failedPages.length === totalPages) {
+    await supabase
+      .from('analyses')
+      .update({ 
+        status: 'failed', 
+        error_message: `Failed to analyze all pages` 
+      })
+      .eq('id', analysisId);
+    
+    // Refund credits
+    try {
+      await supabase.rpc('add_credits', {
+        p_user_id: session.user.id,
+        p_amount: creditCost,
+        p_description: `Refund for failed analysis`,
+        p_metadata: { analysisId, type: 'refund' },
+      });
+    } catch (refundError) {
+      console.error('Failed to refund credits:', refundError);
+    }
+    
+    throw new Error('Failed to analyze all pages');
+  }
+
+  // If some pages failed, log but continue
+  if (failedPages.length > 0) {
+    console.warn(`Warning: ${failedPages.length} pages failed to analyze:`, failedPages);
+    // Refund credits for failed pages
+    try {
+      await supabase.rpc('add_credits', {
+        p_user_id: session.user.id,
+        p_amount: failedPages.length,
+        p_description: `Refund for ${failedPages.length} failed pages`,
+        p_metadata: { analysisId, type: 'refund', failedPages },
+      });
+    } catch (refundError) {
+      console.error('Failed to refund credits for failed pages:', refundError);
+    }
+  }
+
+  // Finalize analysis - generate comprehensive summary
+  // Even if some pages failed, we should still finalize with the pages we have
+  try {
+    if (onProgress) {
+      onProgress({
+        currentPage: totalPages,
+        totalPages,
+        status: 'finalizing',
+      });
+    }
+
+    updateUploadState(analysisId, { status: 'finalizing' });
+
+    console.log(`Finalizing analysis with ${totalPages - failedPages.length} successful pages...`);
+    
+    // Check if already completed before finalizing (to prevent duplicate calls)
+    const { data: statusCheck } = await supabase
+      .from('analyses')
+      .select('status')
+      .eq('id', analysisId)
+      .single();
+    
+    if (statusCheck?.status === 'completed') {
+      console.log('Analysis already completed, skipping finalization');
+      updateUploadState(analysisId, { status: 'completed' });
+      removeUploadState(analysisId);
+      return;
+    }
+
+    // Retry finalization up to 3 times with rate limit handling
+    let finalizationError: Error | null = null;
+    let finalizationSuccess = false;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Check status again before each attempt
+        const { data: preCheck } = await supabase
+          .from('analyses')
+          .select('status')
+          .eq('id', analysisId)
+          .single();
+        
+        if (preCheck?.status === 'completed') {
+          console.log('Analysis completed by another process, skipping finalization');
+          finalizationSuccess = true;
+          break;
+        }
+        
+        await finalizeAnalysis(analysisId, accessToken, supabaseUrl, supabaseKey);
+        console.log('Analysis completed successfully!');
+        finalizationError = null;
+        finalizationSuccess = true;
+        
+        // Mark as completed in persisted state
+        updateUploadState(analysisId, { status: 'completed' });
+        removeUploadState(analysisId);
+        
+        // Wait a moment for database to update, then verify status
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Verify status was updated
+        const { data: verifyData } = await supabase
+          .from('analyses')
+          .select('status')
+          .eq('id', analysisId)
+          .single();
+        
+        if (verifyData?.status === 'completed') {
+          break;
+        } else {
+          if (attempt < 3) {
+            console.log(`Status verification failed, retrying finalization (attempt ${attempt + 1}/3)...`);
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+            continue;
+          }
+        }
+      } catch (error: any) {
+        finalizationError = error;
+        const isRateLimit = error.message?.includes('429') || error.message?.includes('rate limit');
+        
+        if (isRateLimit) {
+          const rateLimitDelay = Math.min(60000 * Math.pow(2, attempt - 1), 300000); // 1min, 2min, 4min, max 5min
+          console.log(`Finalization rate limited, waiting ${Math.round(rateLimitDelay / 1000)}s before retry ${attempt + 1}/3...`);
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+            continue;
+          }
+        } else {
+          if (attempt < 3) {
+            console.log(`Finalization error, retrying (attempt ${attempt + 1}/3)...`);
+            await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
+          }
+        }
+      }
+    }
+    
+    if (!finalizationSuccess && finalizationError) {
+      throw finalizationError;
+    }
+    
+    if (finalizationError) {
+      // Even if finalization fails, mark as completed if we have pages
+      const { data: pages } = await supabase
+        .from('analysis_pages')
+        .select('id')
+        .eq('analysis_id', analysisId)
+        .limit(1);
+      
+      if (pages && pages.length > 0) {
+        // We have at least some pages, mark as completed with a warning
+        await supabase
+          .from('analyses')
+          .update({ 
+            status: 'completed',
+            summary: 'Analysis completed with some limitations. Some pages may be missing.',
+            error_message: `Finalization had issues but pages were analyzed: ${finalizationError.message}`
+          })
+          .eq('id', analysisId);
+        console.log('Marked analysis as completed despite finalization issues');
+      } else {
+        // No pages at all, mark as failed
+        await supabase
+          .from('analyses')
+          .update({ 
+            status: 'failed', 
+            error_message: `Finalization failed and no pages were analyzed: ${finalizationError.message}` 
+          })
+          .eq('id', analysisId);
+        throw finalizationError;
+      }
+    }
+  } catch (error: any) {
+    console.error('Critical error during finalization:', error);
+    // Last resort: try to mark as completed if we have any pages
+    const { data: pages } = await supabase
+      .from('analysis_pages')
+      .select('id')
+      .eq('analysis_id', analysisId)
+      .limit(1);
+    
+    if (pages && pages.length > 0) {
+      await supabase
+        .from('analyses')
+        .update({ 
+          status: 'completed',
+          summary: 'Analysis completed with limitations.',
+          error_message: error.message
+        })
+        .eq('id', analysisId);
+    } else {
+      await supabase
+        .from('analyses')
+        .update({ 
+          status: 'failed', 
+          error_message: error.message 
+        })
+        .eq('id', analysisId);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -282,4 +822,3 @@ export async function checkAnalysisStatus(analysisId: string): Promise<AnalysisS
     error_message: data.error_message,
   };
 }
-

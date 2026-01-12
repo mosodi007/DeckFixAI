@@ -491,7 +491,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         {/* Email Verification Banner - Only show for email/password signups, not Google OAuth */}
-        {showVerificationBanner && user && emailVerified === false && (() => {
+        {/* {showVerificationBanner && user && emailVerified === false && (() => {
           const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
           return userMetadata?.provider !== 'google';
         })() && (
@@ -525,7 +525,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
               <X className="w-5 h-5" />
             </button>
           </div>
-        )}
+        )} */}
         {/* Header - Always visible */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">

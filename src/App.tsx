@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, LogOut, LayoutDashboard, CreditCard, DollarSign } from 'lucide-react';
+import { ChevronDown, LogOut, LayoutDashboard, CreditCard, DollarSign, Calendar } from 'lucide-react';
 import { UploadView } from './components/UploadView';
 import { AnalysisView } from './components/AnalysisView';
 import { ImprovementFlowView } from './components/ImprovementFlowView';
 import { DashboardView } from './components/DashboardView';
 import { PricingView } from './components/PricingView';
+import { PricingPagePublic } from './components/PricingPagePublic';
 import { CreditHistoryView } from './components/CreditHistoryView';
 import { UsageHistoryView } from './components/UsageHistoryView';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoadingSpinner } from './components/LoadingSpinner';
+import { Footer } from './components/Footer';
 import { LoginModal } from './components/auth/LoginModal';
 import { SignUpModal } from './components/auth/SignUpModal';
 import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
@@ -45,7 +47,10 @@ function App() {
       setIsLoading(false);
     } else {
       setIsLoading(false);
-      setView('upload');
+      // Only set to 'upload' if not already on pricing page
+      if (view !== 'pricing') {
+        setView('upload');
+      }
       setAnalysisData(null);
     }
   }, [isAuthenticated]);
@@ -214,25 +219,38 @@ function App() {
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (isAuthenticated) {
+                  setView('dashboard');
+                } else {
+                  setView('upload');
+                }
+                setAnalysisData(null);
+                localStorage.removeItem('currentAnalysisId');
+              }}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+            >
               <img
                 src="/deckfix_logo.png"
                 alt="DeckFix.ai"
                 className="h-8"
               />
-            </div>
+            </button>
 
             <div className="flex items-center gap-3">
               {isAuthenticated ? (
                 <>
-                  <button
-                    onClick={handleGoToDashboard}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    My Decks
-                  </button>
-                  <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
+                  <div className="flex items-center gap-3 ml-auto">
+                    <button
+                      onClick={handleGoToDashboard}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      My Decks
+                    </button>
+                    <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
+                  </div>
                   <div className="relative">
                     <button
                       onClick={() => setShowUserMenu(!showUserMenu)}
@@ -329,20 +347,60 @@ function App() {
                   </div>
                 </>
               ) : (
-                <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
-                  <button
-                    onClick={() => setShowLoginModal(true)}
-                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    Login
-                  </button>
-                  <button
-                    onClick={() => setShowSignUpModal(true)}
-                    className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
-                  >
-                    Sign Up
-                  </button>
-                </div>
+                <>
+                  {/* Centered Menu Items */}
+                  <div className="flex items-center gap-2 flex-1 justify-center">
+                    <a
+                      href="/"
+                      className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      Home
+                    </a>
+                    <button
+                      onClick={() => {
+                        // Scroll to how it works section or navigate to a dedicated page
+                        window.location.href = '#how-it-works';
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      How it works
+                    </button>
+                    
+                    <a
+                      href="https://cal.com/deckfixai/30min"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Book a demo
+                    </a>
+                    <button
+                      onClick={() => {
+                        setView('pricing');
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      Pricing
+                    </button>
+                  </div>
+                  
+                  {/* Right-aligned Auth Buttons */}
+                  <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
+                    <button
+                      onClick={() => setShowLoginModal(true)}
+                      className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      Login
+                    </button>
+                    <button
+                      onClick={() => setShowSignUpModal(true)}
+                      className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
+                    >
+                      Sign Up
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -353,7 +411,11 @@ function App() {
         {(isLoading || authLoading) ? (
           <LoadingSpinner message={isLoading ? 'Loading your analysis...' : 'Initializing...'} />
         ) : view === 'pricing' ? (
-          <PricingView preselectedTierCredits={preselectedTierCredits} />
+          !isAuthenticated ? (
+            <PricingPagePublic onSignUp={() => setShowSignUpModal(true)} />
+          ) : (
+            <PricingView preselectedTierCredits={preselectedTierCredits} />
+          )
         ) : view === 'credits' ? (
           <CreditHistoryView
             onBack={handleGoToDashboard}
@@ -393,6 +455,8 @@ function App() {
           />
         )}
       </main>
+
+      {!isAuthenticated && <Footer />}
 
       {showLoginModal && (
         <LoginModal

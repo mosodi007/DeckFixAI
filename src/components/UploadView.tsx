@@ -234,7 +234,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
               Make your Startup pitch deck 'investor-ready' in minutes
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            DeckFix is an advanced AI, trained on thousands of successful pitch decks from funded startups. Get instant feedback on what investors look for and apply the Fix from DeckFix and save yourself hours and thousands of dollars.
+            DeckFix is an advanced AI, trained on thousands of successful pitch decks from funded startups. Get instant feedback on what investors look for, apply the instant fixes from DeckFix and save yourself hours and thousands of dollars.
             </p>
           </header>
 

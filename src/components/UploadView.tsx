@@ -4,6 +4,7 @@ import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages } from '../services/storageService';
 import { createAnalysisRecord, startBackgroundAnalysis } from '../services/backgroundAnalysisService';
 import { SEOContentSection } from './upload/SEOContentSection';
+import { HowItWorksSection } from './HowItWorksSection';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../contexts/CreditContext';
 import { LoginModal } from './auth/LoginModal';
@@ -231,14 +232,14 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-12">
             <h1 className="text-3xl md:text-6xl font-semibold text-slate-900 mb-4 tracking-tighter">
-              Make your Startup pitch deck 'investor-ready' in minutes
+              Make your Startup pitch deck 'Investor-Ready' in minutes
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
             DeckFix is an advanced AI, trained on thousands of successful pitch decks from funded startups. Get instant feedback on what investors look for, apply the instant fixes from DeckFix and save yourself hours and thousands of dollars.
             </p>
           </header>
 
-          <section className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
+          <section id="upload" className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-12">
             <div className="p-2 md:p-12">
               <div
                 className={`bg-gradient-to-br from-slate-50 to-white border-2 border-dashed rounded-2xl p-12 md:p-12 text-center transition-all ${
@@ -336,6 +337,8 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
               </div>
             </div> */}
           </section>
+
+          <HowItWorksSection />
 
           <SEOContentSection />
         </div>

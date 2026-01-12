@@ -856,6 +856,53 @@ Deno.serve(async (req: Request) => {
       throw new Error(`AI analysis failed: ${aiError.message}`);
     }
 
+    // Check if this is the user's first completed analysis (for referral processing)
+    const { data: previousAnalyses, error: previousAnalysesError } = await supabase
+      .from('analyses')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .neq('id', analysisId);
+
+    const isFirstAnalysis = !previousAnalysesError && (!previousAnalyses || previousAnalyses.length === 0);
+
+    // Process referral credits if this is the first analysis
+    if (isFirstAnalysis) {
+      console.log('First analysis detected for user:', user.id, '- Processing referral credits...');
+      try {
+        // Get IP address from request headers if available
+        const clientIP = req.headers.get('x-forwarded-for') || 
+                        req.headers.get('x-real-ip') || 
+                        null;
+        
+        // Get user agent
+        const userAgent = req.headers.get('user-agent') || null;
+
+        // Call the database function to process referral credits
+        const { data: referralResult, error: referralError } = await supabase.rpc('process_referral_credits', {
+          p_referred_user_id: user.id,
+          p_ip_address: clientIP,
+          p_device_fingerprint: null, // Device fingerprint should be set during signup
+          p_user_agent: userAgent,
+        });
+
+        if (referralError) {
+          console.error('Error processing referral credits:', referralError);
+          // Don't fail the analysis if referral processing fails
+        } else if (referralResult && referralResult.length > 0) {
+          const result = referralResult[0];
+          if (result.success) {
+            console.log(`Referral credits processed successfully: ${result.referrer_credits_awarded} to referrer, ${result.referred_credits_awarded} to referred user`);
+          } else {
+            console.log(`Referral processing result: ${result.message}`);
+          }
+        }
+      } catch (referralProcessingError) {
+        console.error('Exception processing referral credits:', referralProcessingError);
+        // Don't fail the analysis if referral processing fails
+      }
+    }
+
     const { error: updateError } = await supabase
       .from('analyses')
       .update({

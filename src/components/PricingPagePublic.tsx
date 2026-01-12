@@ -66,7 +66,7 @@ export function PricingPagePublic({ onSignUp }: PricingPagePublicProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       {/* Hero Section */}
-      <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white py-20">
+      <div className="bg-gradient-to-br from-black via-black to-slate-900 text-white py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full mb-6">
             <Sparkles className="w-4 h-4" />

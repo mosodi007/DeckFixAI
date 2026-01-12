@@ -6,9 +6,10 @@ interface SignUpModalProps {
   onClose: () => void;
   onSwitchToLogin: () => void;
   onSignUpSuccess?: () => void;
+  referralCode?: string;
 }
 
-export function SignUpModal({ onClose, onSwitchToLogin, onSignUpSuccess }: SignUpModalProps) {
+export function SignUpModal({ onClose, onSwitchToLogin, onSignUpSuccess, referralCode }: SignUpModalProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,10 +52,20 @@ export function SignUpModal({ onClose, onSwitchToLogin, onSignUpSuccess }: SignU
     setLoading(true);
 
     try {
+      // Capture device info for referral tracking
+      const deviceInfo = typeof window !== 'undefined' ? {
+        user_agent: navigator.userAgent,
+        screen_resolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        ip_address: undefined, // Will be captured by backend if available
+      } : {};
+
       const { user, error: signUpError } = await signUp({
         email,
         password,
         fullName,
+        referralCode: referralCode,
+        metadata: deviceInfo,
       });
 
       if (signUpError) {

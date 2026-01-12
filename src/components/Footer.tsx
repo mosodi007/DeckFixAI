@@ -19,9 +19,9 @@ export function Footer() {
               AI-powered pitch deck analysis and optimization for startups and entrepreneurs.
             </p>
             <div className="mb-4">
-              <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+              {/* <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
                 About company
-              </a>
+              </a> */}
             </div>
             <div className="space-y-2 text-sm text-slate-400">
               <div className="flex items-center gap-2">

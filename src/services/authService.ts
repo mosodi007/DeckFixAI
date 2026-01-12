@@ -13,6 +13,8 @@ export interface SignUpData {
   email: string;
   password: string;
   fullName?: string;
+  referralCode?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LoginData {
@@ -21,13 +23,21 @@ export interface LoginData {
 }
 
 export async function signUp(data: SignUpData): Promise<{ user: User | null; error: Error | null }> {
+  const userMetadata: Record<string, unknown> = {
+    full_name: data.fullName || '',
+    ...data.metadata,
+  };
+
+  // Add referral code to metadata if provided
+  if (data.referralCode) {
+    userMetadata.referral_code = data.referralCode.trim().toUpperCase();
+  }
+
   const { data: authData, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
-      data: {
-        full_name: data.fullName || '',
-      },
+      data: userMetadata,
     },
   });
 

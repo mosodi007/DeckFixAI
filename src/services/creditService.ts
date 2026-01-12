@@ -186,7 +186,7 @@ export async function deductCredits(
 
 export async function addCredits(
   amount: number,
-  transactionType: 'purchase' | 'subscription_renewal' | 'refund',
+  transactionType: 'purchase' | 'subscription_renewal' | 'refund' | 'referral_bonus',
   description: string,
   metadata: Record<string, unknown> = {}
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
@@ -212,6 +212,8 @@ export async function addCredits(
     newSubscriptionCredits += amount;
   } else if (transactionType === 'refund') {
     newPurchasedCredits += amount;
+  } else if (transactionType === 'referral_bonus') {
+    newPurchasedCredits += amount; // Referral bonuses go to purchased credits
   }
 
   const { error: updateError } = await supabase

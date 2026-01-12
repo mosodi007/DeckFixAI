@@ -8,6 +8,8 @@ import { PricingView } from './components/PricingView';
 import { PricingPagePublic } from './components/PricingPagePublic';
 import { CreditHistoryView } from './components/CreditHistoryView';
 import { UsageHistoryView } from './components/UsageHistoryView';
+import { ReferralView } from './components/ReferralView';
+import { ReferralWelcomeModal } from './components/ReferralWelcomeModal';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Footer } from './components/Footer';
@@ -22,14 +24,16 @@ import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
   const { user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history'>('upload');
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history' | 'referrals'>('upload');
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [preselectedTierCredits, setPreselectedTierCredits] = useState<number | undefined>(undefined);
+  const [referralCodeFromUrl, setReferralCodeFromUrl] = useState<string | undefined>(undefined);
 
   useGoogleOneTap({
     disabled: isAuthenticated,
@@ -41,10 +45,29 @@ function App() {
     },
   });
 
+  // Check for referral code in URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      setReferralCodeFromUrl(refCode);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       setView('dashboard');
       setIsLoading(false);
+      // Show welcome modal for new users (first time only)
+      // Check if user just signed up by checking if they have a referral code in URL or if it's their first visit
+      const hasSeenWelcome = localStorage.getItem('hasSeenWelcomeModal');
+      if (!hasSeenWelcome && (referralCodeFromUrl || user)) {
+        // Small delay to ensure user profile is loaded
+        setTimeout(() => {
+          setShowWelcomeModal(true);
+          localStorage.setItem('hasSeenWelcomeModal', 'true');
+        }, 1000);
+      }
     } else {
       setIsLoading(false);
       // Only set to 'upload' if not already on pricing page
@@ -53,7 +76,7 @@ function App() {
       }
       setAnalysisData(null);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user, referralCodeFromUrl]);
 
   const loadPersistedAnalysis = async () => {
     if (!isAuthenticated) {
@@ -358,8 +381,19 @@ function App() {
                     </a>
                     <button
                       onClick={() => {
-                        // Scroll to how it works section or navigate to a dedicated page
-                        window.location.href = '#how-it-works';
+                        const element = document.getElementById('how-it-works');
+                        if (element) {
+                          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        } else {
+                          // If not on upload page, navigate to it
+                          setView('upload');
+                          setTimeout(() => {
+                            const el = document.getElementById('how-it-works');
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }, 100);
+                        }
                       }}
                       className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                     >
@@ -424,9 +458,12 @@ function App() {
               setPreselectedTierCredits(tierCredits);
               setView('pricing');
             }}
+            onViewReferrals={() => setView('referrals')}
           />
         ) : view === 'usage-history' ? (
           <UsageHistoryView onBack={() => setView('credits')} />
+        ) : view === 'referrals' ? (
+          <ReferralView onBack={() => setView('credits')} />
         ) : view === 'dashboard' ? (
           <DashboardView
             onViewAnalysis={handleViewAnalysis}
@@ -474,7 +511,19 @@ function App() {
           onSwitchToLogin={handleOpenLogin}
           onSignUpSuccess={() => {
             setShowSignUpModal(false);
+            // Show welcome modal after successful signup
+            setTimeout(() => {
+              setShowWelcomeModal(true);
+            }, 500);
           }}
+          referralCode={referralCodeFromUrl}
+        />
+      )}
+
+      {showWelcomeModal && (
+        <ReferralWelcomeModal
+          onClose={() => setShowWelcomeModal(false)}
+          referralCodeFromUrl={referralCodeFromUrl}
         />
       )}
     </div>

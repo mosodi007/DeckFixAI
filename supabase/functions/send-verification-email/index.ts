@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const RESEND_FROM_EMAIL = 'DeckFix <onboarding@deckfix.ai>';
+const RESEND_FROM_EMAIL = 'DeckFix <no_reply@deckfix.ai>';
 
 interface EmailVerificationRequest {
   email: string;
@@ -42,16 +42,42 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client to generate proper verification link
+    // Create Supabase admin client to generate proper verification link
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
-    // Generate a proper verification token using Supabase Auth
-    // The token parameter should be a hash that Supabase can verify
-    // For now, we'll create a link that redirects to Supabase's verification endpoint
     const siteUrl = Deno.env.get('SITE_URL') || 'https://deckfix.ai';
-    const verificationUrl = `${siteUrl}/auth/verify-email?token=${encodeURIComponent(token)}&type=signup`;
+    
+    // Generate a proper verification link using Supabase's admin API
+    // This creates a proper confirmation link that Supabase can verify
+    let verificationUrl: string;
+    
+    try {
+      const { data: confirmationData, error: confirmationError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email: email,
+        options: {
+          redirectTo: `${siteUrl}/auth/verify-email?verified=true`,
+        },
+      });
+
+      if (confirmationError || !confirmationData?.properties?.action_link) {
+        throw new Error('Failed to generate verification link');
+      }
+      
+      verificationUrl = confirmationData.properties.action_link;
+    } catch (error) {
+      // Fallback: construct a verification URL that will work with Supabase's email confirmation
+      // Users will need to use the token from Supabase's default email, but we send our custom template
+      console.warn('Could not generate admin link, using fallback URL:', error);
+      verificationUrl = `${siteUrl}/auth/verify-email?type=signup&email=${encodeURIComponent(email)}`;
+    }
 
     // Send email via Resend
     const resendResponse = await fetch('https://api.resend.com/emails', {

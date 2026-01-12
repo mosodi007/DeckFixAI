@@ -203,25 +203,54 @@ Deno.serve(async (req) => {
         if (subscription && subscription.subscription_id && subscription.status === 'active') {
           // User has an active subscription - update it instead of creating a new checkout session
           try {
-            // If there's an existing schedule, cancel it first
-            if (subscription.schedule_id) {
-              console.log(`Cancelling existing subscription schedule ${subscription.schedule_id}`);
-              await stripe.subscriptionSchedules.cancel(subscription.schedule_id);
-
-              // Clear schedule fields in database
-              await supabase
-                .from('stripe_subscriptions')
-                .update({
-                  schedule_id: null,
-                  scheduled_price_id: null,
-                  scheduled_change_date: null,
-                })
-                .eq('subscription_id', subscription.subscription_id);
-
-              console.log(`Cleared schedule for subscription ${subscription.subscription_id}`);
+            // First, verify the subscription exists in Stripe (handles test->live mode migration)
+            let currentSub: Stripe.Subscription;
+            try {
+              currentSub = await stripe.subscriptions.retrieve(subscription.subscription_id);
+            } catch (retrieveError: any) {
+              // Subscription doesn't exist in current Stripe mode (likely test->live migration)
+              if (retrieveError.type === 'StripeInvalidRequestError' && 
+                  (retrieveError.code === 'resource_missing' || retrieveError.message?.includes('No such subscription'))) {
+                console.log(`Subscription ${subscription.subscription_id} not found in Stripe. This may be due to test->live mode migration. Creating new checkout session.`);
+                
+                // Clear the invalid subscription from database
+                await supabase
+                  .from('stripe_subscriptions')
+                  .update({
+                    status: 'canceled',
+                    deleted_at: new Date().toISOString(),
+                  })
+                  .eq('subscription_id', subscription.subscription_id);
+                
+                // Fall through to create a new checkout session
+                // Break out of the try-catch to continue with checkout session creation
+                throw new Error('SUBSCRIPTION_NOT_FOUND_IN_STRIPE');
+              }
+              throw retrieveError;
             }
 
-            const currentSub = await stripe.subscriptions.retrieve(subscription.subscription_id);
+            // If there's an existing schedule, cancel it first
+            if (subscription.schedule_id) {
+              try {
+                console.log(`Cancelling existing subscription schedule ${subscription.schedule_id}`);
+                await stripe.subscriptionSchedules.cancel(subscription.schedule_id);
+
+                // Clear schedule fields in database
+                await supabase
+                  .from('stripe_subscriptions')
+                  .update({
+                    schedule_id: null,
+                    scheduled_price_id: null,
+                    scheduled_change_date: null,
+                  })
+                  .eq('subscription_id', subscription.subscription_id);
+
+                console.log(`Cleared schedule for subscription ${subscription.subscription_id}`);
+              } catch (scheduleError: any) {
+                // Schedule might not exist, log and continue
+                console.warn(`Could not cancel schedule ${subscription.schedule_id}:`, scheduleError.message);
+              }
+            }
 
             // Get the tier information for both current and new price
             const { data: currentTierData } = await supabase
@@ -396,8 +425,15 @@ Deno.serve(async (req) => {
               isUpgrade
             });
           } catch (updateError: any) {
-            console.error('Error updating subscription:', updateError);
-            return corsResponse({ error: 'Failed to update subscription' }, 500);
+            // If subscription not found in Stripe (test->live migration), create new checkout session
+            if (updateError.message === 'SUBSCRIPTION_NOT_FOUND_IN_STRIPE') {
+              console.log('Subscription not found in Stripe, proceeding to create new checkout session');
+              // Continue execution to create a new checkout session below
+            } else {
+              console.error('Error updating subscription:', updateError);
+              // For other errors, still try to create a checkout session as fallback
+              console.log('Attempting to create new checkout session as fallback');
+            }
           }
         }
 

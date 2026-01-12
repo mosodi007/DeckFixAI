@@ -205,12 +205,19 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     if (verificationMessage && verificationMessage.includes('sent')) {
       const pollInterval = setInterval(async () => {
         await checkEmailVerification();
+        // If verified, stop polling and hide banner
+        const verified = await isEmailVerified();
+        if (verified) {
+          setEmailVerified(true);
+          setShowVerificationBanner(false);
+          clearInterval(pollInterval);
+        }
       }, 3000); // Check every 3 seconds
 
-      // Stop polling after 2 minutes
+      // Stop polling after 5 minutes
       const timeout = setTimeout(() => {
         clearInterval(pollInterval);
-      }, 120000);
+      }, 300000);
 
       return () => {
         clearInterval(pollInterval);
@@ -218,6 +225,20 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
       };
     }
   }, [verificationMessage]);
+
+  // Check for verification status when URL has verified=true
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const verified = urlParams.get('verified');
+    
+    if (verified === 'true' && user) {
+      // User just verified their email, refresh status
+      checkEmailVerification().then(() => {
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+    }
+  }, [user]);
 
   // Memoize pending/processing analyses to prevent unnecessary re-renders
   const pendingOrProcessingAnalyses = useMemo(() => {

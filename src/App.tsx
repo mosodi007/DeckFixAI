@@ -71,23 +71,113 @@ function App() {
 
   // Handle email verification from link
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const verified = urlParams.get('verified');
-    const token = urlParams.get('token');
-    const type = urlParams.get('type');
-    
-    // Check if this is a verification callback
-    if (verified === 'true' || (token && type === 'signup')) {
-      // Check if user is authenticated
-      if (isAuthenticated && user) {
-        // Refresh user data to get updated verification status
-        window.location.reload();
-      } else {
-        // User needs to sign in first, then verification will complete
-        // Show a message or redirect to login
-        setShowLoginModal(true);
+    const handleEmailVerification = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hash);
+      
+      // Check for Supabase verification tokens
+      // Supabase links can have tokens in hash: #access_token=...&type=signup
+      // Or in query: ?token=...&type=signup
+      const token = urlParams.get('token') || hashParams.get('token');
+      const type = urlParams.get('type') || hashParams.get('type');
+      const accessToken = hashParams.get('access_token');
+      const verified = urlParams.get('verified');
+      
+      // If we have an access_token in hash, Supabase has already verified the email
+      // We just need to update is_verified and show success
+      if (accessToken && type === 'signup') {
+        try {
+          const { supabase } = await import('./services/analysisService');
+          
+          // Get the current user (Supabase has already verified via the link)
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          
+          if (userError || !user) {
+            console.error('Error getting user after verification:', userError);
+            return;
+          }
+
+          // Update is_verified in user_profiles
+          await supabase
+            .from('user_profiles')
+            .update({ is_verified: true, updated_at: new Date().toISOString() })
+            .eq('id', user.id);
+
+          // Show success message
+          alert('Email verified successfully! Your account is now verified.');
+          
+          // Clean up URL and reload to refresh verification status
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } catch (error) {
+          console.error('Error updating verification status:', error);
+        }
+      } else if (token && type === 'signup') {
+        // Handle token-based verification (fallback)
+        try {
+          const { supabase } = await import('./services/analysisService');
+          
+          // Verify the email using Supabase's verifyOtp
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'email',
+          });
+
+          if (error) {
+            console.error('Email verification error:', error);
+            alert('Email verification failed. Please try again or request a new verification email.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
+
+          // Update is_verified in user_profiles
+          if (data.user) {
+            await supabase
+              .from('user_profiles')
+              .update({ is_verified: true, updated_at: new Date().toISOString() })
+              .eq('id', data.user.id);
+          }
+
+          // Show success message
+          alert('Email verified successfully! Your account is now verified.');
+          
+          // Clean up URL and reload
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } catch (error) {
+          console.error('Error verifying email:', error);
+          alert('Email verification failed. Please try again.');
+        }
+      } else if (verified === 'true') {
+        // Handle redirect after verification
+        if (isAuthenticated && user) {
+          // Check and update verification status
+          const { supabase } = await import('./services/analysisService');
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          
+          if (currentUser?.email_confirmed_at) {
+            await supabase
+              .from('user_profiles')
+              .update({ is_verified: true, updated_at: new Date().toISOString() })
+              .eq('id', currentUser.id);
+          }
+          
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        } else {
+          setShowLoginModal(true);
+        }
       }
-    }
+    };
+
+    handleEmailVerification();
   }, [isAuthenticated, user]);
 
   useEffect(() => {

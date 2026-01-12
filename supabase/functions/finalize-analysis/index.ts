@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get analysis record
+    // Get analysis record - check status FIRST to prevent duplicate processing
     const { data: analysis, error: analysisError } = await supabase
       .from('analyses')
       .select('*')
@@ -155,6 +155,21 @@ Deno.serve(async (req) => {
     if (analysisError || !analysis) {
       return new Response(JSON.stringify({ error: 'Analysis not found' }), {
         status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // CRITICAL: Check if already completed BEFORE doing any work
+    // This prevents duplicate notifications/emails when function is called multiple times
+    if (analysis.status === 'completed') {
+      console.log('Analysis already completed, skipping processing to prevent duplicates');
+      return new Response(JSON.stringify({
+        success: true,
+        analysisId,
+        overallScore: analysis.overall_score || 0,
+        pageCount: analysis.total_pages || 0,
+        message: 'Analysis was already completed'
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -339,11 +354,87 @@ Return ONLY valid JSON:
       }
     };
 
+    // Update analysis status first (we already checked it's not completed above)
     const { error: updateError } = await supabase.from('analyses').update(updateData).eq('id', analysisId);
 
     if (updateError) {
       console.error('Failed to update analysis status:', updateError);
       throw new Error(`Failed to update analysis status: ${updateError.message}`);
+    }
+
+    // Get user email for notification
+    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: userData } = await serviceSupabase.auth.admin.getUserById(user.id);
+    const userEmail = userData?.user?.email || null;
+    const userName = userData?.user?.user_metadata?.full_name || userData?.user?.user_metadata?.name || null;
+
+    // Create notification - check for existing first to prevent duplicates
+    try {
+      // Check if notification already exists using metadata field
+      const { data: existingNotification } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'analysis_complete')
+        .eq('metadata->>analysisId', analysisId)
+        .maybeSingle();
+
+      if (!existingNotification) {
+        const { data: newNotification, error: insertError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: user.id,
+            type: 'analysis_complete',
+            title: 'Analysis Complete',
+            message: `Your pitch deck "${analysis.file_name}" has been analyzed.`,
+            link: `/?view=analysis&analysisId=${analysisId}`,
+            metadata: { analysisId, fileName: analysis.file_name, score: analysisResult.overallScore },
+            read: false,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Failed to create notification:', insertError);
+        } else {
+          console.log('Notification created successfully:', newNotification?.id);
+        }
+      } else {
+        console.log('Notification already exists for this analysis, skipping duplicate');
+      }
+    } catch (e) {
+      console.error('Notification error:', e);
+    }
+
+    // Send email notification (only once - we already checked status above)
+    if (userEmail) {
+      try {
+        const sendEmailResponse = await fetch(`${supabaseUrl}/functions/v1/send-analysis-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            email: userEmail,
+            userName: userName,
+            deckName: analysis.file_name,
+            analysisId: analysisId,
+            status: 'completed',
+            overallScore: analysisResult.overallScore,
+          }),
+        });
+
+        if (!sendEmailResponse.ok) {
+          const errorText = await sendEmailResponse.text();
+          console.error('Failed to send analysis notification email:', errorText);
+        } else {
+          console.log('Analysis notification email sent successfully');
+        }
+      } catch (emailError) {
+        console.error('Error sending analysis notification email:', emailError);
+        // Don't fail the whole request if email fails
+      }
     }
 
     // Verify the update succeeded
@@ -357,19 +448,6 @@ Return ONLY valid JSON:
       console.error('Status verification failed:', verifyError || 'Status not updated');
       // Try one more time
       await supabase.from('analyses').update({ status: 'completed' }).eq('id', analysisId);
-    }
-
-    // Create notification
-    try {
-      await supabase.from('notifications').insert({
-        user_id: user.id,
-        type: 'analysis_complete',
-        title: 'Analysis Complete',
-        message: `Your pitch deck "${analysis.file_name}" has been analyzed.`,
-        data: { analysisId, fileName: analysis.file_name, score: analysisResult.overallScore },
-      });
-    } catch (e) {
-      console.error('Notification error:', e);
     }
 
     console.log('Analysis finalized successfully!');

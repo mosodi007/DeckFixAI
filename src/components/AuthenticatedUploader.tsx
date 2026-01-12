@@ -15,11 +15,14 @@ interface AuthenticatedUploaderProps {
 
 export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: AuthenticatedUploaderProps) {
   const { user } = useAuth();
-  const { refreshCredits, credits } = useCredits();
+  const { refreshCredits } = useCredits();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
+  const startTimeRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   const resumeCheckedRef = useRef(false);
@@ -60,6 +63,10 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
           console.log(`Resuming upload for ${uploadState.analysisId}...`);
           setIsUploading(true);
           setSelectedFileName(uploadState.fileName);
+          const now = Date.now();
+          setStartTime(now);
+          startTimeRef.current = now;
+          setEstimatedTimeRemaining(null);
           
           await resumeBackgroundAnalysis(
             uploadState.analysisId,
@@ -68,23 +75,55 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
             uploadState.fileSize,
             (progress) => {
               setAnalysisProgress(progress);
+              
+              // Calculate estimated time remaining for resumed uploads
+              const currentStartTime = startTimeRef.current;
+              if (currentStartTime && progress.currentPage > 0 && progress.totalPages > 0) {
+                const elapsed = (Date.now() - currentStartTime) / 1000; // seconds
+                const progressPercent = progress.currentPage / progress.totalPages;
+                
+                if (progressPercent > 0) {
+                  const estimatedTotal = elapsed / progressPercent;
+                  const remaining = estimatedTotal - elapsed;
+                  
+                  if (remaining > 0) {
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = Math.floor(remaining % 60);
+                    
+                    if (minutes > 0) {
+                      setEstimatedTimeRemaining(`${minutes}m ${seconds}s remaining`);
+                    } else {
+                      setEstimatedTimeRemaining(`${seconds}s remaining`);
+                    }
+                  } else {
+                    setEstimatedTimeRemaining('Almost done...');
+                  }
+                }
+              }
             }
           );
 
           setIsUploading(false);
           setSelectedFileName(null);
           setAnalysisProgress(null);
+          setStartTime(null);
+          startTimeRef.current = null;
+          setEstimatedTimeRemaining(null);
           
-          if (onAnalysisComplete) {
-            onAnalysisComplete(uploadState.analysisId);
-          } else if (onUploadComplete) {
+          // Just reload the list - don't navigate to analysis view
+          if (onUploadComplete) {
             onUploadComplete();
+          } else if (onAnalysisComplete) {
+            onAnalysisComplete(uploadState.analysisId);
           }
         } catch (error) {
           console.error('Failed to resume upload:', error);
           setIsUploading(false);
           setSelectedFileName(null);
           setAnalysisProgress(null);
+          setStartTime(null);
+          startTimeRef.current = null;
+          setEstimatedTimeRemaining(null);
         }
       }
     };
@@ -161,6 +200,10 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
 
     setIsUploading(true);
     setSelectedFileName(file.name);
+    const now = Date.now();
+    setStartTime(now);
+    startTimeRef.current = now;
+    setEstimatedTimeRemaining(null);
 
     try {
       // Step 1: Extract PDF pages as images
@@ -209,6 +252,31 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
       console.log('Starting sequential background analysis...');
       await startBackgroundAnalysis(file, analysisId, imageUrls, (progress) => {
         setAnalysisProgress(progress);
+        
+        // Calculate estimated time remaining
+        const currentStartTime = startTimeRef.current;
+        if (currentStartTime && progress.currentPage > 0 && progress.totalPages > 0) {
+          const elapsed = (Date.now() - currentStartTime) / 1000; // seconds
+          const progressPercent = progress.currentPage / progress.totalPages;
+          
+          if (progressPercent > 0) {
+            const estimatedTotal = elapsed / progressPercent;
+            const remaining = estimatedTotal - elapsed;
+            
+            if (remaining > 0) {
+              const minutes = Math.floor(remaining / 60);
+              const seconds = Math.floor(remaining % 60);
+              
+              if (minutes > 0) {
+                setEstimatedTimeRemaining(`${minutes}m ${seconds}s remaining`);
+              } else {
+                setEstimatedTimeRemaining(`${seconds}s remaining`);
+              }
+            } else {
+              setEstimatedTimeRemaining('Almost done...');
+            }
+          }
+        }
       });
       console.log('Background analysis completed');
 
@@ -216,18 +284,25 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
       setSelectedFileName(null);
       setIsUploading(false);
       setAnalysisProgress(null);
+      setStartTime(null);
+      startTimeRef.current = null;
+      setEstimatedTimeRemaining(null);
       
-      // Call onAnalysisComplete first (to navigate to results), then onUploadComplete (to reload list)
-      if (onAnalysisComplete) {
-        onAnalysisComplete(analysisId);
-      } else if (onUploadComplete) {
+      // Just reload the list - don't navigate to analysis view
+      // Toast and notification will be shown via NotificationBell component
+      if (onUploadComplete) {
         onUploadComplete();
+      } else if (onAnalysisComplete) {
+        onAnalysisComplete(analysisId);
       }
     } catch (error) {
       console.error('Upload failed:', error);
       setIsUploading(false);
       setSelectedFileName(null);
       setAnalysisProgress(null);
+      setStartTime(null);
+      startTimeRef.current = null;
+      setEstimatedTimeRemaining(null);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload deck. Please try again.';
       alert(errorMessage);
     }
@@ -279,16 +354,28 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
                 <div className="w-full max-w-xs mt-3">
                   <div className="w-full bg-slate-200 rounded-full h-2">
                     <div 
-                      className="bg-slate-900 h-2 rounded-full transition-all duration-300"
+                      className="bg-black h-2 rounded-full transition-all duration-300"
                       style={{ 
                         width: `${(analysisProgress.currentPage / analysisProgress.totalPages) * 100}%` 
                       }}
                     />
                   </div>
+                  {estimatedTimeRemaining && (
+                    <p className="text-xs text-slate-600 mt-2 text-center">
+                      Estimated time: {estimatedTimeRemaining}
+                    </p>
+                  )}
                 </div>
               </>
             ) : (
-              <p className="text-sm font-medium text-slate-900 mb-1">Uploading and preparing analysis...</p>
+              <>
+                <p className="text-sm font-medium text-slate-900 mb-1">Uploading and preparing analysis...</p>
+                {estimatedTimeRemaining && (
+                  <p className="text-xs text-slate-600 mt-2">
+                    Estimated time: {estimatedTimeRemaining}
+                  </p>
+                )}
+              </>
             )}
             <p className="text-xs text-slate-500 mt-2">{selectedFileName}</p>
           </div>

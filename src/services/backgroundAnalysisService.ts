@@ -654,20 +654,50 @@ export async function startBackgroundAnalysis(
 
     console.log(`Finalizing analysis with ${totalPages - failedPages.length} successful pages...`);
     
+    // Check if already completed before finalizing (to prevent duplicate calls)
+    const { data: statusCheck } = await supabase
+      .from('analyses')
+      .select('status')
+      .eq('id', analysisId)
+      .single();
+    
+    if (statusCheck?.status === 'completed') {
+      console.log('Analysis already completed, skipping finalization');
+      updateUploadState(analysisId, { status: 'completed' });
+      removeUploadState(analysisId);
+      return;
+    }
+
     // Retry finalization up to 3 times with rate limit handling
     let finalizationError: Error | null = null;
+    let finalizationSuccess = false;
+    
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
+        // Check status again before each attempt
+        const { data: preCheck } = await supabase
+          .from('analyses')
+          .select('status')
+          .eq('id', analysisId)
+          .single();
+        
+        if (preCheck?.status === 'completed') {
+          console.log('Analysis completed by another process, skipping finalization');
+          finalizationSuccess = true;
+          break;
+        }
+        
         await finalizeAnalysis(analysisId, accessToken, supabaseUrl, supabaseKey);
         console.log('Analysis completed successfully!');
         finalizationError = null;
+        finalizationSuccess = true;
         
         // Mark as completed in persisted state
         updateUploadState(analysisId, { status: 'completed' });
         removeUploadState(analysisId);
         
         // Wait a moment for database to update, then verify status
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Verify status was updated
         const { data: verifyData } = await supabase
@@ -680,6 +710,7 @@ export async function startBackgroundAnalysis(
           break;
         } else {
           if (attempt < 3) {
+            console.log(`Status verification failed, retrying finalization (attempt ${attempt + 1}/3)...`);
             await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
             continue;
           }
@@ -697,10 +728,15 @@ export async function startBackgroundAnalysis(
           }
         } else {
           if (attempt < 3) {
+            console.log(`Finalization error, retrying (attempt ${attempt + 1}/3)...`);
             await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
           }
         }
       }
+    }
+    
+    if (!finalizationSuccess && finalizationError) {
+      throw finalizationError;
     }
     
     if (finalizationError) {

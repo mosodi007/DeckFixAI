@@ -41,12 +41,77 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   const [sendingVerification, setSendingVerification] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
   const [showVerificationBanner, setShowVerificationBanner] = useState(true);
-  const [showUploader, setShowUploader] = useState(false);
+  
+  // Persist uploader state in localStorage
+  const getInitialUploaderState = () => {
+    if (typeof window === 'undefined') return false;
+    const saved = localStorage.getItem('deckfix_show_uploader');
+    if (saved === 'true') return true;
+    
+    // Also check if there are active uploads - if so, show uploader
+    const activeUploads = getAllActiveUploadStates();
+    if (activeUploads.length > 0 && user) {
+      const userUploads = activeUploads.filter(u => u.userId === user.id);
+      if (userUploads.length > 0) {
+        // Check if any are still in progress
+        return userUploads.some(u => 
+          u.status === 'extracting' || 
+          u.status === 'uploading' || 
+          u.status === 'analyzing' || 
+          u.status === 'finalizing'
+        );
+      }
+    }
+    return false;
+  };
+  
+  const [showUploader, setShowUploader] = useState(getInitialUploaderState);
+
+  // Persist uploader state to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (showUploader) {
+        localStorage.setItem('deckfix_show_uploader', 'true');
+      } else {
+        localStorage.removeItem('deckfix_show_uploader');
+      }
+    }
+  }, [showUploader]);
 
   useEffect(() => {
     loadAnalyses();
     checkEmailVerification();
     checkAndResumeIncompleteUploads();
+    
+    // Check for active uploads and show uploader if needed
+    const checkActiveUploads = () => {
+      if (!user) return;
+      const activeUploads = getAllActiveUploadStates();
+      const userUploads = activeUploads.filter(u => u.userId === user.id);
+      if (userUploads.length > 0) {
+        const hasActiveUpload = userUploads.some(u => 
+          u.status === 'extracting' || 
+          u.status === 'uploading' || 
+          u.status === 'analyzing' || 
+          u.status === 'finalizing'
+        );
+        if (hasActiveUpload && !showUploader) {
+          setShowUploader(true);
+        }
+      }
+    };
+    
+    checkActiveUploads();
+    
+    // Also check when page regains focus
+    const handleFocus = () => {
+      checkActiveUploads();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user]);
 
   // Check for incomplete uploads and resume them in background
@@ -159,6 +224,20 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     return analyses.filter(a => a.status === 'pending' || a.status === 'processing');
   }, [analyses]);
 
+  // Open uploader by default when there are no decks (only on initial load)
+  useEffect(() => {
+    if (!loading && analyses.length === 0 && !showUploader) {
+      // Check if user has explicitly closed it before
+      // Only auto-open if this is the first time (no explicit close preference)
+      const explicitlyClosed = localStorage.getItem('deckfix_uploader_closed');
+      
+      // Only auto-open if not explicitly closed by user
+      if (!explicitlyClosed) {
+        setShowUploader(true);
+      }
+    }
+  }, [analyses.length, loading, showUploader]);
+
   // Poll for status updates on pending/processing analyses
   useEffect(() => {
     if (pendingOrProcessingAnalyses.length === 0) {
@@ -209,6 +288,11 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
       }));
 
       setAnalyses(formattedAnalyses);
+      
+      // If no decks exist, open uploader by default
+      if (!silent && formattedAnalyses.length === 0 && !showUploader) {
+        setShowUploader(true);
+      }
     } catch (error) {
       console.error('Error loading analyses:', error);
     } finally {
@@ -280,8 +364,8 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
         throw new Error('Failed to extract pages from PDF');
       }
 
-      if (pageImages.length > 20) {
-        throw new Error('PDF must have 20 pages or less');
+      if (pageImages.length > 30) {
+        throw new Error('We can only analyze decks with 30 pages or less');
       }
 
       // Step 2: Create analysis record
@@ -421,39 +505,47 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
             </button>
           </div>
         )}
-        {/* Header */}
-        {analyses.length > 0 && (
-          <div className="mb-12">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-4xl font-bold text-slate-900 mb-2">
-                  My Pitch Decks
-                </h1>
-                <p className="text-lg text-slate-600">
-                  {`${analyses.length} ${analyses.length === 1 ? 'deck' : 'decks'} analyzed`}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowUploader(!showUploader)}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
-              >
-                <Upload className="w-5 h-5" />
-                {showUploader ? 'Cancel' : 'Upload New Deck'}
-              </button>
+        {/* Header - Always visible */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-4xl font-bold text-slate-900 mb-2">
+                My Pitch Decks
+              </h1>
+              <p className="text-lg text-slate-600">
+                {(() => {
+                  const completedCount = analyses.filter(a => a.status === 'completed').length;
+                  return `${completedCount} ${completedCount === 1 ? 'deck' : 'decks'} analyzed`;
+                })()}
+              </p>
             </div>
+            <button
+              onClick={() => {
+                const newState = !showUploader;
+                setShowUploader(newState);
+                // Track if user explicitly closed it (only when closing, not opening)
+                if (!newState) {
+                  localStorage.setItem('deckfix_uploader_closed', 'true');
+                } else {
+                  localStorage.removeItem('deckfix_uploader_closed');
+                }
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
+            >
+              <Upload className="w-5 h-5" />
+              {showUploader ? 'Close' : 'Upload New Deck'}
+            </button>
+          </div>
 
-            {/* Uploader Section */}
-            {showUploader && (
-              <div className="mb-8">
-                <AuthenticatedUploader 
-                  onUploadComplete={handleUploadComplete}
-                  onAnalysisComplete={(analysisId) => {
-                    // Navigate directly to the completed analysis
-                    onViewAnalysis(analysisId);
-                  }}
-                />
-              </div>
-            )}
+          {/* Uploader Section */}
+          {showUploader && (
+            <div className="mb-8">
+              <AuthenticatedUploader 
+                onUploadComplete={handleUploadComplete}
+                onAnalysisComplete={handleUploadComplete}
+              />
+            </div>
+          )}
 
             {/* Stats Overview */}
             {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -502,239 +594,101 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                 </div>
               </div>
             </div> */}
-          </div>
-        )}
+        </div>
 
-        {/* Empty State */}
-        {analyses.length === 0 && (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              {/* Decorative Header */}
-              {/* Content Area */}
-              <div className="p-8">
-                {/* Upload Area */}
-                <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
-                  uploading 
-                    ? 'border-slate-300 bg-slate-50' 
-                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                }`}>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    disabled={uploading}
-                  />
-                  
-                  {uploading ? (
-                    /* Uploading State */
-                    <div className="py-4">
-                      {/* Animated Icon */}
-                      <div className="w-20 h-20 mx-auto mb-6 relative">
-                        {/* Outer ring - spinning */}
-                        <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
-                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-slate-900 animate-spin"></div>
-                        {/* Inner icon */}
-                        <div className="absolute inset-2 bg-slate-100 rounded-full flex items-center justify-center">
-                          <FileText className="w-8 h-8 text-slate-600" />
-                        </div>
-                      </div>
+        {/* Deck List - Only show completed analyses */}
+        {(() => {
+          const completedAnalyses = analyses.filter(a => a.status === 'completed');
+          return completedAnalyses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {completedAnalyses.map((analysis) => (
+                <div
+                  key={analysis.id}
+                  className="group bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden flex flex-col cursor-pointer"
+                  onClick={() => onViewAnalysis(analysis.id)}
+                >
+                  {/* Cover Image - Full Width */}
+                  <div className="w-full aspect-[16/9] bg-slate-100 relative overflow-hidden">
+                    <img
+                      src={getCoverImageUrl(analysis.id)}
+                      alt={`${analysis.deck_name} cover`}
+                      className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100"><svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>';
+                      }}
+                    />
+                  </div>
 
-                      {/* Progress Text */}
-                      <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                        {analysisProgress 
-                          ? (analysisProgress.status === 'finalizing' 
-                              ? 'Finalizing analysis...' 
-                              : `Analyzing slide ${analysisProgress.currentPage} of ${analysisProgress.totalPages}...`)
-                          : uploadProgress < 40 
-                          ? 'Extracting pages...' 
-                          : uploadProgress < 60 
-                          ? 'Performing Deep Analysis...' 
-                          : uploadProgress < 100 
-                          ? 'Consulting AI VC Experts...' 
-                          : 'Finishing up...'}
-                      </h3>
-                      <p className="text-sm text-slate-600 mb-6">
-                        {selectedFile?.name || 'Processing your pitch deck'}
-                      </p>
-
-                      {/* Progress Bar */}
-                      <div className="max-w-xs mx-auto">
-                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-2">
-                          <div 
-                            className="h-full bg-slate-900 rounded-full transition-all duration-500 ease-out"
-                            style={{ width: `${uploadProgress}%` }}
-                          ></div>
-                        </div>
-                        <p className="text-xs text-slate-500">{uploadProgress}% complete</p>
-                      </div>
-
-                      {/* Animated dots */}
-                      <div className="flex items-center justify-center gap-1.5 mt-6">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Default Upload State */
-                    <>
-                      <div className="w-14 h-14 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <Upload className="w-7 h-7 text-slate-600" />
-                      </div>
-                      
-                      <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                        Upload your pitch deck
-                      </h3>
-                      <p className="text-sm text-slate-600 mb-6 max-w-sm mx-auto">
-                        Drag and drop your PDF here, or click to browse
-                      </p>
-                      
-                      <button
-                        onClick={handleChooseFile}
-                        className="inline-flex items-center gap-2 px-8 py-3.5 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
-                      >
-                        <Upload className="w-5 h-5" />
-                        Choose File
-                      </button>
-                      
-                      <p className="text-xs text-slate-500 mt-4">
-                        PDF files only, max 15MB, up to 20 slides
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Deck List */}
-        {analyses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {analyses.map((analysis) => (
-              <div
-                key={analysis.id}
-                className="group bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden flex flex-col cursor-pointer"
-                onClick={() => onViewAnalysis(analysis.id)}
-              >
-                {/* Cover Image - Full Width */}
-                <div className="w-full aspect-[16/9] bg-slate-100 relative overflow-hidden">
-                  <img
-                    src={getCoverImageUrl(analysis.id)}
-                    alt={`${analysis.deck_name} cover`}
-                    className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100"><svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>';
-                    }}
-                  />
-                  {/* Loader overlay for pending/processing analyses */}
-                  {(analysis.status === 'pending' || analysis.status === 'processing') && (
-                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
-                      <div className="text-center">
-                        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
-                        <p className="text-white text-sm font-medium">Analyzing...</p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Error indicator for failed analyses */}
-                  {analysis.status === 'failed' && (
-                    <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center backdrop-blur-sm">
-                      <div className="text-center">
-                        <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-2" />
-                        <p className="text-red-700 text-sm font-medium">Analysis Failed</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-5 flex flex-col flex-1">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-3 mb-2">
-                        <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-slate-700 transition-colors">
-                          {analysis.deck_name}
-                        </h3>
-                        {analysis.status === 'completed' ? (
+                  {/* Content */}
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-3 mb-2">
+                          <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-slate-700 transition-colors">
+                            {analysis.deck_name}
+                          </h3>
                           <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
                             {formatScoreWithSuffix(normalizeScoreTo0To10(analysis.overall_score))}
                           </span>
-                        ) : (
-                          <span className="text-sm font-semibold whitespace-nowrap text-slate-400">
-                            {analysis.status === 'failed' ? 'Failed' : 'Pending'}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-600">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDate(analysis.created_at)}
                           </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {formatDate(analysis.created_at)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileText className="w-3.5 h-3.5" />
-                          {analysis.total_pages} slides
-                        </span>
+                          <span className="flex items-center gap-1">
+                            <FileText className="w-3.5 h-3.5" />
+                            {analysis.total_pages} slides
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Quick Stats */}
-                  {analysis.critical_issues_count !== undefined && analysis.critical_issues_count > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <span>{analysis.critical_issues_count} critical {analysis.critical_issues_count === 1 ? 'issue' : 'issues'}</span>
-                    </div>
-                  )}
+                    {/* Quick Stats */}
+                    {analysis.critical_issues_count !== undefined && analysis.critical_issues_count > 0 && (
+                      <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{analysis.critical_issues_count} critical {analysis.critical_issues_count === 1 ? 'issue' : 'issues'}</span>
+                      </div>
+                    )}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-auto">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (analysis.status === 'completed') {
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-auto">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
                           onViewAnalysis(analysis.id);
-                        }
-                      }}
-                      disabled={analysis.status !== 'completed'}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium rounded-2xl transition-all ${
-                        analysis.status === 'completed'
-                          ? 'bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md cursor-pointer'
-                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {analysis.status === 'pending' || analysis.status === 'processing'
-                        ? 'Analysis In Progress'
-                        : analysis.status === 'failed'
-                        ? 'Analysis Failed'
-                        : 'View Analysis'}
-                      {analysis.status === 'completed' && <ChevronRight className="w-4 h-4" />}
-                    </button>
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium rounded-2xl transition-all bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md cursor-pointer"
+                      >
+                        View Analysis
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(analysis.id, analysis.deck_name);
-                      }}
-                      disabled={deletingId === analysis.id}
-                      className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                      title="Delete analysis"
-                    >
-                      {deletingId === analysis.id ? (
-                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(analysis.id, analysis.deck_name);
+                        }}
+                        disabled={deletingId === analysis.id}
+                        className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                        title="Delete analysis"
+                      >
+                        {deletingId === analysis.id ? (
+                          <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
+              ))}
+            </div>
+          ) : null;
+        })()}
       </div>
     </div>
   );

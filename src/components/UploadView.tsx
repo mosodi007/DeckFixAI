@@ -157,8 +157,8 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
         throw new Error('Failed to extract pages from PDF');
       }
 
-      if (pageImages.length > 20) {
-        throw new Error('PDF must have 20 pages or less');
+      if (pageImages.length > 30) {
+        throw new Error('We can only analyze decks with 30 pages or less');
       }
 
       // Step 2: Create analysis record

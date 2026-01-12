@@ -223,17 +223,17 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAut
        
         <button
           onClick={onOpenImprovementFlow}
-          className="bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl group"
+          className="bg-[#000] hover:bg-slate-800 text-white pl-6 pr-7 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl group"
         >
-          <Wand2 className="w-10 h-5 group-hover:rotate-12 transition-transform" />
+          <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform" />
           <span>Fix All Issues</span>
         </button>
         <button
           onClick={onNewAnalysis}
-          className="bg-white hover:bg-slate-50 text-slate-900 border-2 border-slate-300 hover:border-slate-400 pl-6 pr-7 py-4 rounded-full shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl group"
+          className="bg-white hover:bg-slate-50 text-slate-900 border-2 border-slate-300 hover:border-slate-400 pl-6 pr-7 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-semibold transition-all hover:scale-105 hover:shadow-3xl group"
         >
           <Upload className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span> New</span>
+          <span>Upload New</span>
         </button>
       </div>
     </div>

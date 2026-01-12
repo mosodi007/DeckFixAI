@@ -8,6 +8,7 @@ import { PricingView } from './components/PricingView';
 import { CreditHistoryView } from './components/CreditHistoryView';
 import { UsageHistoryView } from './components/UsageHistoryView';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
+import { LoadingSpinner } from './components/LoadingSpinner';
 import { LoginModal } from './components/auth/LoginModal';
 import { SignUpModal } from './components/auth/SignUpModal';
 import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
@@ -122,12 +123,9 @@ function App() {
   };
 
   const handleNewAnalysis = () => {
-    if (isAuthenticated) {
-      setView('dashboard');
-    } else {
-      setView('upload');
-    }
+    setView('upload');
     setAnalysisData(null);
+    localStorage.removeItem('currentAnalysisId');
   };
 
   const handleViewAnalysis = async (analysisId: string) => {
@@ -240,7 +238,23 @@ function App() {
                       onClick={() => setShowUserMenu(!showUserMenu)}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                     >
-                      <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold">
+                      {userProfile?.avatarUrl ? (
+                        <img
+                          src={userProfile.avatarUrl}
+                          alt={userProfile?.fullName || user?.email || 'User'}
+                          className="w-8 h-8 rounded-full object-cover border-2 border-slate-200"
+                          onError={(e) => {
+                            // Fallback to initial if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className={`w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold ${userProfile?.avatarUrl ? 'hidden' : ''}`}
+                      >
                         {(userProfile?.fullName || user?.email)?.charAt(0).toUpperCase()}
                       </div>
                       <span>{userProfile?.fullName || user?.email}</span>
@@ -254,11 +268,32 @@ function App() {
                           onClick={() => setShowUserMenu(false)}
                         />
                         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-20">
-                          <div className="px-4 py-3 border-b border-slate-200">
-                            {userProfile?.fullName && (
-                              <p className="text-sm font-medium text-slate-900 mb-1">{userProfile.fullName}</p>
-                            )}
-                            <p className="text-xs text-slate-600">{user?.email}</p>
+                          <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-3">
+                            {userProfile?.avatarUrl ? (
+                              <img
+                                src={userProfile.avatarUrl}
+                                alt={userProfile?.fullName || user?.email || 'User'}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-slate-200"
+                                onError={(e) => {
+                                  // Fallback to initial if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = target.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className={`w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-semibold text-sm ${userProfile?.avatarUrl ? 'hidden' : ''}`}
+                            >
+                              {(userProfile?.fullName || user?.email)?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {userProfile?.fullName && (
+                                <p className="text-sm font-medium text-slate-900 mb-1 truncate">{userProfile.fullName}</p>
+                              )}
+                              <p className="text-xs text-slate-600 truncate">{user?.email}</p>
+                            </div>
                           </div>
                           <button
                             onClick={() => {
@@ -316,12 +351,7 @@ function App() {
 
       <main>
         {(isLoading || authLoading) ? (
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading...</p>
-            </div>
-          </div>
+          <LoadingSpinner message={isLoading ? 'Loading your analysis...' : 'Initializing...'} />
         ) : view === 'pricing' ? (
           <PricingView preselectedTierCredits={preselectedTierCredits} />
         ) : view === 'credits' ? (

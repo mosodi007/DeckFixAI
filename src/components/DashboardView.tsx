@@ -505,7 +505,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                         }
                       }}
                       disabled={analysis.status !== 'completed'}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium rounded-2xl transition-all ${
                         analysis.status === 'completed'
                           ? 'bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md cursor-pointer'
                           : 'bg-slate-200 text-slate-500 cursor-not-allowed'

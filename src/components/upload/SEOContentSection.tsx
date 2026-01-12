@@ -3,7 +3,7 @@ import { TrendingUp, Target, Zap, Award } from 'lucide-react';
 export function SEOContentSection() {
   return (
     <section className="max-w-4xl mx-auto mt-16 px-4">
-      <article className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 mb-12">
+      {/* <article className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 mb-12">
         <h2 className="text-3xl font-bold text-slate-900 mb-6 text-center">
           Why Your Pitch Deck Needs Professional Analysis Before Meeting Investors
         </h2>
@@ -83,9 +83,9 @@ export function SEOContentSection() {
             </div>
           </div>
         </div>
-      </article>
+      </article> */}
 
-      <article className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-lg p-12 text-white mb-12">
+      {/* <article className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-lg p-12 text-white mb-12">
         <h2 className="text-3xl font-bold mb-6 text-center">
           How to Improve Your Pitch Deck and Increase Funding Success
         </h2>
@@ -125,9 +125,9 @@ export function SEOContentSection() {
             </p>
           </div>
         </div>
-      </article>
+      </article> */}
 
-      <article className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12">
+      {/* <article className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12">
         <h2 className="text-3xl font-bold text-slate-900 mb-6 text-center">
           Common Pitch Deck Mistakes That Cost Startups Funding
         </h2>
@@ -191,7 +191,7 @@ export function SEOContentSection() {
             Upload your deck now and get instant AI-powered analysis and fixes.
           </p>
         </div>
-      </article>
+      </article> */}
     </section>
   );
 }

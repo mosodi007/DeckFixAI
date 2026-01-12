@@ -188,8 +188,20 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
 
   const nextTier = getNextTier();
   const creditUsage = calculateCreditUsage();
-  const nextRefillDate = periodEnd
-    ? periodEnd.toLocaleDateString('en-US', {
+  
+  // For free plans or when there's no subscription period end, use credits_reset_date
+  // For paid plans with subscription, use the subscription period end
+  let refillDate: Date | null = null;
+  if (periodEnd) {
+    // Use subscription period end for paid plans
+    refillDate = periodEnd;
+  } else if (credits?.creditsResetDate) {
+    // Use credits reset date for free plans
+    refillDate = new Date(credits.creditsResetDate);
+  }
+  
+  const nextRefillDate = refillDate
+    ? refillDate.toLocaleDateString('en-US', {
         month: 'long',
         day: 'numeric',
         year: 'numeric'

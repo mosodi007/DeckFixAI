@@ -38,30 +38,30 @@ export async function sendVerificationEmail(): Promise<{ success: boolean; error
       return { success: false, error: 'Email is already verified' };
     }
 
-    // First, try to use Supabase's resend to generate a token
-    // Then send via Resend for better deliverability
-    const { error: resendError } = await supabase.auth.resend({
-      type: 'signup',
-      email: user.email!,
-    });
-
     // Call our Edge Function to send the email via Resend
-    // We'll generate a verification link that Supabase can verify
+    // The Edge Function will use Supabase's admin API to generate a secure verification link
     const { data: functionData, error: functionError } = await supabase.functions.invoke('send-verification-email', {
       body: {
         email: user.email,
         userId: user.id,
-        token: 'resend', // Signal to use Supabase's verification flow
+        token: 'generate', // Signal to generate a new verification link
       },
     });
 
     if (functionError) {
       console.error('Error calling send-verification-email function:', functionError);
-      // Fallback to Supabase's default email sending
+      
+      // If Edge Function fails, fallback to Supabase's default email
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email!,
+      });
+      
       if (resendError) {
-        return { success: false, error: resendError.message };
+        return { success: false, error: resendError.message || 'Failed to send verification email' };
       }
-      return { success: true };
+      
+      return { success: true, error: 'Sent via Supabase default email (custom email failed)' };
     }
 
     return { success: true };

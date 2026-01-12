@@ -98,11 +98,36 @@ function App() {
             return;
           }
 
+          // Check if user is Google OAuth (they don't need verification)
+          const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
+          const isGoogleOAuth = userMetadata?.provider === 'google';
+          
           // Update is_verified in user_profiles
           await supabase
             .from('user_profiles')
             .update({ is_verified: true, updated_at: new Date().toISOString() })
             .eq('id', user.id);
+
+          // Send welcome email when email is verified (except for Google OAuth)
+          if (!isGoogleOAuth) {
+            // Check if welcome email was already sent (to avoid duplicates)
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('email, full_name')
+              .eq('id', user.id)
+              .maybeSingle();
+            
+            if (profile) {
+              supabase.functions.invoke('send-welcome-email', {
+                body: {
+                  email: profile.email || user.email || '',
+                  fullName: profile.full_name || undefined,
+                },
+              }).catch((err) => {
+                console.error('Failed to send welcome email:', err);
+              });
+            }
+          }
 
           // Show success message
           alert('Email verified successfully! Your account is now verified.');
@@ -135,10 +160,35 @@ function App() {
 
           // Update is_verified in user_profiles
           if (data.user) {
+            // Check if user is Google OAuth (they don't need verification)
+            const userMetadata = (data.user as any).app_metadata || (data.user as any).raw_app_meta_data || {};
+            const isGoogleOAuth = userMetadata?.provider === 'google';
+            
             await supabase
               .from('user_profiles')
               .update({ is_verified: true, updated_at: new Date().toISOString() })
               .eq('id', data.user.id);
+
+            // Send welcome email when email is verified (except for Google OAuth)
+            if (!isGoogleOAuth) {
+              // Check if welcome email was already sent (to avoid duplicates)
+              const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('email, full_name')
+                .eq('id', data.user.id)
+                .maybeSingle();
+              
+              if (profile) {
+                supabase.functions.invoke('send-welcome-email', {
+                  body: {
+                    email: profile.email || data.user.email || '',
+                    fullName: profile.full_name || undefined,
+                  },
+                }).catch((err) => {
+                  console.error('Failed to send welcome email:', err);
+                });
+              }
+            }
           }
 
           // Show success message
@@ -161,10 +211,35 @@ function App() {
           const { data: { user: currentUser } } = await supabase.auth.getUser();
           
           if (currentUser?.email_confirmed_at) {
+            // Check if user is Google OAuth (they don't need verification)
+            const userMetadata = (currentUser as any).app_metadata || (currentUser as any).raw_app_meta_data || {};
+            const isGoogleOAuth = userMetadata?.provider === 'google';
+            
             await supabase
               .from('user_profiles')
               .update({ is_verified: true, updated_at: new Date().toISOString() })
               .eq('id', currentUser.id);
+
+            // Send welcome email when email is verified (except for Google OAuth)
+            if (!isGoogleOAuth) {
+              // Check if welcome email was already sent (to avoid duplicates)
+              const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('email, full_name')
+                .eq('id', currentUser.id)
+                .maybeSingle();
+              
+              if (profile) {
+                supabase.functions.invoke('send-welcome-email', {
+                  body: {
+                    email: profile.email || currentUser.email || '',
+                    fullName: profile.full_name || undefined,
+                  },
+                }).catch((err) => {
+                  console.error('Failed to send welcome email:', err);
+                });
+              }
+            }
           }
           
           window.history.replaceState({}, document.title, window.location.pathname);

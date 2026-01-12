@@ -46,36 +46,33 @@ export async function signUp(data: SignUpData): Promise<{ user: User | null; err
     return { user: null, error: new Error(error.message) };
   }
 
-  // Automatically send verification email via our custom Resend template
-  // Supabase's signUp already sends a default email, but we want to send our custom branded one
+  // Automatically send verification email via our custom Resend template (only for email/password signups)
+  // Google OAuth users don't need verification emails
   if (authData.user && !authData.user.email_confirmed_at) {
-    // Send our custom verification email via Edge Function
-    // The Edge Function will use Supabase's admin API to generate a proper verification link
-    supabase.functions.invoke('send-verification-email', {
-      body: {
-        email: data.email,
-        userId: authData.user.id,
-        token: 'auto-send', // Signal that this is automatic on signup
-      },
-    }).catch((err) => {
-      console.error('Failed to send verification email:', err);
-      // Don't throw - email failure shouldn't block signup
-      // Supabase's default email will still be sent
-    });
+    // Check if this is a Google OAuth signup
+    const userMetadata = (authData.user as any).app_metadata || (authData.user as any).raw_app_meta_data || {};
+    const isGoogleOAuth = userMetadata?.provider === 'google';
+    
+    // Only send verification email for email/password signups
+    if (!isGoogleOAuth) {
+      // Send our custom verification email via Edge Function
+      // The Edge Function will use Supabase's admin API to generate a proper verification link
+      supabase.functions.invoke('send-verification-email', {
+        body: {
+          email: data.email,
+          userId: authData.user.id,
+          token: 'auto-send', // Signal that this is automatic on signup
+        },
+      }).catch((err) => {
+        console.error('Failed to send verification email:', err);
+        // Don't throw - email failure shouldn't block signup
+        // Supabase's default email will still be sent
+      });
+    }
   }
 
-  // Send welcome email (fire and forget - don't block signup if it fails)
-  if (authData.user) {
-    supabase.functions.invoke('send-welcome-email', {
-      body: {
-        email: data.email,
-        fullName: data.fullName || undefined,
-      },
-    }).catch((err) => {
-      console.error('Failed to send welcome email:', err);
-      // Don't throw - welcome email failure shouldn't block signup
-    });
-  }
+  // Note: Welcome email is now sent when email is verified (not on signup)
+  // This is handled in App.tsx when verification is detected
 
   return { user: authData.user, error: null };
 }
@@ -122,30 +119,8 @@ export async function signInWithGoogleOneTap(credential: string): Promise<{ user
     return { user: null, error: new Error(error.message) };
   }
 
-  // Check if this is a new user (just signed up) by checking if they have a profile
-  // If it's a new signup, send welcome email
-  if (data.user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('created_at')
-      .eq('id', data.user.id)
-      .maybeSingle();
-    
-    // If profile was just created (within last 5 seconds), send welcome email
-    if (profile && data.user.created_at) {
-      const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
-      if (profileAge < 5000) { // Profile created within last 5 seconds
-        supabase.functions.invoke('send-welcome-email', {
-          body: {
-            email: data.user.email || '',
-            fullName: data.user.user_metadata?.full_name || data.user.user_metadata?.name || undefined,
-          },
-        }).catch((err) => {
-          console.error('Failed to send welcome email:', err);
-        });
-      }
-    }
-  }
+  // Note: Welcome email is now sent when email is verified (not on signup)
+  // Google OAuth users are automatically verified, so welcome email will be sent via App.tsx
 
   return { user: data.user, error: null };
 }

@@ -111,33 +111,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setUser(updatedUser);
       
-      // Check if this is a new user signup (for OAuth) and send welcome email
+      // Check if this is a new Google OAuth signup and send welcome email
+      // Google OAuth users are automatically verified, so send welcome email immediately
       if (updatedUser && updatedUser.email && !previousUser) {
-        // This is likely a new signup - check if profile was just created
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('created_at')
-          .eq('id', updatedUser.id)
-          .maybeSingle();
+        // Check if this is a Google OAuth signup
+        const userMetadata = (updatedUser as any).app_metadata || (updatedUser as any).raw_app_meta_data || {};
+        const isGoogleOAuth = userMetadata?.provider === 'google';
         
-        if (profile && updatedUser.created_at) {
-          const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
-          // If profile was created within last 30 seconds, it's a new signup (increased from 10s to handle slower OAuth flows)
-          if (profileAge < 30000) {
-            // Send welcome email (fire and forget)
-            supabase.functions.invoke('send-welcome-email', {
-              body: {
-                email: updatedUser.email,
-                fullName: updatedUser.user_metadata?.full_name || updatedUser.user_metadata?.name || undefined,
-              },
-            }).catch((err) => {
-              console.error('Failed to send welcome email:', err);
-            });
-            
-            // Set flag to show welcome modal for new OAuth signups
-            sessionStorage.setItem('showWelcomeModal', 'true');
+        if (isGoogleOAuth) {
+          // This is a new Google OAuth signup - check if profile was just created
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('created_at, full_name')
+            .eq('id', updatedUser.id)
+            .maybeSingle();
+          
+          if (profile && updatedUser.created_at) {
+            const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
+            // If profile was created within last 30 seconds, it's a new signup
+            if (profileAge < 30000) {
+              // Send welcome email for Google OAuth users (they're automatically verified)
+              supabase.functions.invoke('send-welcome-email', {
+                body: {
+                  email: updatedUser.email,
+                  fullName: profile.full_name || updatedUser.user_metadata?.full_name || updatedUser.user_metadata?.name || undefined,
+                },
+              }).catch((err) => {
+                console.error('Failed to send welcome email:', err);
+              });
+              
+              // Set flag to show welcome modal for new OAuth signups
+              sessionStorage.setItem('showWelcomeModal', 'true');
+            }
           }
         }
+        // Note: Email/password signups will get welcome email when they verify their email (handled in App.tsx)
       }
       
       if (updatedUser && updatedUser.email) {

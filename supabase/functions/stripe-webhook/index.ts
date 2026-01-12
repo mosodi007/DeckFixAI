@@ -320,6 +320,26 @@ async function allocateCreditsForSubscription(
         .update({ credits_allocated: newTierCredits })
         .eq('id', existingPeriod.id);
 
+      // Create notification for mid-period upgrade
+      try {
+        await supabase.rpc('create_notification', {
+          p_user_id: userId,
+          p_type: 'subscription_renewal',
+          p_title: 'Subscription Upgraded!',
+          p_message: `Your subscription has been upgraded. ${additionalCredits} additional credits have been added to your account (total: ${newTierCredits} credits).`,
+          p_link: '/dashboard?view=credits',
+          p_metadata: {
+            credits: additionalCredits,
+            total_credits: newTierCredits,
+            subscription_id: subscriptionId,
+            price_id: priceId,
+            upgrade_adjustment: true,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to create upgrade notification:', notifError);
+      }
+
       console.info(`Successfully allocated ${additionalCredits} additional credits (total: ${newTierCredits})`);
       return;
     }
@@ -355,6 +375,27 @@ async function allocateCreditsForSubscription(
 
     if (periodError) {
       console.error('Error recording credit period:', periodError);
+    }
+
+    // Create notification for successful subscription credit allocation
+    try {
+      await supabase.rpc('create_notification', {
+        p_user_id: userId,
+        p_type: 'subscription_renewal',
+        p_title: 'Credits Allocated!',
+        p_message: `Your monthly subscription credits (${newTierCredits} credits) have been added to your account.`,
+        p_link: '/dashboard?view=credits',
+        p_metadata: {
+          credits: newTierCredits,
+          subscription_id: subscriptionId,
+          price_id: priceId,
+          period_start: periodStart,
+          period_end: periodEnd,
+        },
+      });
+    } catch (notifError) {
+      console.error('Failed to create subscription credit notification:', notifError);
+      // Don't fail the whole process if notification creation fails
     }
 
     console.info(`Successfully allocated ${newTierCredits} credits to user ${userId}`);
@@ -434,6 +475,25 @@ async function allocateCreditsForOneTimePayment(
 
       // Immediately sync to allocate the new tier's credits
       await syncCustomerFromStripe(customerData.customer_id);
+      
+      // Create notification for successful subscription upgrade
+      try {
+        await supabase.rpc('create_notification', {
+          p_user_id: userId,
+          p_type: 'subscription_renewal',
+          p_title: 'Subscription Upgraded!',
+          p_message: `Your subscription has been upgraded to ${upgradeData.to_tier_credits} credits per month. Credits have been added to your account.`,
+          p_link: '/dashboard?view=credits',
+          p_metadata: {
+            credits: upgradeData.to_tier_credits,
+            subscription_id: currentSub.subscription_id,
+            price_id: newPriceId,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to create subscription upgrade notification:', notifError);
+      }
+      
       return;
     }
 
@@ -482,6 +542,25 @@ async function allocateCreditsForOneTimePayment(
     if (allocateError) {
       console.error('Error allocating credits:', allocateError);
       throw new Error('Failed to allocate credits');
+    }
+
+    // Create notification for successful credit purchase
+    try {
+      await supabase.rpc('create_notification', {
+        p_user_id: userId,
+        p_type: 'subscription_renewal', // Using existing type, or we can add 'credit_purchase' later
+        p_title: 'Credits Purchased Successfully!',
+        p_message: `Your purchase of ${creditAmount} credits has been processed successfully. Credits have been added to your account.`,
+        p_link: '/dashboard?view=credits',
+        p_metadata: {
+          credits: creditAmount,
+          checkout_session_id: checkoutSessionId,
+          price_id: priceId,
+        },
+      });
+    } catch (notifError) {
+      console.error('Failed to create credit purchase notification:', notifError);
+      // Don't fail the whole process if notification creation fails
     }
 
     console.info(`Successfully allocated ${creditAmount} credits to user ${userId}`);

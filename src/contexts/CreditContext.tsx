@@ -60,25 +60,33 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  // Initial load when user changes
   useEffect(() => {
-    refreshCredits();
-  }, [refreshCredits]);
+    if (user) {
+      refreshCredits();
+    } else {
+      setCredits(null);
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only depend on user ID, not the entire user object
 
   // Poll for credit updates periodically when user is logged in
-  // Use a longer interval (30 seconds) to reduce unnecessary refreshes
+  // Use a longer interval (60 seconds) to reduce unnecessary refreshes
   // Credits will still update immediately after actions (upload, fix generation, etc.)
   useEffect(() => {
     if (!user) return;
 
-    // Poll every 30 seconds to keep credits updated, but silently (no loading state)
+    // Poll every 60 seconds to keep credits updated, but silently (no loading state)
     const pollInterval = setInterval(() => {
       refreshCredits(true); // Silent refresh - no loading state change
-    }, 30000); // Poll every 30 seconds instead of 3
+    }, 60000); // Poll every 60 seconds
 
     return () => {
       clearInterval(pollInterval);
     };
-  }, [user, refreshCredits]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only depend on user ID, not refreshCredits function
 
   return (
     <CreditContext.Provider value={{ credits, loading, refreshCredits }}>

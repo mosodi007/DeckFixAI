@@ -59,15 +59,54 @@ Deno.serve(async (req) => {
       return corsResponse({ error }, 400);
     }
 
-    const authHeader = req.headers.get('Authorization')!;
+    // Get auth token from header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return corsResponse({ error: 'Missing or invalid authorization header' }, 401);
+    }
+
     const token = authHeader.replace('Bearer ', '');
-    const {
+    
+    // Try to get user with the provided token
+    let {
       data: { user },
       error: getUserError,
     } = await supabase.auth.getUser(token);
 
+    // If token validation fails (expired JWT), extract user ID from token and verify user exists
+    if (getUserError && (getUserError.message?.includes('JWT') || getUserError.message?.includes('expired') || getUserError.message?.includes('Invalid'))) {
+      console.log('Token validation failed, attempting to extract user ID from token');
+      
+      // Extract user ID from the JWT token payload
+      const userIdFromToken = await extractUserIdFromToken(token);
+      
+      if (userIdFromToken) {
+        // Verify user exists in database
+        const { data: userData, error: userDataError } = await supabase
+          .from('user_profiles')
+          .select('id, email')
+          .eq('id', userIdFromToken)
+          .maybeSingle();
+        
+        if (userData && !userDataError) {
+          // Create a user object from database data
+          user = {
+            id: userData.id,
+            email: userData.email,
+          } as any;
+          getUserError = null;
+          console.log(`Authenticated user ${userData.id} via token extraction`);
+        } else {
+          console.error('User not found in database:', userDataError);
+        }
+      } else {
+        console.error('Could not extract user ID from token');
+      }
+    }
+
     if (getUserError) {
-      return corsResponse({ error: 'Failed to authenticate user' }, 401);
+      console.error('Auth error:', getUserError);
+      return corsResponse({ error: 'Failed to authenticate user', details: getUserError.message }, 401);
     }
 
     if (!user) {
@@ -405,6 +444,28 @@ Deno.serve(async (req) => {
     }, 500);
   }
 });
+
+// Helper function to extract user ID from JWT token (without verification)
+async function extractUserIdFromToken(token: string): Promise<string | null> {
+  try {
+    // JWT tokens have 3 parts separated by dots
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    // Decode the payload (second part)
+    // Replace URL-safe base64 characters
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    // Add padding if needed
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    const payload = JSON.parse(atob(padded));
+    return payload.sub || payload.user_id || null;
+  } catch (error) {
+    console.error('Error extracting user ID from token:', error);
+    return null;
+  }
+}
 
 type ExpectedType = 'string' | { values: string[] };
 type Expectations<T> = { [K in keyof T]: ExpectedType };

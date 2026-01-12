@@ -16,8 +16,11 @@ export interface ExtractionProgress {
   message?: string;
 }
 
-const JPEG_QUALITY = 0.85;
-const MAX_DIMENSION = 2048;
+// OPTIMIZED: Reduced quality and dimensions to minimize file size and processing time
+// Vision API can extract text effectively from lower resolution images
+// Lower quality = smaller files = faster uploads, less memory, faster processing
+const JPEG_QUALITY = 0.65; // Reduced from 0.85 to 0.65 (still good quality for text extraction)
+const MAX_DIMENSION = 1400; // Reduced from 2048 to 1400px (sufficient for Vision API text extraction)
 
 export async function extractPageImages(
   file: File,
@@ -91,7 +94,8 @@ export async function extractPageImages(
           height: scaledViewport.height
         });
 
-        console.log(`Page ${pageNum} extracted successfully (${blob.size} bytes)`);
+        const sizeKB = Math.round(blob.size / 1024);
+        console.log(`Page ${pageNum} extracted successfully (${sizeKB}KB) - Optimized: ${scaledViewport.width}x${scaledViewport.height}px @ ${(JPEG_QUALITY * 100).toFixed(0)}% quality`);
 
         page.cleanup();
 

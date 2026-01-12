@@ -20,6 +20,7 @@ import { HelpSupportPage } from './components/support/HelpSupportPage';
 import { AffiliateProgramPage } from './components/partnerships/AffiliateProgramPage';
 import { CreatorsPage } from './components/partnerships/CreatorsPage';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
+import { NotificationBell } from './components/NotificationBell';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Footer } from './components/Footer';
 import { LoginModal } from './components/auth/LoginModal';
@@ -72,15 +73,16 @@ function App() {
     if (isAuthenticated) {
       setView('dashboard');
       setIsLoading(false);
-      // Show welcome modal for new users (first time only)
-      // Check if user just signed up by checking if they have a referral code in URL or if it's their first visit
-      const hasSeenWelcome = localStorage.getItem('hasSeenWelcomeModal');
-      if (!hasSeenWelcome && (referralCodeFromUrl || user)) {
+      
+      // Check if this is a new signup (from sessionStorage, set by AuthContext)
+      // Only show welcome modal for new signups, not regular logins
+      const shouldShowWelcome = sessionStorage.getItem('showWelcomeModal');
+      if (shouldShowWelcome === 'true') {
+        sessionStorage.removeItem('showWelcomeModal');
         // Small delay to ensure user profile is loaded
         setTimeout(() => {
           setShowWelcomeModal(true);
-          localStorage.setItem('hasSeenWelcomeModal', 'true');
-        }, 1000);
+        }, 500);
       }
     } else {
       setIsLoading(false);
@@ -90,7 +92,7 @@ function App() {
       }
       setAnalysisData(null);
     }
-  }, [isAuthenticated, user, referralCodeFromUrl]);
+  }, [isAuthenticated, user]);
 
   const loadPersistedAnalysis = async () => {
     if (!isAuthenticated) {
@@ -287,6 +289,25 @@ function App() {
                     My Decks
                   </button>
                   <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
+                  <NotificationBell onNotificationClick={async (link: string) => {
+                    // Parse the link and navigate
+                    if (link && link.includes('analysisId=')) {
+                      const params = new URLSearchParams(link.split('?')[1] || '');
+                      const analysisId = params.get('analysisId');
+                      if (analysisId) {
+                        await handleViewAnalysis(analysisId);
+                      } else {
+                        setView('dashboard');
+                      }
+                    } else if (link && link.startsWith('/dashboard')) {
+                      setView('dashboard');
+                    } else if (link && link.startsWith('/')) {
+                      const viewName = link.substring(1);
+                      if (['dashboard', 'credits', 'referrals'].includes(viewName)) {
+                        setView(viewName as any);
+                      }
+                    }
+                  }} />
                   </div>
                   <div className="relative">
                     <button
@@ -540,7 +561,7 @@ function App() {
           onSwitchToLogin={handleOpenLogin}
           onSignUpSuccess={() => {
             setShowSignUpModal(false);
-            // Show welcome modal after successful signup
+            // Show welcome modal after successful signup (email/password)
             setTimeout(() => {
               setShowWelcomeModal(true);
             }, 500);

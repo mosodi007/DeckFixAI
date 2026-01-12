@@ -45,6 +45,19 @@ export async function signUp(data: SignUpData): Promise<{ user: User | null; err
     return { user: null, error: new Error(error.message) };
   }
 
+  // Send welcome email (fire and forget - don't block signup if it fails)
+  if (authData.user) {
+    supabase.functions.invoke('send-welcome-email', {
+      body: {
+        email: data.email,
+        fullName: data.fullName || undefined,
+      },
+    }).catch((err) => {
+      console.error('Failed to send welcome email:', err);
+      // Don't throw - welcome email failure shouldn't block signup
+    });
+  }
+
   return { user: authData.user, error: null };
 }
 
@@ -90,6 +103,31 @@ export async function signInWithGoogleOneTap(credential: string): Promise<{ user
     return { user: null, error: new Error(error.message) };
   }
 
+  // Check if this is a new user (just signed up) by checking if they have a profile
+  // If it's a new signup, send welcome email
+  if (data.user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('created_at')
+      .eq('id', data.user.id)
+      .maybeSingle();
+    
+    // If profile was just created (within last 5 seconds), send welcome email
+    if (profile && data.user.created_at) {
+      const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
+      if (profileAge < 5000) { // Profile created within last 5 seconds
+        supabase.functions.invoke('send-welcome-email', {
+          body: {
+            email: data.user.email || '',
+            fullName: data.user.user_metadata?.full_name || data.user.user_metadata?.name || undefined,
+          },
+        }).catch((err) => {
+          console.error('Failed to send welcome email:', err);
+        });
+      }
+    }
+  }
+
   return { user: data.user, error: null };
 }
 
@@ -118,10 +156,10 @@ export async function getCurrentUser(): Promise<User | null> {
   return user;
 }
 
-export async function getUserProfile(userId: string): Promise<{ full_name: string | null; email: string } | null> {
+export async function getUserProfile(userId: string): Promise<{ full_name: string | null; email: string; is_verified?: boolean } | null> {
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('full_name, email')
+    .select('full_name, email, is_verified')
     .eq('id', userId)
     .maybeSingle();
 

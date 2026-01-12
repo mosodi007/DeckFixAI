@@ -17,6 +17,8 @@ import { RefundPolicy } from './components/policies/RefundPolicy';
 import { CookiePolicy } from './components/policies/CookiePolicy';
 import { FAQPage } from './components/support/FAQPage';
 import { HelpSupportPage } from './components/support/HelpSupportPage';
+import { AffiliateProgramPage } from './components/partnerships/AffiliateProgramPage';
+import { CreatorsPage } from './components/partnerships/CreatorsPage';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Footer } from './components/Footer';
@@ -31,7 +33,7 @@ import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
   const { user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history' | 'referrals' | 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support'>('upload');
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history' | 'referrals' | 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support' | 'affiliate' | 'creators'>('upload');
 
   // Scroll to top when view changes
   useEffect(() => {
@@ -84,7 +86,7 @@ function App() {
       setIsLoading(false);
       // Only set to 'upload' if not already on pricing page
       if (view !== 'pricing') {
-        setView('upload');
+      setView('upload');
       }
       setAnalysisData(null);
     }
@@ -163,7 +165,7 @@ function App() {
   };
 
   const handleNewAnalysis = () => {
-    setView('upload');
+      setView('upload');
     setAnalysisData(null);
     localStorage.removeItem('currentAnalysisId');
   };
@@ -277,14 +279,14 @@ function App() {
               {isAuthenticated ? (
                 <>
                   <div className="flex items-center gap-3 ml-auto">
-                    <button
-                      onClick={handleGoToDashboard}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      My Decks
-                    </button>
-                    <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
+                  <button
+                    onClick={handleGoToDashboard}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    My Decks
+                  </button>
+                  <CreditBalanceIndicator onViewHistory={() => setView('credits')} />
                   </div>
                   <div className="relative">
                     <button
@@ -342,9 +344,9 @@ function App() {
                               {(userProfile?.fullName || user?.email)?.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                              {userProfile?.fullName && (
+                            {userProfile?.fullName && (
                                 <p className="text-sm font-medium text-slate-900 mb-1 truncate">{userProfile.fullName}</p>
-                              )}
+                            )}
                               <p className="text-xs text-slate-600 truncate">{user?.email}</p>
                             </div>
                           </div>
@@ -431,20 +433,20 @@ function App() {
                   </div>
                   
                   {/* Right-aligned Auth Buttons */}
-                  <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
-                    <button
-                      onClick={() => setShowLoginModal(true)}
-                      className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                      Login
-                    </button>
-                    <button
-                      onClick={() => setShowSignUpModal(true)}
-                      className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
-                    >
-                      Sign Up
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-200">
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => setShowSignUpModal(true)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
+                  >
+                    Sign Up
+                  </button>
+                </div>
                 </>
               )}
             </div>
@@ -459,7 +461,7 @@ function App() {
           !isAuthenticated ? (
             <PricingPagePublic onSignUp={() => setShowSignUpModal(true)} />
           ) : (
-            <PricingView preselectedTierCredits={preselectedTierCredits} />
+          <PricingView preselectedTierCredits={preselectedTierCredits} />
           )
         ) : view === 'credits' ? (
           <CreditHistoryView
@@ -487,6 +489,10 @@ function App() {
           <FAQPage onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
         ) : view === 'help-support' ? (
           <HelpSupportPage onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'affiliate' ? (
+          <AffiliateProgramPage onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'creators' ? (
+          <CreatorsPage onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
         ) : view === 'dashboard' ? (
           <DashboardView
             onViewAnalysis={handleViewAnalysis}

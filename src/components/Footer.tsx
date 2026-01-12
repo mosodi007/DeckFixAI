@@ -1,11 +1,11 @@
 import { Mail, MapPin, Phone, Heart, Facebook, Twitter, Linkedin, Instagram, Youtube } from 'lucide-react';
 
 interface FooterProps {
-  onNavigate?: (view: 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support') => void;
+  onNavigate?: (view: 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support' | 'affiliate' | 'creators') => void;
 }
 
 export function Footer({ onNavigate }: FooterProps = {}) {
-  const handleNavigate = (view: 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support') => {
+  const handleNavigate = (view: 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support' | 'affiliate' | 'creators') => {
     // Scroll to top of the page
     window.scrollTo({ top: 0, behavior: 'smooth' });
     // Call the navigation callback
@@ -94,7 +94,7 @@ export function Footer({ onNavigate }: FooterProps = {}) {
                 </a>
               </li> */}
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="https://medium.com/@deckfixai" target='_blank' className="text-slate-400 hover:text-white transition-colors text-sm">
                   Blog
                 </a>
               </li>
@@ -161,20 +161,26 @@ export function Footer({ onNavigate }: FooterProps = {}) {
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Partnership</h3>
             <ul className="space-y-3">
-              <li>
+              {/* <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
                   Referral
                 </a>
-              </li>
+              </li> */}
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('affiliate')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Affiliate program
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('creators')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Creators
-                </a>
+                </button>
               </li>
             </ul>
           </div>

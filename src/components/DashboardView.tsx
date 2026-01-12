@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2, Mail, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
 import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages, deleteAnalysisImages, getCoverImageUrl } from '../services/storageService';
+import { sendVerificationEmail, isEmailVerified } from '../services/emailVerificationService';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DeckAnalysis {
@@ -33,10 +34,72 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const [showVerificationBanner, setShowVerificationBanner] = useState(true);
 
   useEffect(() => {
     loadAnalyses();
+    checkEmailVerification();
   }, [user]);
+
+  const checkEmailVerification = async () => {
+    if (user) {
+      // Check if user signed up via Google OAuth (Google users are always verified)
+      // Access provider from app_metadata or raw_app_meta_data
+      const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
+      const isGoogleOAuth = userMetadata?.provider === 'google';
+      
+      if (isGoogleOAuth) {
+        setEmailVerified(true); // Google OAuth users don't need verification
+        return;
+      }
+
+      // For email/password signups, check verification status
+      const verified = await isEmailVerified();
+      setEmailVerified(verified);
+    }
+  };
+
+  const handleSendVerificationEmail = async () => {
+    setSendingVerification(true);
+    setVerificationMessage(null);
+    
+    const result = await sendVerificationEmail();
+    
+    if (result.success) {
+      setVerificationMessage('Verification email sent! Please check your inbox.');
+    } else {
+      setVerificationMessage(result.error || 'Failed to send verification email. Please try again.');
+    }
+    
+    setSendingVerification(false);
+    
+    // Clear message after 5 seconds
+    setTimeout(() => {
+      setVerificationMessage(null);
+    }, 5000);
+  };
+
+  // Poll for verification status update after sending email
+  useEffect(() => {
+    if (verificationMessage && verificationMessage.includes('sent')) {
+      const pollInterval = setInterval(async () => {
+        await checkEmailVerification();
+      }, 3000); // Check every 3 seconds
+
+      // Stop polling after 2 minutes
+      const timeout = setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 120000);
+
+      return () => {
+        clearInterval(pollInterval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [verificationMessage]);
 
   // Memoize pending/processing analyses to prevent unnecessary re-renders
   const pendingOrProcessingAnalyses = useMemo(() => {
@@ -241,6 +304,42 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
+        {/* Email Verification Banner - Only show for email/password signups, not Google OAuth */}
+        {showVerificationBanner && user && emailVerified === false && (() => {
+          const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
+          return userMetadata?.provider !== 'google';
+        })() && (
+          <div className="mb-6 bg-slate-900 border rounded-xl p-4 flex items-start justify-between">
+            <div className="flex items-start gap-3 flex-1">
+              <Mail className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-white mb-1">Verify your email address</h3>
+                <p className="text-sm text-white mb-3">
+                  Please verify your email address to ensure you receive important updates and notifications.
+                </p>
+                {verificationMessage && (
+                  <p className={`text-sm mb-3 ${verificationMessage.includes('sent') ? 'text-green-700' : 'text-red-700'}`}>
+                    {verificationMessage}
+                  </p>
+                )}
+                <button
+                  onClick={handleSendVerificationEmail}
+                  disabled={sendingVerification}
+                  className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {sendingVerification ? 'Sending...' : 'Verify your email'}
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowVerificationBanner(false)}
+              className="text-white hover:text-gray-300 transition-colors flex-shrink-0 ml-2"
+              aria-label="Dismiss"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
         {/* Header */}
         {analyses.length > 0 && (
           <div className="mb-12">

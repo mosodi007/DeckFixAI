@@ -1,0 +1,149 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const RESEND_FROM_EMAIL = 'DeckFix <onboarding@deckfix.ai>';
+
+interface EmailVerificationRequest {
+  email: string;
+  userId: string;
+  token: string;
+}
+
+serve(async (req) => {
+  try {
+    // Handle CORS
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        },
+      });
+    }
+
+    if (!RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not set');
+    }
+
+    const { email, userId, token }: EmailVerificationRequest = await req.json();
+
+    if (!email || !userId || !token) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: email, userId, token' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    // Create Supabase client to generate proper verification link
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Generate a proper verification token using Supabase Auth
+    // The token parameter should be a hash that Supabase can verify
+    // For now, we'll create a link that redirects to Supabase's verification endpoint
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://deckfix.ai';
+    const verificationUrl = `${siteUrl}/auth/verify-email?token=${encodeURIComponent(token)}&type=signup`;
+
+    // Send email via Resend
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM_EMAIL,
+        to: [email],
+        subject: 'Verify your DeckFix email address',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Verify Your Email</h1>
+              </div>
+              <div style="background: #ffffff; padding: 40px 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <p style="font-size: 16px; margin-bottom: 20px;">Hi there,</p>
+                <p style="font-size: 16px; margin-bottom: 30px;">
+                  Thanks for signing up for DeckFix! Please verify your email address by clicking the button below:
+                </p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${verificationUrl}" 
+                     style="display: inline-block; background: #0f172a; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                    Verify Email Address
+                  </a>
+                </div>
+                <p style="font-size: 14px; color: #64748b; margin-top: 30px; margin-bottom: 10px;">
+                  Or copy and paste this link into your browser:
+                </p>
+                <p style="font-size: 12px; color: #94a3b8; word-break: break-all; background: #f1f5f9; padding: 12px; border-radius: 6px; margin: 0;">
+                  ${verificationUrl}
+                </p>
+                <p style="font-size: 14px; color: #64748b; margin-top: 30px;">
+                  This link will expire in 24 hours. If you didn't create an account with DeckFix, you can safely ignore this email.
+                </p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+                <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+                  © ${new Date().getFullYear()} DeckFix by Planmoni, Inc. All rights reserved.<br>
+                  8345 Northwest 66th Street, Miami, FL 33195, United States
+                </p>
+              </div>
+            </body>
+          </html>
+        `,
+      }),
+    });
+
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.text();
+      console.error('Resend API error:', errorData);
+      throw new Error(`Failed to send email: ${resendResponse.status} ${errorData}`);
+    }
+
+    const resendData = await resendResponse.json();
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        messageId: resendData.id,
+        message: 'Verification email sent successfully' 
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'Failed to send verification email',
+        details: error.toString()
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+});
+

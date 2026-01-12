@@ -458,12 +458,12 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
               // Handle both camelCase (from getAnalysis) and snake_case (fallback) formats
               const imageUrl = currentPage?.imageUrl || currentPage?.image_url || null;
               return (
-                <SlideViewer
-                  slideNumber={selectedPage}
+              <SlideViewer
+                slideNumber={selectedPage}
                   imageUrl={imageUrl}
                   title={currentPage?.title || `Slide ${selectedPage}`}
                   score={currentPage?.score || 0}
-                />
+              />
               );
             })()}
 

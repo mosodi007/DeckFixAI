@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { getCurrentUser, onAuthStateChange, getUserProfile } from '../services/authService';
 import { migrateSessionAnalyses } from '../services/analysisService';
 import { getSessionId, clearSessionId } from '../services/sessionService';
+import { supabase } from '../services/analysisService';
 
 interface UserProfile {
   fullName: string | null;
@@ -109,6 +110,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       setUser(updatedUser);
+      
+      // Check if this is a new user signup (for OAuth) and send welcome email
+      if (updatedUser && updatedUser.email && !previousUser) {
+        // This is likely a new signup - check if profile was just created
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('created_at')
+          .eq('id', updatedUser.id)
+          .maybeSingle();
+        
+        if (profile && updatedUser.created_at) {
+          const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
+          // If profile was created within last 10 seconds, it's a new signup
+          if (profileAge < 10000) {
+            // Send welcome email (fire and forget)
+            supabase.functions.invoke('send-welcome-email', {
+              body: {
+                email: updatedUser.email,
+                fullName: updatedUser.user_metadata?.full_name || updatedUser.user_metadata?.name || undefined,
+              },
+            }).catch((err) => {
+              console.error('Failed to send welcome email:', err);
+            });
+          }
+        }
+      }
+      
       if (updatedUser && updatedUser.email) {
         await loadUserProfile(updatedUser.id, updatedUser);
       } else if (updatedUser) {

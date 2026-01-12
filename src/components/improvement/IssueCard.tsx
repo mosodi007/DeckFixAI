@@ -110,9 +110,15 @@ export function IssueCard({ issue, onGenerateFix, isGenerating }: IssueCardProps
               <span className="text-xs text-slate-500 ml-auto">Slide {issue.pageNumber}</span>
             ) : onGenerateFix ? (
               <button
-                onClick={onGenerateFix}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Generate Instant Fix button clicked');
+                  onGenerateFix();
+                }}
                 disabled={isGenerating}
-                className="text-xs bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors ml-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                className="text-xs bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-800 transition-colors ml-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 relative z-10"
+                type="button"
               >
                 {isGenerating ? (
                   <>

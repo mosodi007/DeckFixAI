@@ -258,8 +258,19 @@ async function analyzeWithOpenAI(
 ): Promise<OpenAIAnalysis> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is not set');
+    console.error('ERROR: OPENAI_API_KEY environment variable is not set or is empty');
+    console.error('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('OPENAI') || k.includes('API')));
+    throw new Error('OPENAI_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.');
   }
+  
+  // Validate API key format
+  if (!apiKey.startsWith('sk-')) {
+    console.error('ERROR: OPENAI_API_KEY does not have expected format (should start with sk-)');
+    console.error('API key length:', apiKey.length);
+    throw new Error('Invalid OPENAI_API_KEY format. Please check your Supabase Edge Function secrets.');
+  }
+  
+  console.log('OpenAI API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 7) + '...');
 
   // Build comprehensive content from both text extraction and vision analysis
   let fullContent = '';
@@ -339,6 +350,18 @@ Remember: Generic feedback is worthless. Be specific, detailed, and actionable. 
   if (!response.ok) {
     const error = await response.text();
     console.error('OpenAI API error:', error);
+    console.error('Response status:', response.status);
+    console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    // Check if it's an auth error
+    if (response.status === 401) {
+      console.error('OpenAI API returned 401 - checking API key...');
+      console.error('API key present:', !!apiKey);
+      console.error('API key length:', apiKey?.length || 0);
+      console.error('API key starts with sk-:', apiKey?.startsWith('sk-') || false);
+      throw new Error('OpenAI API authentication failed. Please verify OPENAI_API_KEY is correctly set in Supabase Edge Function secrets.');
+    }
+    
     throw new Error(`OpenAI API error: ${response.status} ${error}`);
   }
 
@@ -356,6 +379,103 @@ Remember: Generic feedback is worthless. Be specific, detailed, and actionable. 
   return analysis;
 }
 
+// Credit management helper functions
+async function getUserCreditBalance(supabaseClient: any, userId: string) {
+  const { data, error } = await supabaseClient
+    .from('user_credits')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user credits:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function checkSufficientCredits(
+  supabaseClient: any,
+  userId: string,
+  requiredCredits: number
+): Promise<{ sufficient: boolean; currentBalance: number }> {
+  const credits = await getUserCreditBalance(supabaseClient, userId);
+  
+  if (!credits) {
+    return { sufficient: false, currentBalance: 0 };
+  }
+
+  return {
+    sufficient: credits.credits_balance >= requiredCredits,
+    currentBalance: credits.credits_balance,
+  };
+}
+
+async function deductCredits(
+  supabaseClient: any,
+  userId: string,
+  creditCost: number,
+  description: string,
+  metadata: Record<string, unknown> = {}
+) {
+  const currentCredits = await getUserCreditBalance(supabaseClient, userId);
+
+  if (!currentCredits) {
+    throw new Error('Unable to fetch credit balance');
+  }
+
+  if (currentCredits.credits_balance < creditCost) {
+    throw new Error('Insufficient credits');
+  }
+
+  const newBalance = currentCredits.credits_balance - creditCost;
+  let newSubscriptionCredits = currentCredits.subscription_credits;
+  let newPurchasedCredits = currentCredits.purchased_credits;
+
+  if (currentCredits.subscription_credits >= creditCost) {
+    newSubscriptionCredits -= creditCost;
+  } else {
+    const remainingToDeduct = creditCost - currentCredits.subscription_credits;
+    newSubscriptionCredits = 0;
+    newPurchasedCredits -= remainingToDeduct;
+  }
+
+  const { error: updateError } = await supabaseClient
+    .from('user_credits')
+    .update({
+      credits_balance: newBalance,
+      subscription_credits: newSubscriptionCredits,
+      purchased_credits: newPurchasedCredits,
+    })
+    .eq('user_id', userId);
+
+  if (updateError) {
+    console.error('Error updating credits:', updateError);
+    throw new Error('Failed to update credits');
+  }
+
+  const { error: transactionError } = await supabaseClient
+    .from('credit_transactions')
+    .insert({
+      user_id: userId,
+      amount: -creditCost,
+      transaction_type: 'deduction',
+      description,
+      complexity_score: null,
+      credits_cost: creditCost,
+      balance_after: newBalance,
+      metadata,
+    });
+
+  if (transactionError) {
+    console.error('Error logging credit transaction:', transactionError);
+    // Don't throw - transaction is logged but credit deduction succeeded
+  }
+
+  return newBalance;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -364,6 +484,8 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  let analysisId: string | null = null;
+  
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -425,6 +547,9 @@ Deno.serve(async (req: Request) => {
     const clientAnalysisId = formData.get('analysisId') as string;
     const imageUrlsJson = formData.get('imageUrls') as string;
 
+    // Set analysisId early so it's available in catch block for status updates
+    analysisId = clientAnalysisId || crypto.randomUUID();
+
     let imageUrls: string[] = [];
     try {
       imageUrls = imageUrlsJson ? JSON.parse(imageUrlsJson) : [];
@@ -438,6 +563,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('File received:', file.name, file.type, file.size, 'bytes');
     console.log('Image URLs received:', imageUrls.length);
+    console.log('Analysis ID:', analysisId);
 
     if (file.type !== 'application/pdf') {
       throw new Error('Only PDF files are supported');
@@ -467,7 +593,7 @@ Deno.serve(async (req: Request) => {
       pages = [];
     }
 
-    const analysisId = clientAnalysisId || crypto.randomUUID();
+    // analysisId already set above
     console.log('Analysis ID:', analysisId);
 
     // Step 2: Use OpenAI Vision API to analyze page images (primary method)
@@ -476,8 +602,19 @@ Deno.serve(async (req: Request) => {
       try {
         const apiKey = Deno.env.get('OPENAI_API_KEY');
         if (!apiKey) {
-          throw new Error('OPENAI_API_KEY environment variable is not set');
+          console.error('ERROR: OPENAI_API_KEY environment variable is not set or is empty');
+          console.error('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('OPENAI') || k.includes('API')));
+          throw new Error('OPENAI_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.');
         }
+        
+        // Validate API key format
+        if (!apiKey.startsWith('sk-')) {
+          console.error('ERROR: OPENAI_API_KEY does not have expected format (should start with sk-)');
+          console.error('API key length:', apiKey.length);
+          throw new Error('Invalid OPENAI_API_KEY format. Please check your Supabase Edge Function secrets.');
+        }
+        
+        console.log('OpenAI API key found for Vision API, length:', apiKey.length);
         
         imageAnalyses = await analyzePDFImages(imageUrls, apiKey);
         
@@ -557,28 +694,122 @@ Deno.serve(async (req: Request) => {
 
     console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
 
-    const analysisRecord = {
-      id: analysisId,
-      user_id: user.id,
-      session_id: null,
-      file_name: file.name,
-      file_size: file.size,
-      overall_score: 0,
-      summary: 'Analyzing your pitch deck...',
-      total_pages: pageCount,
-      created_at: new Date().toISOString(),
-    };
-
-    const { error: analysisError } = await supabase
-      .from('analyses')
-      .insert(analysisRecord);
-
-    if (analysisError) {
-      console.error('Failed to create analysis record:', analysisError);
-      throw new Error(`Database error: ${analysisError.message}`);
+    // Check if user has sufficient credits (1 credit per page)
+    const creditCost = pageCount;
+    const creditCheck = await checkSufficientCredits(supabase, user.id, creditCost);
+    
+    if (!creditCheck.sufficient) {
+      console.log(`Insufficient credits: user has ${creditCheck.currentBalance}, needs ${creditCost}`);
+      return new Response(
+        JSON.stringify({
+          error: 'Insufficient credits',
+          requiresUpgrade: true,
+          currentBalance: creditCheck.currentBalance,
+          requiredCredits: creditCost,
+          pageCount: pageCount,
+        }),
+        {
+          status: 402,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
-    console.log('Analysis record created, starting AI analysis...');
+    console.log(`Credit check passed: user has ${creditCheck.currentBalance} credits, needs ${creditCost}`);
+
+    // Deduct credits BEFORE starting analysis (user pays upfront for the analysis attempt)
+    try {
+      await deductCredits(
+        supabase,
+        user.id,
+        creditCost,
+        `Pitch deck analysis: ${file.name} (${pageCount} pages)`,
+        {
+          analysisId,
+          pageCount,
+          fileName: file.name,
+        }
+      );
+      console.log(`Successfully deducted ${creditCost} credits for analysis ${analysisId} (before analysis starts)`);
+    } catch (deductError: any) {
+      console.error('Failed to deduct credits before analysis:', deductError);
+      // If credit deduction fails, we should not proceed with analysis
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to process payment. Please try again.',
+          details: deductError.message
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    // Check if analysis record already exists (created by frontend)
+    const { data: existingAnalysis, error: checkError } = await supabase
+      .from('analyses')
+      .select('id, status')
+      .eq('id', analysisId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error checking for existing analysis:', checkError);
+      throw new Error(`Database error: ${checkError.message}`);
+    }
+
+    if (existingAnalysis) {
+      // Analysis record already exists (created by frontend), just update status to processing
+      console.log('Analysis record already exists, updating status to processing...');
+      const { error: updateError } = await supabase
+        .from('analyses')
+        .update({
+          status: 'processing',
+          file_name: file.name,
+          file_size: file.size,
+          total_pages: pageCount,
+        })
+        .eq('id', analysisId);
+
+      if (updateError) {
+        console.error('Failed to update analysis record:', updateError);
+        throw new Error(`Database error: ${updateError.message}`);
+      }
+      console.log('Analysis record updated to processing status');
+    } else {
+      // Analysis record doesn't exist, create it (backward compatibility)
+      console.log('Analysis record does not exist, creating new record...');
+      const analysisRecord = {
+        id: analysisId,
+        user_id: user.id,
+        session_id: null,
+        file_name: file.name,
+        file_size: file.size,
+        overall_score: 0,
+        summary: 'Analyzing your pitch deck...',
+        total_pages: pageCount,
+        status: 'processing',
+        created_at: new Date().toISOString(),
+      };
+
+      const { error: analysisError } = await supabase
+        .from('analyses')
+        .insert(analysisRecord);
+
+      if (analysisError) {
+        console.error('Failed to create analysis record:', analysisError);
+        throw new Error(`Database error: ${analysisError.message}`);
+      }
+      console.log('Analysis record created with status: processing');
+    }
+
+    console.log('Starting AI analysis...');
 
     const pageRecords = pages.map((page, index) => {
       // Use Vision API extracted content if available, otherwise use traditional extraction
@@ -591,13 +822,13 @@ Deno.serve(async (req: Request) => {
       console.log(`Preparing page ${page.pageNumber} record: ${pageText.length} characters`);
       
       return {
-        analysis_id: analysisId,
-        page_number: page.pageNumber,
-        title: `Slide ${page.pageNumber}`,
+      analysis_id: analysisId,
+      page_number: page.pageNumber,
+      title: `Slide ${page.pageNumber}`,
         content: pageText,
-        score: 0,
-        image_url: imageUrls[index] || null,
-        thumbnail_url: imageUrls[index] || null,
+      score: 0,
+      image_url: imageUrls[index] || null,
+      thumbnail_url: imageUrls[index] || null,
       };
     });
 
@@ -625,6 +856,53 @@ Deno.serve(async (req: Request) => {
       throw new Error(`AI analysis failed: ${aiError.message}`);
     }
 
+    // Check if this is the user's first completed analysis (for referral processing)
+    const { data: previousAnalyses, error: previousAnalysesError } = await supabase
+      .from('analyses')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .neq('id', analysisId);
+
+    const isFirstAnalysis = !previousAnalysesError && (!previousAnalyses || previousAnalyses.length === 0);
+
+    // Process referral credits if this is the first analysis
+    if (isFirstAnalysis) {
+      console.log('First analysis detected for user:', user.id, '- Processing referral credits...');
+      try {
+        // Get IP address from request headers if available
+        const clientIP = req.headers.get('x-forwarded-for') || 
+                        req.headers.get('x-real-ip') || 
+                        null;
+        
+        // Get user agent
+        const userAgent = req.headers.get('user-agent') || null;
+
+        // Call the database function to process referral credits
+        const { data: referralResult, error: referralError } = await supabase.rpc('process_referral_credits', {
+          p_referred_user_id: user.id,
+          p_ip_address: clientIP,
+          p_device_fingerprint: null, // Device fingerprint should be set during signup
+          p_user_agent: userAgent,
+        });
+
+        if (referralError) {
+          console.error('Error processing referral credits:', referralError);
+          // Don't fail the analysis if referral processing fails
+        } else if (referralResult && referralResult.length > 0) {
+          const result = referralResult[0];
+          if (result.success) {
+            console.log(`Referral credits processed successfully: ${result.referrer_credits_awarded} to referrer, ${result.referred_credits_awarded} to referred user`);
+          } else {
+            console.log(`Referral processing result: ${result.message}`);
+          }
+        }
+      } catch (referralProcessingError) {
+        console.error('Exception processing referral credits:', referralProcessingError);
+        // Don't fail the analysis if referral processing fails
+      }
+    }
+
     const { error: updateError } = await supabase
       .from('analyses')
       .update({
@@ -638,6 +916,7 @@ Deno.serve(async (req: Request) => {
         word_density_feedback: openAIAnalysis.wordDensityFeedback,
         investment_ready: openAIAnalysis.investmentReadiness.isInvestmentReady,
         funding_stage: openAIAnalysis.stageAssessment.detectedStage,
+        status: 'completed',
       })
       .eq('id', analysisId);
 
@@ -847,6 +1126,9 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Credits were already deducted before analysis started
+    console.log(`Analysis completed successfully. Credits (${creditCost}) were deducted at the start of analysis.`);
+
     const result: AnalysisResult = {
       analysisId,
       overallScore: openAIAnalysis.overallScore,
@@ -867,6 +1149,29 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error: any) {
     console.error('Error in analyze-deck function:', error);
+    
+    // Update analysis status to 'failed' if we have an analysisId
+    if (analysisId) {
+      try {
+        const supabaseClient = createClient(
+          supabaseUrl,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!,
+        );
+        
+        await supabaseClient
+          .from('analyses')
+          .update({
+            status: 'failed',
+            error_message: error.message || 'Internal server error',
+          })
+          .eq('id', analysisId);
+        
+        console.log(`Updated analysis ${analysisId} status to 'failed'`);
+      } catch (statusUpdateError) {
+        console.error('Failed to update analysis status to failed:', statusUpdateError);
+      }
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       {

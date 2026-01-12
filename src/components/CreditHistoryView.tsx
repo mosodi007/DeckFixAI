@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  Gift
 } from 'lucide-react';
 import {
   getCreditHistory,
@@ -30,14 +31,16 @@ import {
   type SubscriptionPlan,
   type ProCreditTier
 } from '../services/creditService';
+import { AnimatedCounter } from './AnimatedCounter';
 
 interface CreditHistoryViewProps {
   onBack: () => void;
   onViewUsageHistory: () => void;
   onViewPricing: (preselectedTierCredits?: number) => void;
+  onViewReferrals?: () => void;
 }
 
-export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }: CreditHistoryViewProps) {
+export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing, onViewReferrals }: CreditHistoryViewProps) {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
@@ -187,8 +190,20 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
 
   const nextTier = getNextTier();
   const creditUsage = calculateCreditUsage();
-  const nextRefillDate = periodEnd
-    ? periodEnd.toLocaleDateString('en-US', {
+  
+  // For free plans or when there's no subscription period end, use credits_reset_date
+  // For paid plans with subscription, use the subscription period end
+  let refillDate: Date | null = null;
+  if (periodEnd) {
+    // Use subscription period end for paid plans
+    refillDate = periodEnd;
+  } else if (credits?.creditsResetDate) {
+    // Use credits reset date for free plans
+    refillDate = new Date(credits.creditsResetDate);
+  }
+  
+  const nextRefillDate = refillDate
+    ? refillDate.toLocaleDateString('en-US', {
         month: 'long',
         day: 'numeric',
         year: 'numeric'
@@ -214,10 +229,9 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
         </button>
 
         <div className="mb-10">
-          <h1 className="text-5xl font-semibold text-slate-900 mb-2 tracking-tighter">
-            My Subscription & Credits
+          <h1 className="text-3xl font-semibold text-slate-900 mb-2 tracking-tighter">
+            Subscription & Credits
           </h1>
-          <p className="text-slate-600 text-lg">Manage your plan, credits, and billing</p>
         </div>
 
         {/* Main Subscription Card */}
@@ -227,9 +241,9 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
             <div className="flex items-start justify-between gap-8 mb-6">
               <div className="flex-1">
                 <div className="text-slate-300 text-sm mb-2 font-medium">Credit Balance</div>
-                <div className="text-6xl font-bold mb-2">{credits?.creditsBalance || 0}</div>
-                <div className="text-slate-300 text-base mb-6">credits available</div>
-
+                <div className="text-4xl font-bold mb-2">
+                  <AnimatedCounter value={credits?.creditsBalance || 0} />
+                </div>
                 <div className="flex items-center gap-3 mb-2">
                   <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${getTierBadgeColor(currentProTier ? 'Pro' : (currentPlan?.name || 'Free'))}`}>
                     {getPlanDisplayName()} Plan
@@ -331,29 +345,18 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-slate-600 text-sm mb-2 font-medium">Next Credit Refill</div>
-                  <div className="text-2xl font-bold text-slate-900">{nextRefillDate}</div>
+                  <div className="text-xl font-semibold text-slate-900">{nextRefillDate}</div>
                 </div>
                 <button
-                  onClick={onViewUsageHistory}
+                  onClick={() => onViewPricing()}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-lg font-semibold transition-colors text-sm flex items-center gap-2"
                 >
-                  <Calendar className="w-4 h-4" />
-                  View Usage History
+                  See all available plans
                 </button>
               </div>
             </div>
 
             {/* Credit Breakdown */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <div className="text-slate-600 text-xs mb-1 font-medium">From Plan</div>
-                <div className="text-2xl font-bold text-blue-600">{credits?.subscriptionCredits || 0}</div>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <div className="text-slate-600 text-xs mb-1 font-medium">Purchased</div>
-                <div className="text-2xl font-bold text-green-600">{credits?.purchasedCredits || 0}</div>
-              </div>
-            </div>
 
             {/* Action Buttons */}
             <div className="space-y-3">
@@ -364,6 +367,17 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
                 >
                   <Sparkles className="w-5 h-5" />
                   <span>Upgrade to Pro</span>
+                  <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </button>
+              )}
+
+              {onViewReferrals && (
+                <button
+                  onClick={() => onViewReferrals()}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                >
+                  <Gift className="w-5 h-5" />
+                  <span>Earn Free Credits</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>
               )}
@@ -395,15 +409,6 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing }:
             )}
 
             {/* See All Plans Link */}
-            <div className="mt-6 pt-6 border-t border-slate-200 text-center">
-              <button
-                onClick={() => onViewPricing()}
-                className="text-slate-700 hover:text-slate-900 font-semibold text-sm transition-colors flex items-center justify-center gap-2 mx-auto group"
-              >
-                <span>See all available plans</span>
-                <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </button>
-            </div>
           </div>
         </div>
 

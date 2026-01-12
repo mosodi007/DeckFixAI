@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2, Mail, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
 import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages, deleteAnalysisImages, getCoverImageUrl } from '../services/storageService';
+import { sendVerificationEmail, isEmailVerified } from '../services/emailVerificationService';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DeckAnalysis {
@@ -14,7 +15,7 @@ interface DeckAnalysis {
   overall_score: number;
   total_pages: number;
   created_at: string;
-  status: 'completed' | 'processing' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   key_strengths?: string[];
   critical_issues_count?: number;
 }
@@ -33,14 +34,100 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const [showVerificationBanner, setShowVerificationBanner] = useState(true);
 
   useEffect(() => {
     loadAnalyses();
+    checkEmailVerification();
   }, [user]);
 
-  async function loadAnalyses() {
+  const checkEmailVerification = async () => {
+    if (user) {
+      // Check if user signed up via Google OAuth (Google users are always verified)
+      // Access provider from app_metadata or raw_app_meta_data
+      const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
+      const isGoogleOAuth = userMetadata?.provider === 'google';
+      
+      if (isGoogleOAuth) {
+        setEmailVerified(true); // Google OAuth users don't need verification
+        return;
+      }
+
+      // For email/password signups, check verification status
+      const verified = await isEmailVerified();
+      setEmailVerified(verified);
+    }
+  };
+
+  const handleSendVerificationEmail = async () => {
+    setSendingVerification(true);
+    setVerificationMessage(null);
+    
+    const result = await sendVerificationEmail();
+    
+    if (result.success) {
+      setVerificationMessage('Verification email sent! Please check your inbox.');
+    } else {
+      setVerificationMessage(result.error || 'Failed to send verification email. Please try again.');
+    }
+    
+    setSendingVerification(false);
+    
+    // Clear message after 5 seconds
+    setTimeout(() => {
+      setVerificationMessage(null);
+    }, 5000);
+  };
+
+  // Poll for verification status update after sending email
+  useEffect(() => {
+    if (verificationMessage && verificationMessage.includes('sent')) {
+      const pollInterval = setInterval(async () => {
+        await checkEmailVerification();
+      }, 3000); // Check every 3 seconds
+
+      // Stop polling after 2 minutes
+      const timeout = setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 120000);
+
+      return () => {
+        clearInterval(pollInterval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [verificationMessage]);
+
+  // Memoize pending/processing analyses to prevent unnecessary re-renders
+  const pendingOrProcessingAnalyses = useMemo(() => {
+    return analyses.filter(a => a.status === 'pending' || a.status === 'processing');
+  }, [analyses]);
+
+  // Poll for status updates on pending/processing analyses
+  useEffect(() => {
+    if (pendingOrProcessingAnalyses.length === 0) {
+      return; // No need to poll if no pending/processing analyses
+    }
+
+    const pollInterval = setInterval(() => {
+      // Reload analyses silently (without showing main loader)
+      loadAnalyses(true);
+    }, 2500); // Poll every 2.5 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOrProcessingAnalyses.length]);
+
+  async function loadAnalyses(silent = false) {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       let query = supabase
         .from('analyses')
@@ -49,7 +136,8 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
           file_name,
           overall_score,
           total_pages,
-          created_at
+          created_at,
+          status
         `)
         .order('created_at', { ascending: false });
 
@@ -63,7 +151,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
         overall_score: item.overall_score || 0,
         total_pages: item.total_pages || 0,
         created_at: item.created_at,
-        status: 'completed',
+        status: (item.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed',
         critical_issues_count: 0,
       }));
 
@@ -71,7 +159,9 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     } catch (error) {
       console.error('Error loading analyses:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
@@ -214,6 +304,42 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
+        {/* Email Verification Banner - Only show for email/password signups, not Google OAuth */}
+        {showVerificationBanner && user && emailVerified === false && (() => {
+          const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
+          return userMetadata?.provider !== 'google';
+        })() && (
+          <div className="mb-6 bg-slate-900 border rounded-xl p-4 flex items-start justify-between">
+            <div className="flex items-start gap-3 flex-1">
+              <Mail className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-white mb-1">Verify your email address</h3>
+                <p className="text-sm text-white mb-3">
+                  Please verify your email address to ensure you receive important updates and notifications.
+                </p>
+                {verificationMessage && (
+                  <p className={`text-sm mb-3 ${verificationMessage.includes('sent') ? 'text-green-700' : 'text-red-700'}`}>
+                    {verificationMessage}
+                  </p>
+                )}
+                <button
+                  onClick={handleSendVerificationEmail}
+                  disabled={sendingVerification}
+                  className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {sendingVerification ? 'Sending...' : 'Verify your email'}
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowVerificationBanner(false)}
+              className="text-white hover:text-gray-300 transition-colors flex-shrink-0 ml-2"
+              aria-label="Dismiss"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
         {/* Header */}
         {analyses.length > 0 && (
           <div className="mb-12">
@@ -409,6 +535,24 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                       target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100"><svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>';
                     }}
                   />
+                  {/* Loader overlay for pending/processing analyses */}
+                  {(analysis.status === 'pending' || analysis.status === 'processing') && (
+                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
+                      <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+                        <p className="text-white text-sm font-medium">Analyzing...</p>
+                      </div>
+                    </div>
+                  )}
+                  {/* Error indicator for failed analyses */}
+                  {analysis.status === 'failed' && (
+                    <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center backdrop-blur-sm">
+                      <div className="text-center">
+                        <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-2" />
+                        <p className="text-red-700 text-sm font-medium">Analysis Failed</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -419,9 +563,15 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                         <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-slate-700 transition-colors">
                           {analysis.deck_name}
                         </h3>
-                        <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
-                          {(analysis.overall_score / 10).toFixed(1)}/10
-                        </span>
+                        {analysis.status === 'completed' ? (
+                          <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
+                            {(analysis.overall_score / 10).toFixed(1)}/10
+                          </span>
+                        ) : (
+                          <span className="text-sm font-semibold whitespace-nowrap text-slate-400">
+                            {analysis.status === 'failed' ? 'Failed' : 'Pending'}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-600">
                         <span className="flex items-center gap-1">
@@ -449,12 +599,23 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onViewAnalysis(analysis.id);
+                        if (analysis.status === 'completed') {
+                          onViewAnalysis(analysis.id);
+                        }
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-all hover:shadow-md"
+                      disabled={analysis.status !== 'completed'}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium rounded-2xl transition-all ${
+                        analysis.status === 'completed'
+                          ? 'bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md cursor-pointer'
+                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      }`}
                     >
-                      View Analysis
-                      <ChevronRight className="w-4 h-4" />
+                      {analysis.status === 'pending' || analysis.status === 'processing'
+                        ? 'Analysis In Progress'
+                        : analysis.status === 'failed'
+                        ? 'Analysis Failed'
+                        : 'View Analysis'}
+                      {analysis.status === 'completed' && <ChevronRight className="w-4 h-4" />}
                     </button>
 
                     <button

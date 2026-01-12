@@ -51,6 +51,17 @@ async function analyzePageImage(
   pageNumber: number,
   apiKey: string
 ): Promise<{ textContent: string; visualDescription: string }> {
+  // Validate API key before making request
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('OpenAI API key is empty or invalid');
+  }
+  
+  if (!apiKey.startsWith('sk-')) {
+    throw new Error('Invalid OpenAI API key format');
+  }
+  
+  console.log(`Making OpenAI Vision API request for page ${pageNumber} with API key length: ${apiKey.length}`);
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -98,6 +109,17 @@ Return your response as JSON with two fields:
   if (!response.ok) {
     const error = await response.text();
     console.error(`OpenAI Vision API error for page ${pageNumber}:`, error);
+    console.error('Response status:', response.status);
+    
+    // Check if it's an auth error
+    if (response.status === 401) {
+      console.error('OpenAI Vision API returned 401 - checking API key...');
+      console.error('API key present:', !!apiKey);
+      console.error('API key length:', apiKey?.length || 0);
+      console.error('API key starts with sk-:', apiKey?.startsWith('sk-') || false);
+      throw new Error('OpenAI Vision API authentication failed. Please verify OPENAI_API_KEY is correctly set in Supabase Edge Function secrets.');
+    }
+    
     throw new Error(`OpenAI Vision API error: ${response.status} ${error}`);
   }
 

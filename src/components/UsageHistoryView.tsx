@@ -18,6 +18,7 @@ import {
   type CreditTransaction,
   type UserCredits,
 } from '../services/creditService';
+import { AnimatedCounter } from './AnimatedCounter';
 
 interface UsageHistoryViewProps {
   onBack: () => void;
@@ -205,7 +206,7 @@ export function UsageHistoryView({ onBack }: UsageHistoryViewProps) {
               <div className="text-sm text-slate-600 font-medium">Current Balance</div>
             </div>
             <div className="text-4xl font-bold text-slate-900 mb-1">
-              {credits?.creditsBalance || 0}
+              <AnimatedCounter value={credits?.creditsBalance || 0} />
             </div>
             <div className="text-sm text-slate-500">credits available</div>
           </div>

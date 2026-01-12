@@ -20,8 +20,8 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{
 
   for (let i = 1; i <= pageCount; i++) {
     try {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
       
       console.log(`Page ${i}: Found ${textContent.items.length} text items`);
       
@@ -74,10 +74,10 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<{
       
       console.log(`Page ${i}: Extracted ${pageTextTrimmed.length} characters from ${pageTextParts.length} text parts`);
 
-      pages.push({
-        pageNumber: i,
+    pages.push({
+      pageNumber: i,
         text: pageTextTrimmed,
-      });
+    });
 
       if (pageTextTrimmed) {
         fullText += `Page ${i}:\n${pageTextTrimmed}\n\n`;

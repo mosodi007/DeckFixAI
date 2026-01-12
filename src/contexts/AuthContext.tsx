@@ -3,10 +3,12 @@ import type { User } from '@supabase/supabase-js';
 import { getCurrentUser, onAuthStateChange, getUserProfile } from '../services/authService';
 import { migrateSessionAnalyses } from '../services/analysisService';
 import { getSessionId, clearSessionId } from '../services/sessionService';
+import { supabase } from '../services/analysisService';
 
 interface UserProfile {
   fullName: string | null;
   email: string;
+  avatarUrl: string | null;
 }
 
 interface AuthContextType {
@@ -40,12 +42,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadUserProfile(userId: string) {
+  async function loadUserProfile(userId: string, currentUser?: User | null) {
     const profile = await getUserProfile(userId);
+    const userToUse = currentUser || user;
+    
+    // Get avatar from user metadata (for Google OAuth users)
+    let avatarUrl: string | null = null;
+    if (userToUse) {
+      const metadata = userToUse.user_metadata || userToUse.raw_user_meta_data;
+      avatarUrl = metadata?.avatar_url || metadata?.picture || null;
+    }
+    
     if (profile) {
       setUserProfile({
         fullName: profile.full_name,
         email: profile.email,
+        avatarUrl,
+      });
+    } else if (userToUse) {
+      // If no profile but we have user, try to get avatar from user metadata
+      setUserProfile({
+        fullName: userToUse.user_metadata?.full_name || userToUse.raw_user_meta_data?.full_name || null,
+        email: userToUse.email || '',
+        avatarUrl,
       });
     }
   }
@@ -56,7 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log('User already signed in:', currentUser.id, 'Is anonymous:', currentUser.is_anonymous);
         setUser(currentUser);
         if (currentUser.email) {
-          await loadUserProfile(currentUser.id);
+          await loadUserProfile(currentUser.id, currentUser);
         }
       }
       setLoading(false);
@@ -91,8 +110,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       setUser(updatedUser);
+      
+      // Check if this is a new user signup (for OAuth) and send welcome email
+      if (updatedUser && updatedUser.email && !previousUser) {
+        // This is likely a new signup - check if profile was just created
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('created_at')
+          .eq('id', updatedUser.id)
+          .maybeSingle();
+        
+        if (profile && updatedUser.created_at) {
+          const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
+          // If profile was created within last 10 seconds, it's a new signup
+          if (profileAge < 10000) {
+            // Send welcome email (fire and forget)
+            supabase.functions.invoke('send-welcome-email', {
+              body: {
+                email: updatedUser.email,
+                fullName: updatedUser.user_metadata?.full_name || updatedUser.user_metadata?.name || undefined,
+              },
+            }).catch((err) => {
+              console.error('Failed to send welcome email:', err);
+            });
+          }
+        }
+      }
+      
       if (updatedUser && updatedUser.email) {
-        await loadUserProfile(updatedUser.id);
+        await loadUserProfile(updatedUser.id, updatedUser);
+      } else if (updatedUser) {
+        // Even without email, try to get avatar from metadata
+        const metadata = updatedUser.user_metadata || updatedUser.raw_user_meta_data;
+        const avatarUrl = metadata?.avatar_url || metadata?.picture || null;
+        setUserProfile({
+          fullName: metadata?.full_name || metadata?.name || null,
+          email: updatedUser.email || '',
+          avatarUrl,
+        });
       } else {
         setUserProfile(null);
       }

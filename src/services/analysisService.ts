@@ -211,13 +211,24 @@ export async function analyzeDeck(
 
   if (!response.ok) {
     let errorMessage = 'Failed to analyze deck';
+    let requiresUpgrade = false;
+    let currentBalance = 0;
+    let requiredCredits = 0;
+    let pageCount = 0;
+    
     try {
       const error = await response.json();
       errorMessage = error.error || errorMessage;
       console.error('Error from API:', error);
       
-      // Provide more helpful error messages
-      if (response.status === 401) {
+      // Check for insufficient credits (402 Payment Required)
+      if (response.status === 402 && error.requiresUpgrade) {
+        requiresUpgrade = true;
+        currentBalance = error.currentBalance || 0;
+        requiredCredits = error.requiredCredits || 0;
+        pageCount = error.pageCount || 0;
+        errorMessage = `Insufficient credits. You need ${requiredCredits} credits to analyze this ${pageCount}-page deck, but you currently have ${currentBalance} credits.`;
+      } else if (response.status === 401) {
         errorMessage = 'Authentication failed. Please log in and try again.';
       }
     } catch (e) {
@@ -229,7 +240,23 @@ export async function analyzeDeck(
         errorMessage = 'Authentication required. Please log in and try again.';
       }
     }
-    throw new Error(errorMessage);
+    
+    // Create error with upgrade information
+    const error = new Error(errorMessage) as Error & {
+      requiresUpgrade?: boolean;
+      currentBalance?: number;
+      requiredCredits?: number;
+      pageCount?: number;
+    };
+    
+    if (requiresUpgrade) {
+      error.requiresUpgrade = true;
+      error.currentBalance = currentBalance;
+      error.requiredCredits = requiredCredits;
+      error.pageCount = pageCount;
+    }
+    
+    throw error;
   }
 
   const result = await response.json();
@@ -274,6 +301,20 @@ export async function migrateSessionAnalyses(fromUserIdOrSessionId: string, toUs
   console.log('Successfully migrated analyses to authenticated user');
 }
 
+/**
+ * Checks the status of an analysis
+ */
+export async function getAnalysisStatus(analysisId: string): Promise<'pending' | 'processing' | 'completed' | 'failed' | null> {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('status')
+    .eq('id', analysisId)
+    .single();
+
+  if (error || !data) return null;
+  return (data.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed';
+}
+
 export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
   const { data: analysis, error: analysisError } = await supabase
     .from('analyses')
@@ -282,6 +323,16 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisData> {
     .single();
 
   if (analysisError) throw analysisError;
+
+  // Check if analysis is complete
+  const status = (analysis.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed';
+  if (status === 'pending' || status === 'processing') {
+    throw new Error(`Analysis is still ${status}. Please wait for it to complete.`);
+  }
+  
+  if (status === 'failed') {
+    throw new Error(`Analysis failed. ${analysis.error_message || 'Please try uploading again.'}`);
+  }
 
   const { data: pages, error: pagesError } = await supabase
     .from('analysis_pages')

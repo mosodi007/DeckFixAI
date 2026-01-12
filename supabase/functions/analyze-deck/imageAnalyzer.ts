@@ -96,7 +96,7 @@ Return your response as JSON with two fields:
               type: 'image_url',
               image_url: {
                 url: imageBase64,
-                detail: 'high' // Use high detail for better text extraction
+                detail: 'auto' // Use 'auto' instead of 'high' to reduce processing time and resource usage
               }
             }
           ]
@@ -144,62 +144,68 @@ Return your response as JSON with two fields:
 
 /**
  * Analyze all PDF page images using OpenAI Vision API
+ * OPTIMIZED: Process images sequentially (one at a time) to avoid WORKER_LIMIT errors
  */
 export async function analyzePDFImages(
   imageUrls: string[],
   apiKey: string
 ): Promise<ImageAnalysisResult[]> {
-  console.log(`Starting Vision API analysis for ${imageUrls.length} pages`);
+  console.log(`OPTIMIZATION: Starting sequential Vision API analysis for ${imageUrls.length} pages (one at a time to save resources)`);
   
   const results: ImageAnalysisResult[] = [];
+  const DELAY_BETWEEN_PAGES = 500; // 500ms delay between pages to avoid overwhelming the system
   
-  // Process images in batches to avoid rate limits
-  const BATCH_SIZE = 3; // Process 3 images at a time
-  const DELAY_BETWEEN_BATCHES = 1000; // 1 second delay between batches
-  
-  for (let i = 0; i < imageUrls.length; i += BATCH_SIZE) {
-    const batch = imageUrls.slice(i, i + BATCH_SIZE);
-    console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: pages ${i + 1} to ${Math.min(i + BATCH_SIZE, imageUrls.length)}`);
+  // Process images sequentially (one at a time) instead of in parallel batches
+  // This reduces memory and CPU usage significantly
+  for (let i = 0; i < imageUrls.length; i++) {
+    const pageNumber = i + 1;
+    const imageUrl = imageUrls[i];
     
-    const batchPromises = batch.map(async (imageUrl, batchIndex) => {
-      const pageNumber = i + batchIndex + 1;
-      try {
-        // Convert image to base64
-        const imageBase64 = await imageUrlToBase64(imageUrl);
-        console.log(`Page ${pageNumber}: Image converted to base64 (${Math.round(imageBase64.length / 1024)}KB)`);
-        
-        // Analyze with Vision API
-        const analysis = await analyzePageImage(imageBase64, pageNumber, apiKey);
-        console.log(`Page ${pageNumber}: Extracted ${analysis.textContent.length} characters of text`);
-        
-        return {
-          pageNumber,
-          textContent: analysis.textContent,
-          visualDescription: analysis.visualDescription,
-          combinedContent: `${analysis.textContent}\n\nVisual Elements: ${analysis.visualDescription}`
-        };
-      } catch (error: any) {
-        console.error(`Error analyzing page ${pageNumber}:`, error);
-        // Return empty result but continue processing
-        return {
-          pageNumber,
-          textContent: '',
-          visualDescription: '',
-          combinedContent: ''
-        };
-      }
-    });
+    console.log(`Processing page ${pageNumber}/${imageUrls.length}...`);
+    const pageStartTime = Date.now();
     
-    const batchResults = await Promise.all(batchPromises);
-    results.push(...batchResults);
+    try {
+      // Convert image to base64
+      const imageBase64 = await imageUrlToBase64(imageUrl);
+      const base64SizeKB = Math.round(imageBase64.length / 1024);
+      console.log(`Page ${pageNumber}: Image converted to base64 (${base64SizeKB}KB)`);
+      
+      // Analyze with Vision API
+      const analysis = await analyzePageImage(imageBase64, pageNumber, apiKey);
+      const textLength = analysis.textContent.length;
+      const processingTime = Date.now() - pageStartTime;
+      console.log(`Page ${pageNumber}: Extracted ${textLength} characters in ${processingTime}ms`);
+      
+      results.push({
+        pageNumber,
+        textContent: analysis.textContent,
+        visualDescription: analysis.visualDescription,
+        combinedContent: `${analysis.textContent}\n\nVisual Elements: ${analysis.visualDescription}`
+      });
+      
+      // Clear base64 from memory (help garbage collector)
+      // Note: In Deno/Edge Functions, we can't explicitly free memory, but this helps
+      
+    } catch (error: any) {
+      console.error(`Error analyzing page ${pageNumber}:`, error);
+      // Return empty result but continue processing
+      results.push({
+        pageNumber,
+        textContent: '',
+        visualDescription: '',
+        combinedContent: ''
+      });
+    }
     
-    // Add delay between batches to respect rate limits
-    if (i + BATCH_SIZE < imageUrls.length) {
-      await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+    // Add delay between pages to avoid overwhelming the system
+    // Skip delay for the last page
+    if (i < imageUrls.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_PAGES));
     }
   }
   
-  console.log(`Vision API analysis complete. Extracted text from ${results.filter(r => r.textContent.length > 0).length} pages`);
+  const successfulPages = results.filter(r => r.textContent.length > 0).length;
+  console.log(`OPTIMIZATION: Vision API analysis complete. Extracted text from ${successfulPages}/${imageUrls.length} pages`);
   
   return results;
 }

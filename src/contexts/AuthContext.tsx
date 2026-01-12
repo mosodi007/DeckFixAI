@@ -122,8 +122,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         if (profile && updatedUser.created_at) {
           const profileAge = new Date().getTime() - new Date(profile.created_at).getTime();
-          // If profile was created within last 10 seconds, it's a new signup
-          if (profileAge < 10000) {
+          // If profile was created within last 30 seconds, it's a new signup (increased from 10s to handle slower OAuth flows)
+          if (profileAge < 30000) {
             // Send welcome email (fire and forget)
             supabase.functions.invoke('send-welcome-email', {
               body: {
@@ -133,6 +133,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }).catch((err) => {
               console.error('Failed to send welcome email:', err);
             });
+            
+            // Set flag to show welcome modal for new OAuth signups
+            sessionStorage.setItem('showWelcomeModal', 'true');
           }
         }
       }

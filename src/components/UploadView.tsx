@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react';
 import { Sparkles, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
-import { extractPageImages } from '../services/pdfImageExtractor';
-import { uploadPageImages } from '../services/storageService';
-import { createAnalysisRecord, startBackgroundAnalysis } from '../services/backgroundAnalysisService';
+import { uploadPdf, validatePdfFile } from '../services/pdfUploadService';
+import { startAnalysis, pollJobStatus } from '../services/jobService';
 import { SEOContentSection } from './upload/SEOContentSection';
 import { HowItWorksSection } from './HowItWorksSection';
 import { useAuth } from '../contexts/AuthContext';
@@ -134,80 +133,58 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
       return;
     }
 
+    // Validate file first
+    const validation = validatePdfFile(file);
+    if (!validation.isValid) {
+      alert(validation.error || 'Invalid file');
+      return;
+    }
+
     setIsUploading(true);
 
     try {
-      // Step 1: Extract images from PDF (frontend)
-      console.log('Step 1: Extracting images from PDF...');
-      const images = await extractPageImages(file);
-      const totalPages = images.length;
-      console.log(`Step 1 complete: Extracted ${totalPages} pages`);
+      // Step 1: Upload PDF directly to storage
+      console.log('Step 1: Uploading PDF to storage...');
+      const uploadResult = await uploadPdf(file, user.id);
+      console.log(`Step 1 complete: PDF uploaded to ${uploadResult.bucket}/${uploadResult.pdfPath}`);
 
-      // Step 2: Create analysis record with 'pending' status
-      console.log('Step 2: Creating analysis record...');
-      const analysisId = await createAnalysisRecord(
+      // Step 2: Start analysis job
+      console.log('Step 2: Starting analysis job...');
+      const { jobId, status } = await startAnalysis(
+        uploadResult.pdfPath,
+        uploadResult.bucket,
         file.name,
-        file.size,
-        totalPages,
-        user.id
+        file.size
       );
-      console.log(`Step 2 complete: Analysis record created with ID: ${analysisId}`);
+      console.log(`Step 2 complete: Analysis job started: ${jobId}, status: ${status}`);
 
-      // Step 3: Upload images to storage
-      console.log('Step 3: Uploading images to storage...');
-      const imageUrls = await uploadPageImages(images, analysisId);
-      console.log(`Step 3 complete: Uploaded ${imageUrls.length} images`);
-
-      // Step 4: Start background analysis (fire-and-forget)
-      // Don't await - let it run in background
-      console.log('Step 4: Starting background analysis...');
-      startBackgroundAnalysis(file, analysisId, imageUrls).catch((error) => {
-        console.error('Failed to start background analysis:', error);
-        // Error handling is done in the service, which updates status to 'failed'
-      });
-
-      // Step 4.5: Poll for credit updates after analysis starts
-      // Credits are deducted in the Edge Function when analysis starts
-      // Poll multiple times to catch the credit deduction
-      let pollCount = 0;
-      const maxPolls = 15; // Poll for up to 15 seconds
-      const pollInterval = 1000; // Every 1 second
-      const initialBalance = credits?.creditsBalance || 0;
-      
-      const pollForCreditUpdate = setInterval(async () => {
-        pollCount++;
-        try {
-          await refreshCredits();
-          console.log(`Polling for credit update (attempt ${pollCount}/${maxPolls})`);
-          
-          // Stop polling after max attempts
-          if (pollCount >= maxPolls) {
-            clearInterval(pollForCreditUpdate);
-            console.log('Stopped polling for credit updates after max attempts');
+      // Step 3: Poll job status until complete
+      console.log('Step 3: Polling job status...');
+      const finalStatus = await pollJobStatus(
+        jobId,
+        (status) => {
+          console.log(`Job status update: ${status.status}`);
+          // Refresh credits when status changes (credits deducted on completion)
+          if (status.status === 'done') {
+            refreshCredits().catch(console.error);
           }
-        } catch (creditError) {
-          console.error('Failed to refresh credits:', creditError);
-          // Continue polling even if one refresh fails
-        }
-      }, pollInterval);
-      
-      // Cleanup polling after max time
-      setTimeout(() => {
-        clearInterval(pollForCreditUpdate);
-      }, maxPolls * pollInterval);
+        },
+        60, // Max 60 attempts
+        2000 // Start with 2 second intervals
+      );
 
-      // Step 5: Show loader for 2-5 seconds, then redirect to Dashboard
-      // Minimum 2 seconds, maximum 5 seconds based on file size
-      const minDelay = 2000; // 2 seconds minimum
-      const maxDelay = 5000; // 5 seconds maximum
-      const delay = Math.min(maxDelay, Math.max(minDelay, totalPages * 200)); // ~200ms per page, capped at 5s
-      
-      console.log(`Waiting ${delay}ms before redirect...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      console.log(`Step 3 complete: Job completed with status: ${finalStatus.status}`);
 
-      console.log('Step 5: Redirecting to dashboard with analysisId:', analysisId);
+      if (finalStatus.status === 'failed') {
+        throw new Error(finalStatus.error || 'Analysis failed');
+      }
+
+      // Step 4: Refresh credits and redirect to Dashboard
+      await refreshCredits();
+      
+      console.log('Step 4: Redirecting to dashboard with jobId:', jobId);
       onAnalysisComplete({ 
-        analysisId, 
+        analysisId: jobId, 
         redirectToDashboard: true 
       });
       console.log('Redirect call completed');
@@ -296,7 +273,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
                       Choose File
                     </button>
                     <p className="text-sm text-slate-500 mt-4">
-                      PDF files only, max 50MB
+                      PDF files only, max 15MB
                     </p>
                   </>
                 )}

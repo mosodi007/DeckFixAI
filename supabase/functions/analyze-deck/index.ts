@@ -476,7 +476,67 @@ async function deductCredits(
   return newBalance;
 }
 
+async function refundCredits(
+  supabaseClient: any,
+  userId: string,
+  creditAmount: number,
+  analysisId: string
+) {
+  try {
+    const currentCredits = await getUserCreditBalance(supabaseClient, userId);
+
+    if (!currentCredits) {
+      console.error('Unable to fetch credit balance for refund');
+      return;
+    }
+
+    const newBalance = currentCredits.credits_balance + creditAmount;
+    // Refund goes back to purchased credits (since that's where deductions come from first)
+    const newPurchasedCredits = currentCredits.purchased_credits + creditAmount;
+
+    const { error: updateError } = await supabaseClient
+      .from('user_credits')
+      .update({
+        credits_balance: newBalance,
+        purchased_credits: newPurchasedCredits,
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Error refunding credits:', updateError);
+      throw new Error('Failed to refund credits');
+    }
+
+    // Log the refund transaction
+    const { error: transactionError } = await supabaseClient
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        amount: creditAmount,
+        transaction_type: 'refund',
+        description: `Refund for failed analysis: ${analysisId}`,
+        balance_after: newBalance,
+        metadata: {
+          analysisId,
+          reason: 'analysis_failed',
+        },
+      });
+
+    if (transactionError) {
+      console.error('Error logging refund transaction:', transactionError);
+      // Don't throw - refund succeeded even if transaction logging failed
+    }
+
+    console.log(`Successfully refunded ${creditAmount} credits to user ${userId} for failed analysis ${analysisId}`);
+    return newBalance;
+  } catch (error: any) {
+    console.error('Error in refundCredits:', error);
+    throw error;
+  }
+}
+
 Deno.serve(async (req: Request) => {
+  // Handle OPTIONS preflight requests immediately
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -484,11 +544,29 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Wrap everything in try-catch to ensure CORS headers are always sent
   let analysisId: string | null = null;
+  let creditCost: number = 0; // Track credit cost for refunds
+  let userId: string | null = null; // Track user ID for refunds
   
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Validate environment variables early
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing required environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -530,64 +608,133 @@ Deno.serve(async (req: Request) => {
 
     const contentType = req.headers.get('content-type') || '';
     console.log('Content-Type:', contentType);
+    console.log('All headers:', Object.fromEntries(req.headers.entries()));
 
-    if (!contentType.includes('multipart/form-data')) {
-      throw new Error(`Invalid content type: ${contentType}. Expected multipart/form-data`);
-    }
-
-    let formData: FormData;
-    try {
-      formData = await req.formData();
-    } catch (formError: any) {
-      console.error('Failed to parse form data:', formError);
-      throw new Error(`Failed to parse form data: ${formError.message}`);
-    }
-
-    const file = formData.get('file') as File;
-    const clientAnalysisId = formData.get('analysisId') as string;
-    const imageUrlsJson = formData.get('imageUrls') as string;
-
-    // Set analysisId early so it's available in catch block for status updates
-    analysisId = clientAnalysisId || crypto.randomUUID();
-
+    let file: File | null = null;
+    let fileName: string;
+    let fileSize: number;
+    let pdfUrl: string | null = null;
     let imageUrls: string[] = [];
-    try {
-      imageUrls = imageUrlsJson ? JSON.parse(imageUrlsJson) : [];
-    } catch (e) {
-      console.warn('Failed to parse imageUrls:', e);
+
+    // Support both JSON payload (new method) and FormData (backward compatibility)
+    // Determine request type: JSON if Content-Type is application/json or missing/empty
+    // FormData if Content-Type explicitly says multipart/form-data
+    const isFormDataRequest = contentType.includes('multipart/form-data') || contentType.includes('form-data');
+    const isJsonRequest = contentType.includes('application/json') || (!contentType || contentType.trim() === '');
+
+    if (isFormDataRequest) {
+      // Legacy method: FormData with file
+      console.log('Parsing FormData payload (legacy method)...');
+      let formData: FormData;
+      try {
+        formData = await req.formData();
+      } catch (formError: any) {
+        console.error('Failed to parse form data:', formError);
+        throw new Error(`Failed to parse form data: ${formError.message}`);
+      }
+
+      file = formData.get('file') as File;
+      const clientAnalysisId = formData.get('analysisId') as string;
+      const imageUrlsJson = formData.get('imageUrls') as string;
+
+      analysisId = clientAnalysisId || crypto.randomUUID();
+
+      try {
+        imageUrls = imageUrlsJson ? JSON.parse(imageUrlsJson) : [];
+      } catch (e) {
+        console.warn('Failed to parse imageUrls:', e);
+      }
+
+      if (!file) {
+        throw new Error('No file provided');
+      }
+
+      fileName = file.name;
+      fileSize = file.size;
+    } else {
+      // New method: JSON payload with PDF URL and image URLs
+      // Default to JSON if Content-Type is missing or says JSON
+      console.log('Parsing JSON payload...');
+      try {
+        const payload = await req.json();
+        analysisId = payload.analysisId || crypto.randomUUID();
+        pdfUrl = payload.pdfUrl;
+        imageUrls = payload.imageUrls || [];
+        fileName = payload.fileName || 'document.pdf';
+        fileSize = payload.fileSize || 0;
+
+        console.log('JSON payload received:', {
+          analysisId,
+          pdfUrl: pdfUrl ? 'present' : 'missing',
+          imageUrlsCount: imageUrls.length,
+          fileName,
+          fileSize
+        });
+
+        // Only download PDF if we don't have image URLs (fallback scenario)
+        // If we have image URLs, we can skip PDF download to save resources
+        if (imageUrls && imageUrls.length > 0) {
+          console.log(`OPTIMIZATION: Skipping PDF download - using ${imageUrls.length} image URLs for Vision API analysis (saves ~${Math.round(fileSize / 1024)}KB download)`);
+          // Set file to null - we won't need it
+          file = null;
+        } else {
+          // No image URLs, we need the PDF for text extraction
+          if (!pdfUrl) {
+            throw new Error('PDF URL not provided in payload and no image URLs available');
+          }
+          
+          // Download PDF from storage
+          console.log('Downloading PDF from storage URL (no image URLs provided)...');
+          const pdfResponse = await fetch(pdfUrl);
+          if (!pdfResponse.ok) {
+            throw new Error(`Failed to download PDF from storage: ${pdfResponse.status} ${pdfResponse.statusText}`);
+          }
+          const pdfBlob = await pdfResponse.blob();
+          file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+          console.log('PDF downloaded from storage, size:', pdfBlob.size, 'bytes');
+        }
+      } catch (jsonError: any) {
+        console.error('Failed to parse JSON payload:', jsonError);
+        throw new Error(`Failed to parse JSON payload: ${jsonError.message}`);
+      }
     }
 
-    if (!file) {
-      throw new Error('No file provided');
-    }
-
-    console.log('File received:', file.name, file.type, file.size, 'bytes');
+    console.log('File received:', fileName, file ? file.type : 'N/A (using images only)', fileSize, 'bytes');
     console.log('Image URLs received:', imageUrls.length);
     console.log('Analysis ID:', analysisId);
-
-    if (file.type !== 'application/pdf') {
-      throw new Error('Only PDF files are supported');
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    console.log('File loaded into memory, size:', arrayBuffer.byteLength, 'bytes');
 
     let text: string;
     let pageCount: number;
     let pages: Array<{ pageNumber: number; text: string }>;
     let imageAnalyses: Array<{ pageNumber: number; textContent: string; visualDescription: string; combinedContent: string }> | undefined;
 
-    // Step 1: Extract text from PDF (fallback method)
-    try {
-      const result = await extractTextFromPDF(arrayBuffer);
-      text = result.text;
-      pageCount = result.pageCount;
-      pages = result.pages;
-      
-      console.log(`PDF text extraction: ${text.length} characters from ${pageCount} pages`);
-    } catch (pdfError: any) {
-      console.error('PDF text extraction failed:', pdfError);
-      // Don't throw - we'll use Vision API instead
+    // Step 1: Extract text from PDF (only if we don't have image URLs)
+    // If we have image URLs, skip PDF processing entirely to save resources
+    if (file && (!imageUrls || imageUrls.length === 0)) {
+      if (file.type !== 'application/pdf') {
+        throw new Error('Only PDF files are supported');
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      console.log('File loaded into memory, size:', arrayBuffer.byteLength, 'bytes');
+
+      try {
+        const result = await extractTextFromPDF(arrayBuffer);
+        text = result.text;
+        pageCount = result.pageCount;
+        pages = result.pages;
+        
+        console.log(`PDF text extraction: ${text.length} characters from ${pageCount} pages`);
+      } catch (pdfError: any) {
+        console.error('PDF text extraction failed:', pdfError);
+        // Don't throw - we'll use Vision API instead
+        text = '';
+        pageCount = imageUrls.length || 0;
+        pages = [];
+      }
+    } else {
+      // We have image URLs, skip PDF processing
+      console.log(`OPTIMIZATION: Skipping PDF text extraction - using Vision API with ${imageUrls.length} image URLs (saves memory and CPU)`);
       text = '';
       pageCount = imageUrls.length || 0;
       pages = [];
@@ -598,7 +745,8 @@ Deno.serve(async (req: Request) => {
 
     // Step 2: Use OpenAI Vision API to analyze page images (primary method)
     if (imageUrls && imageUrls.length > 0) {
-      console.log(`Starting Vision API analysis for ${imageUrls.length} page images...`);
+      console.log(`OPTIMIZATION: Starting sequential Vision API analysis for ${imageUrls.length} page images (one at a time to avoid WORKER_LIMIT)...`);
+      const visionStartTime = Date.now();
       try {
         const apiKey = Deno.env.get('OPENAI_API_KEY');
         if (!apiKey) {
@@ -617,6 +765,8 @@ Deno.serve(async (req: Request) => {
         console.log('OpenAI API key found for Vision API, length:', apiKey.length);
         
         imageAnalyses = await analyzePDFImages(imageUrls, apiKey);
+        const visionProcessingTime = Date.now() - visionStartTime;
+        console.log(`OPTIMIZATION: Vision API analysis completed in ${Math.round(visionProcessingTime / 1000)}s`);
         
         // Update pageCount if we got more pages from images
         if (imageAnalyses.length > pageCount) {
@@ -693,9 +843,10 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
+    userId = user.id; // Store user ID for potential refunds
 
     // Check if user has sufficient credits (1 credit per page)
-    const creditCost = pageCount;
+    creditCost = pageCount;
     const creditCheck = await checkSufficientCredits(supabase, user.id, creditCost);
     
     if (!creditCheck.sufficient) {
@@ -726,11 +877,11 @@ Deno.serve(async (req: Request) => {
         supabase,
         user.id,
         creditCost,
-        `Pitch deck analysis: ${file.name} (${pageCount} pages)`,
+        `Pitch deck analysis: ${fileName} (${pageCount} pages)`,
         {
           analysisId,
           pageCount,
-          fileName: file.name,
+          fileName: fileName,
         }
       );
       console.log(`Successfully deducted ${creditCost} credits for analysis ${analysisId} (before analysis starts)`);
@@ -771,8 +922,8 @@ Deno.serve(async (req: Request) => {
         .from('analyses')
         .update({
           status: 'processing',
-          file_name: file.name,
-          file_size: file.size,
+          file_name: fileName,
+          file_size: fileSize,
           total_pages: pageCount,
         })
         .eq('id', analysisId);
@@ -789,8 +940,8 @@ Deno.serve(async (req: Request) => {
         id: analysisId,
         user_id: user.id,
         session_id: null,
-        file_name: file.name,
-        file_size: file.size,
+        file_name: fileName,
+        file_size: fileSize,
         overall_score: 0,
         summary: 'Analyzing your pitch deck...',
         total_pages: pageCount,
@@ -853,6 +1004,14 @@ Deno.serve(async (req: Request) => {
       console.log('AI analysis completed successfully');
     } catch (aiError: any) {
       console.error('AI analysis failed:', aiError);
+      // Refund credits before throwing error
+      try {
+        await refundCredits(supabase, user.id, creditCost, analysisId);
+        console.log(`Refunded ${creditCost} credits due to AI analysis failure`);
+      } catch (refundError: any) {
+        console.error('Failed to refund credits after AI analysis failure:', refundError);
+        // Continue to throw the original error even if refund fails
+      }
       throw new Error(`AI analysis failed: ${aiError.message}`);
     }
 
@@ -922,6 +1081,61 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update analysis:', updateError);
+    } else {
+      // Get analysis details for notification
+      const { data: analysisData } = await supabase
+        .from('analyses')
+        .select('file_name, user_id')
+        .eq('id', analysisId)
+        .single();
+
+      // Get user email
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('email, full_name')
+        .eq('id', user.id)
+        .single();
+
+      if (analysisData && userProfile?.email) {
+        // Create notification
+        try {
+          await supabase.rpc('create_notification', {
+            p_user_id: user.id,
+            p_type: 'analysis_complete',
+            p_title: 'Analysis Complete!',
+            p_message: `Your pitch deck "${analysisData.file_name}" has been analyzed and is ready for review.`,
+            p_link: `?view=analysis&analysisId=${analysisId}`,
+            p_metadata: { analysisId, fileName: analysisData.file_name } as any
+          });
+        } catch (notifError) {
+          console.error('Failed to create notification:', notifError);
+        }
+
+        // Send email notification (fire and forget)
+        try {
+          const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+          const notificationUrl = `${supabaseUrl}/functions/v1/send-analysis-notification`;
+          fetch(notificationUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: userProfile.email,
+              userName: userProfile.full_name,
+              deckName: analysisData.file_name,
+              analysisId,
+              status: 'completed',
+              overallScore: openAIAnalysis.overallScore,
+            }),
+          }).catch((emailError) => {
+            console.error('Failed to send analysis notification email:', emailError);
+          });
+        } catch (emailError) {
+          console.error('Error sending analysis notification email:', emailError);
+        }
+      }
     }
 
     const { error: metricsError } = await supabase
@@ -1158,6 +1372,30 @@ Deno.serve(async (req: Request) => {
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!,
         );
         
+        // Get analysis data first to get user_id and total_pages for refund
+        const { data: analysisData } = await supabaseClient
+          .from('analyses')
+          .select('file_name, user_id, total_pages')
+          .eq('id', analysisId)
+          .single();
+        
+        // Refund credits if analysis failed after credits were deducted
+        // Use creditCost from scope if available, otherwise use total_pages from database
+        const refundAmount = creditCost > 0 ? creditCost : (analysisData?.total_pages || 0);
+        const refundUserId = userId || analysisData?.user_id;
+        
+        if (refundAmount > 0 && refundUserId) {
+          try {
+            await refundCredits(supabaseClient, refundUserId, refundAmount, analysisId);
+            console.log(`Refunded ${refundAmount} credits for failed analysis ${analysisId}`);
+          } catch (refundError: any) {
+            console.error('Failed to refund credits for failed analysis:', refundError);
+            // Continue even if refund fails - we still want to update status and send notifications
+          }
+        } else {
+          console.warn(`Cannot refund credits: refundAmount=${refundAmount}, refundUserId=${refundUserId}`);
+        }
+        
         await supabaseClient
           .from('analyses')
           .update({
@@ -1167,6 +1405,54 @@ Deno.serve(async (req: Request) => {
           .eq('id', analysisId);
         
         console.log(`Updated analysis ${analysisId} status to 'failed'`);
+
+        if (analysisData) {
+          // Get user email
+          const { data: userProfile } = await supabaseClient
+            .from('user_profiles')
+            .select('email, full_name')
+            .eq('id', analysisData.user_id)
+            .single();
+
+          if (userProfile?.email) {
+            // Create notification
+            try {
+              await supabaseClient.rpc('create_notification', {
+                p_user_id: analysisData.user_id,
+                p_type: 'analysis_failed',
+                p_title: 'Analysis Failed',
+                p_message: `We encountered an issue while analyzing "${analysisData.file_name}". Please try uploading again.`,
+                p_link: '/dashboard',
+                p_metadata: { analysisId, fileName: analysisData.file_name } as any
+              });
+            } catch (notifError) {
+              console.error('Failed to create failure notification:', notifError);
+            }
+
+            // Send email notification (fire and forget)
+            try {
+              const notificationUrl = `${supabaseUrl}/functions/v1/send-analysis-notification`;
+              fetch(notificationUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  email: userProfile.email,
+                  userName: userProfile.full_name,
+                  deckName: analysisData.file_name,
+                  analysisId,
+                  status: 'failed',
+                }),
+              }).catch((emailError) => {
+                console.error('Failed to send failure notification email:', emailError);
+              });
+            } catch (emailError) {
+              console.error('Error sending failure notification email:', emailError);
+            }
+          }
+        }
       } catch (statusUpdateError) {
         console.error('Failed to update analysis status to failed:', statusUpdateError);
       }

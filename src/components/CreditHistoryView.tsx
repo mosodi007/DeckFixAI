@@ -363,7 +363,7 @@ export function CreditHistoryView({ onBack, onViewUsageHistory, onViewPricing, o
               {!currentProTier && (
                 <button
                   onClick={() => onViewPricing()}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                  className="w-full px-6 py-4 bg-black text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
                 >
                   <Sparkles className="w-5 h-5" />
                   <span>Upgrade to Pro</span>

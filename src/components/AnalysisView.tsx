@@ -116,22 +116,26 @@ export function AnalysisView({ data, onNewAnalysis, onOpenImprovementFlow, isAut
 
       <div id="summary">
         <SummarySection
-        fileName={data.fileName}
-        companyName={data.keyMetrics.companyName}
-        overallScore={data.overallScore}
-        investmentGrade={data.investmentGrade}
-        fundingOdds={data.fundingOdds}
-        businessSummary={data.businessSummary}
-        totalPages={data.totalPages}
-        wordDensity={data.wordDensity}
-        criticalIssuesCount={data.criticalIssuesCount}
-        overallScoreFeedback={data.overallScoreFeedback}
-        investmentGradeFeedback={data.investmentGradeFeedback}
-        fundingOddsFeedback={data.fundingOddsFeedback}
-        wordDensityFeedback={data.wordDensityFeedback}
-        criticalIssuesFeedback={data.criticalIssuesFeedback}
-        pageCountFeedback={data.pageCountFeedback}
-      />
+          fileName={data.fileName}
+          companyName={data.keyMetrics.companyName}
+          overallScore={data.overallScore}
+          investmentGrade={data.investmentGrade}
+          fundingOdds={data.fundingOdds}
+          businessSummary={data.businessSummary || data.summary}
+          totalPages={data.totalPages}
+          wordDensity={data.wordDensity}
+          criticalIssuesCount={data.criticalIssuesCount}
+          overallScoreFeedback={data.overallScoreFeedback}
+          investmentGradeFeedback={data.investmentGradeFeedback}
+          fundingOddsFeedback={data.fundingOddsFeedback}
+          wordDensityFeedback={data.wordDensityFeedback}
+          criticalIssuesFeedback={data.criticalIssuesFeedback}
+          pageCountFeedback={data.pageCountFeedback}
+          pages={data.pages}
+          dealBreakers={data.dealBreakers}
+          redFlags={data.redFlags}
+          issues={data.issues}
+        />
       </div>
 
       <div id="metrics-scores" className="mb-8">

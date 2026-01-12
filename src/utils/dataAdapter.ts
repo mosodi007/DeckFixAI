@@ -1,5 +1,7 @@
 import { AnalysisData } from '../services/analysisService';
 
+import { normalizeScoreTo0To10 } from './scoreUtils';
+
 export function adaptAnalysisData(data: AnalysisData) {
   const criticalIssuesCount = data.metrics.weaknesses.length;
 
@@ -12,7 +14,7 @@ export function adaptAnalysisData(data: AnalysisData) {
     fileName: data.fileName,
     uploadDate: data.createdAt,
     slidesAnalyzedAt: data.slidesAnalyzedAt || null,
-    overallScore: data.overallScore / 10,
+    overallScore: data.overallScore, // Already in 0-10 scale from getAnalysis
     investmentGrade: getInvestmentGrade(data.overallScore),
     fundingOdds: getFundingOdds(data.investmentReadiness?.readinessScore || data.overallScore),
     investmentReady: data.investmentReady,

@@ -24,7 +24,11 @@ export function StatCard({ label, value, icon: Icon, suffix, valueClassName = 't
         <Icon className="w-5 h-5 text-slate-600" />
       </div>
       <div className="flex items-baseline gap-2">
-        <span className={`text-4xl font-bold ${valueClassName}`}>{value}</span>
+        <span className={`text-4xl font-bold ${valueClassName}`}>
+          {typeof value === 'number' 
+            ? (value % 1 === 0 ? value : parseFloat(value.toFixed(1)))
+            : value}
+        </span>
         {suffix && <span className="text-lg text-slate-600">{suffix}</span>}
       </div>
       {onClick && (

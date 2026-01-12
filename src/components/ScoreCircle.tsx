@@ -40,7 +40,11 @@ export function ScoreCircle({ score, size }: ScoreCircleProps) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-bold text-slate-900">{score}%</span>
+        <span className="text-4xl font-bold text-slate-900">
+          {typeof score === 'number' 
+            ? (score % 1 === 0 ? score : parseFloat(score.toFixed(1)))
+            : score}%
+        </span>
         <span className="text-sm text-slate-600">Overall Score</span>
       </div>
     </div>

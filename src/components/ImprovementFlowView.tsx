@@ -9,6 +9,7 @@ import { generateSlideFix, generateIssueFix, GeneratedFix, getSlideFixes, SlideF
 import { getUserCreditBalance } from '../services/creditService';
 import { useCredits } from '../contexts/CreditContext';
 import { supabase } from '../services/authService';
+import { normalizeScoreTo0To10 } from '../utils/scoreUtils';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -68,7 +69,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         impact: flag.impact,
         category: flag.category,
         severity: flag.severity,
-        pageNumber: null,
+        pageNumber: flag.pageNumber || null,
       })),
     ...(data?.missingSlides || [])
       .filter((slide: any) => slide.title && slide.description)
@@ -79,18 +80,34 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         description: slide.description,
         suggestedContent: slide.suggestedContent,
         pageNumber: null,
+      })),
+    ...(data?.issues || [])
+      .filter((issue: any) => issue.title && issue.description)
+      .map((issue: any) => ({
+        type: issue.type === 'issue' ? 'issue' : 'improvement' as const,
+        priority: issue.priority || 'medium',
+        title: issue.title,
+        description: issue.description,
+        pageNumber: issue.pageNumber || null,
+        impact: issue.impact || '',
+        recommendation: issue.recommendation || '',
       }))
   ];
 
   const sortedIssues = [...allIssues].sort((a, b) => {
-    const typeOrder = { deal_breaker: 0, red_flag: 1, missing_slide: 2 };
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const typeOrder: Record<string, number> = { deal_breaker: 0, red_flag: 1, issue: 2, missing_slide: 3, improvement: 4 };
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
-    if (typeOrder[a.type] !== typeOrder[b.type]) {
-      return typeOrder[a.type] - typeOrder[b.type];
+    const aTypeOrder = typeOrder[a.type] ?? 99;
+    const bTypeOrder = typeOrder[b.type] ?? 99;
+
+    if (aTypeOrder !== bTypeOrder) {
+      return aTypeOrder - bTypeOrder;
     }
 
-    return priorityOrder[a.priority.toLowerCase()] - priorityOrder[b.priority.toLowerCase()];
+    const aPriority = (a.priority || 'medium').toLowerCase();
+    const bPriority = (b.priority || 'medium').toLowerCase();
+    return (priorityOrder[aPriority] ?? 1) - (priorityOrder[bPriority] ?? 1);
   });
 
   const filteredIssues = selectedPage === 0
@@ -101,7 +118,9 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     all: sortedIssues.length,
     deal_breaker: sortedIssues.filter(i => i.type === 'deal_breaker').length,
     red_flag: sortedIssues.filter(i => i.type === 'red_flag').length,
+    issue: sortedIssues.filter(i => i.type === 'issue').length,
     missing_slide: sortedIssues.filter(i => i.type === 'missing_slide').length,
+    improvement: sortedIssues.filter(i => i.type === 'improvement').length,
   };
 
   const calculateCreditCost = (score: number): number => {
@@ -348,7 +367,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                 <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                Analyzing all Issues in your Pitch Deck
+                Analyzing Pitch Deck for Fixes...
               </h3>
               <p className="text-slate-600 mb-2">
                 Using DeckFix AI Vision to provide in-depth analysis and recommendations for each slide...
@@ -482,7 +501,9 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                     <option value="all">All ({issueTypeCounts.all})</option>
                     {issueTypeCounts.deal_breaker > 0 && <option value="deal_breaker">Deal-Breakers ({issueTypeCounts.deal_breaker})</option>}
                     {issueTypeCounts.red_flag > 0 && <option value="red_flag">Red Flags ({issueTypeCounts.red_flag})</option>}
+                    {issueTypeCounts.issue > 0 && <option value="issue">Issues ({issueTypeCounts.issue})</option>}
                     {issueTypeCounts.missing_slide > 0 && <option value="missing_slide">Missing Slides ({issueTypeCounts.missing_slide})</option>}
+                    {issueTypeCounts.improvement > 0 && <option value="improvement">Improvements ({issueTypeCounts.improvement})</option>}
                   </select>
                 </div>
               </div>
@@ -716,7 +737,9 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
           fixId={generatedFix.fixId}
           slideTitle={generatedFix.issueTitle || deckPages.find((p: any) => p.page_number === selectedPage)?.title || `Slide ${selectedPage}`}
           slideNumber={generatedFix.issueTitle ? 0 : selectedPage}
-          currentScore={generatedFix.issueTitle ? (data?.overallScore || 0) / 10 : (deckPages.find((p: any) => p.page_number === selectedPage)?.score / 10 || 0)}
+          currentScore={generatedFix.issueTitle 
+            ? (data?.overallScore || 0) // overallScore is already in 0-10 scale
+            : normalizeScoreTo0To10(deckPages.find((p: any) => p.page_number === selectedPage)?.score || 0)}
           onClose={handleCloseFixModal}
           onMarkApplied={() => {}}
           isDeckWideIssue={!!generatedFix.issueTitle}

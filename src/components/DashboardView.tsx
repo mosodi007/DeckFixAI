@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { FileText, TrendingUp, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Sparkles, CheckCircle2, Mail, X } from 'lucide-react';
+import { FileText, AlertCircle, Calendar, ChevronRight, Upload, Trash2, Mail, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/analysisService';
 import { ScoreCircle } from './ScoreCircle';
-import { analyzeDeck } from '../services/analysisService';
 import { extractPageImages } from '../services/pdfImageExtractor';
 import { uploadPageImages, deleteAnalysisImages, getCoverImageUrl } from '../services/storageService';
 import { sendVerificationEmail, isEmailVerified } from '../services/emailVerificationService';
 import { AuthenticatedUploader } from './AuthenticatedUploader';
-import { v4 as uuidv4 } from 'uuid';
+import { createAnalysisRecord, startBackgroundAnalysis, resumeBackgroundAnalysis, AnalysisProgress } from '../services/backgroundAnalysisService';
+import { normalizeScoreTo0To10, formatScoreWithSuffix } from '../utils/scoreUtils';
+import { getAllActiveUploadStates, removeUploadState } from '../services/uploadPersistenceService';
 
 interface DeckAnalysis {
   id: string;
@@ -28,6 +29,7 @@ interface DashboardViewProps {
 
 export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProps) {
   const { user } = useAuth();
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [analyses, setAnalyses] = useState<DeckAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -44,15 +46,55 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   useEffect(() => {
     loadAnalyses();
     checkEmailVerification();
+    checkAndResumeIncompleteUploads();
   }, [user]);
 
-  // Reload analyses when upload completes
+  // Check for incomplete uploads and resume them in background
+  const checkAndResumeIncompleteUploads = async () => {
+    if (!user) return;
+
+    const activeUploads = getAllActiveUploadStates();
+    
+    for (const uploadState of activeUploads) {
+      // Only resume uploads for current user
+      if (uploadState.userId !== user.id) continue;
+
+      // Check database status
+      const { data: analysis } = await supabase
+        .from('analyses')
+        .select('status')
+        .eq('id', uploadState.analysisId)
+        .single();
+
+      if (!analysis) {
+        // Analysis doesn't exist, clean up
+        removeUploadState(uploadState.analysisId);
+        continue;
+      }
+
+      if (analysis.status === 'completed') {
+        // Already completed, clean up
+        removeUploadState(uploadState.analysisId);
+        continue;
+      }
+
+      // Resume the upload in background (don't show UI)
+      resumeBackgroundAnalysis(
+        uploadState.analysisId,
+        uploadState.userId,
+        uploadState.fileName,
+        uploadState.fileSize
+      ).catch((error) => {
+        console.error('Failed to resume upload in background:', error);
+      });
+    }
+  };
+
+  // Reload analyses when upload completes (for cases where analysis is still processing)
   const handleUploadComplete = () => {
     setShowUploader(false);
-    // Small delay to ensure the analysis record is created
-    setTimeout(() => {
-      loadAnalyses(true);
-    }, 1000);
+    // Reload analyses to show updated status
+    loadAnalyses(true);
   };
 
   const checkEmailVerification = async () => {
@@ -217,32 +259,59 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
   }
 
   async function handleUpload(file: File) {
+    if (!user) {
+      alert('Please log in to upload a pitch deck');
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
+    setAnalysisProgress(null);
 
     try {
-      const analysisId = uuidv4();
-
+      // Step 1: Extract PDF pages as images
       setUploadProgress(10);
-
-      const images = await extractPageImages(file, (progress) => {
+      const pageImages = await extractPageImages(file, (progress) => {
         const extractionProgress = 10 + (progress.currentPage / progress.totalPages) * 30;
         setUploadProgress(Math.round(extractionProgress));
       });
 
-      setUploadProgress(40);
+      if (pageImages.length === 0) {
+        throw new Error('Failed to extract pages from PDF');
+      }
 
-      const imageUrls = await uploadPageImages(images, analysisId, (progress) => {
+      if (pageImages.length > 20) {
+        throw new Error('PDF must have 20 pages or less');
+      }
+
+      // Step 2: Create analysis record
+      setUploadProgress(40);
+      const analysisId = await createAnalysisRecord(
+        file.name,
+        file.size,
+        pageImages.length,
+        user.id
+      );
+
+      // Step 3: Upload images to storage
+      const imageUrls = await uploadPageImages(pageImages, analysisId, (progress) => {
         const uploadProgress = 40 + (progress.currentPage / progress.totalPages) * 20;
         setUploadProgress(Math.round(uploadProgress));
       });
 
+      // Step 4: Start sequential background analysis
       setUploadProgress(60);
-
-      await analyzeDeck(file, analysisId, imageUrls);
+      await startBackgroundAnalysis(file, analysisId, imageUrls, (progress) => {
+        setAnalysisProgress(progress);
+        // Update overall progress: 60% base + 40% for analysis
+        const analysisProgressPercent = 60 + (progress.currentPage / progress.totalPages) * 35;
+        const finalizingPercent = progress.status === 'finalizing' ? 95 : analysisProgressPercent;
+        setUploadProgress(Math.round(finalizingPercent));
+      });
 
       setUploadProgress(100);
 
+      // Navigate to analysis view
       setTimeout(() => {
         onViewAnalysis(analysisId);
       }, 500);
@@ -253,6 +322,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     } finally {
       setUploading(false);
       setUploadProgress(0);
+      setAnalysisProgress(null);
     }
   }
 
@@ -375,7 +445,13 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
             {/* Uploader Section */}
             {showUploader && (
               <div className="mb-8">
-                <AuthenticatedUploader onUploadComplete={handleUploadComplete} />
+                <AuthenticatedUploader 
+                  onUploadComplete={handleUploadComplete}
+                  onAnalysisComplete={(analysisId) => {
+                    // Navigate directly to the completed analysis
+                    onViewAnalysis(analysisId);
+                  }}
+                />
               </div>
             )}
 
@@ -426,6 +502,111 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                 </div>
               </div>
             </div> */}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {analyses.length === 0 && (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+              {/* Decorative Header */}
+              {/* Content Area */}
+              <div className="p-8">
+                {/* Upload Area */}
+                <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+                  uploading 
+                    ? 'border-slate-300 bg-slate-50' 
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                  
+                  {uploading ? (
+                    /* Uploading State */
+                    <div className="py-4">
+                      {/* Animated Icon */}
+                      <div className="w-20 h-20 mx-auto mb-6 relative">
+                        {/* Outer ring - spinning */}
+                        <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
+                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-slate-900 animate-spin"></div>
+                        {/* Inner icon */}
+                        <div className="absolute inset-2 bg-slate-100 rounded-full flex items-center justify-center">
+                          <FileText className="w-8 h-8 text-slate-600" />
+                        </div>
+                      </div>
+
+                      {/* Progress Text */}
+                      <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                        {analysisProgress 
+                          ? (analysisProgress.status === 'finalizing' 
+                              ? 'Finalizing analysis...' 
+                              : `Analyzing slide ${analysisProgress.currentPage} of ${analysisProgress.totalPages}...`)
+                          : uploadProgress < 40 
+                          ? 'Extracting pages...' 
+                          : uploadProgress < 60 
+                          ? 'Performing Deep Analysis...' 
+                          : uploadProgress < 100 
+                          ? 'Consulting AI VC Experts...' 
+                          : 'Finishing up...'}
+                      </h3>
+                      <p className="text-sm text-slate-600 mb-6">
+                        {selectedFile?.name || 'Processing your pitch deck'}
+                      </p>
+
+                      {/* Progress Bar */}
+                      <div className="max-w-xs mx-auto">
+                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-2">
+                          <div 
+                            className="h-full bg-slate-900 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-slate-500">{uploadProgress}% complete</p>
+                      </div>
+
+                      {/* Animated dots */}
+                      <div className="flex items-center justify-center gap-1.5 mt-6">
+                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Default Upload State */
+                    <>
+                      <div className="w-14 h-14 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <Upload className="w-7 h-7 text-slate-600" />
+                      </div>
+                      
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                        Upload your pitch deck
+                      </h3>
+                      <p className="text-sm text-slate-600 mb-6 max-w-sm mx-auto">
+                        Drag and drop your PDF here, or click to browse
+                      </p>
+                      
+                      <button
+                        onClick={handleChooseFile}
+                        className="inline-flex items-center gap-2 px-8 py-3.5 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all hover:shadow-lg hover:scale-105"
+                      >
+                        <Upload className="w-5 h-5" />
+                        Choose File
+                      </button>
+                      
+                      <p className="text-xs text-slate-500 mt-4">
+                        PDF files only, max 15MB, up to 20 slides
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -480,7 +661,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                         </h3>
                         {analysis.status === 'completed' ? (
                           <span className={`text-sm font-semibold whitespace-nowrap ${getScoreColor(analysis.overall_score)}`}>
-                            {(analysis.overall_score / 10).toFixed(1)}/10
+                            {formatScoreWithSuffix(normalizeScoreTo0To10(analysis.overall_score))}
                           </span>
                         ) : (
                           <span className="text-sm font-semibold whitespace-nowrap text-slate-400">

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { PageImage } from './pdfImageExtractor';
+import { saveUploadState, updateUploadState, isOnline, onNetworkStatusChange } from './uploadPersistenceService';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -16,13 +17,85 @@ export interface UploadProgress {
 export async function uploadPageImages(
   images: PageImage[],
   analysisId: string,
-  onProgress?: (progress: UploadProgress) => void
+  onProgress?: (progress: UploadProgress) => void,
+  persistedState?: { fileName: string; fileSize: number; userId: string; totalPages: number }
 ): Promise<string[]> {
   const urls: string[] = [];
+
+  // Check which images are already uploaded by listing files
+  let uploadedImages: string[] = [];
+  try {
+    const { data: existingFiles, error: listError } = await supabase.storage
+      .from('slide-images')
+      .list(analysisId);
+
+    if (!listError && existingFiles && existingFiles.length > 0) {
+      // Files exist, create signed URLs for them
+      for (let i = 0; i < images.length; i++) {
+        const fileName = `${analysisId}/page_${i + 1}.jpg`;
+        const fileExists = existingFiles.some(f => f.name === `page_${i + 1}.jpg`);
+        
+        if (fileExists) {
+          const { data: signedUrlData, error: signedError } = await supabase.storage
+            .from('slide-images')
+            .createSignedUrl(fileName, 3600);
+          
+          if (!signedError && signedUrlData?.signedUrl) {
+            uploadedImages.push(signedUrlData.signedUrl);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log('Error checking existing files, will upload:', error);
+  }
+
+  // If all images are already uploaded, return their URLs
+  if (uploadedImages.length === images.length) {
+    console.log('All images already uploaded, skipping upload');
+    if (persistedState) {
+      updateUploadState(analysisId, {
+        uploadedImageCount: images.length,
+        status: 'uploading',
+      });
+    }
+    return uploadedImages;
+  }
 
   for (let i = 0; i < images.length; i++) {
     const image = images[i];
     const fileName = `${analysisId}/page_${image.pageNumber}.jpg`;
+
+    // Check if this image is already uploaded by checking if it's in the uploadedImages array
+    // or by checking if we already have a URL for this page
+    if (uploadedImages.length > i && uploadedImages[i]) {
+      console.log(`Page ${image.pageNumber} already uploaded, using existing URL`);
+      urls.push(uploadedImages[i]);
+      if (persistedState) {
+        updateUploadState(analysisId, {
+          uploadedImageCount: i + 1,
+        });
+      }
+      continue;
+    }
+
+    // Wait for network if offline
+    if (!isOnline()) {
+      console.log('Network offline, waiting...');
+      await new Promise<void>((resolve) => {
+        const unsubscribe = onNetworkStatusChange((online) => {
+          if (online) {
+            unsubscribe();
+            resolve();
+          }
+        });
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          unsubscribe();
+          resolve();
+        }, 5 * 60 * 1000);
+      });
+    }
 
     onProgress?.({
       currentPage: i + 1,
@@ -30,6 +103,13 @@ export async function uploadPageImages(
       status: 'uploading',
       message: `Uploading page ${image.pageNumber} of ${images.length}...`
     });
+
+    if (persistedState) {
+      updateUploadState(analysisId, {
+        uploadedImageCount: i,
+        status: 'uploading',
+      });
+    }
 
     const { error } = await supabase.storage
       .from('slide-images')
@@ -66,6 +146,12 @@ export async function uploadPageImages(
     }
 
     urls.push(signedUrlData.signedUrl);
+    
+    if (persistedState) {
+      updateUploadState(analysisId, {
+        uploadedImageCount: i + 1,
+      });
+    }
   }
 
   onProgress?.({

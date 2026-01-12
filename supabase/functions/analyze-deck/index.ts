@@ -1,19 +1,24 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { extractTextFromPDF } from './pdfExtractor.ts';
-import { analyzePDFImages } from './imageAnalyzer.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+// Dynamic CORS headers based on request origin
+function getAllowedOrigin(origin: string | null): string {
+  const allowedOrigins = [
+    'https://deckfix.ai',
+    'https://www.deckfix.ai',
+  ];
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('localhost'))) {
+    return origin;
+  }
+  return 'https://deckfix.ai';
+}
 
-interface AnalysisResult {
-  analysisId: string;
-  overallScore: number;
-  summary: string;
-  totalPages: number;
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': getAllowedOrigin(origin),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
 }
 
 interface OpenAIAnalysis {
@@ -27,7 +32,7 @@ interface OpenAIAnalysis {
   investmentGradeFeedback: string;
   fundingOddsFeedback: string;
   pageCountFeedback: string;
-  wordDensityAssessment: string;
+  wordDensityAssessment: 'Too Dense' | 'Balanced' | 'Too Sparse';
   wordDensityFeedback: string;
   strengths: string[];
   weaknesses: string[];
@@ -44,7 +49,7 @@ interface OpenAIAnalysis {
     recommendation: string;
   }>;
   redFlags: Array<{
-    category: 'financial' | 'team' | 'market' | 'product' | 'competition' | 'traction' | 'other';
+    category: string;
     severity: 'critical' | 'major' | 'moderate';
     title: string;
     description: string;
@@ -84,245 +89,138 @@ interface OpenAIAnalysis {
     businessModel: string;
     customerCount: string;
   };
+  pageAnalyses?: Array<{
+    pageNumber: number;
+    title: string;
+    content: string;
+    score: number;
+    feedback: string;
+  }>;
 }
 
-const ANALYSIS_PROMPT = `You are a senior VC partner with 15+ years of experience at a top-tier firm (a16z, Sequoia, Accel, etc.) who has reviewed thousands of pitch decks and rejects 99% of them. You've seen every trick, every inflated claim, and every amateur mistake. Your job is to provide BRUTALLY HONEST, DETAILED, CONTEXT-AWARE feedback that reflects how real VCs think - not what founders want to hear, but what they NEED to hear before facing actual investors.
+// Credit management
+async function checkSufficientCredits(supabase: any, userId: string, cost: number) {
+  const { data, error } = await supabase
+    .from('user_credits')
+    .select('credits_balance')
+    .eq('user_id', userId)
+    .single();
+  if (error) throw new Error(`Failed to check credits: ${error.message}`);
+  return { sufficient: data.credits_balance >= cost, currentBalance: data.credits_balance };
+}
 
-CRITICAL MINDSET: 
-- Assume this is YOUR money being invested. Be skeptical. Question everything. Call out BS. Don't sugarcoat.
-- Founders pay for honesty, not encouragement. Generic feedback is worthless - be specific and actionable.
-- Think like you're protecting your LP's capital. Would YOU invest? Why or why not?
-- Consider the funding stage - what's appropriate for Pre-Seed vs Seed vs Series A?
+async function deductCredits(supabase: any, userId: string, amount: number, desc: string, meta: any) {
+  const { error } = await supabase.rpc('deduct_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_description: desc,
+    p_metadata: meta,
+  });
+  if (error) throw new Error(`Failed to deduct credits: ${error.message}`);
+}
 
-EVALUATION FRAMEWORK - Be EXTREMELY DETAILED and CONTEXT-SPECIFIC:
+async function refundCredits(supabase: any, userId: string, amount: number, analysisId: string) {
+  const { error } = await supabase.rpc('add_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_description: `Refund for failed analysis`,
+    p_metadata: { analysisId, type: 'refund' },
+  });
+  if (error) console.error('Refund failed:', error);
+}
 
-1. PROBLEM/SOLUTION FIT:
-   - Is this a REAL problem worth solving? How big is the pain? Who actually has this problem?
-   - Is the solution actually differentiated or just another me-too product? What's the moat?
-   - Is there evidence of problem-solution fit? Customer interviews? Early traction?
-   - Be specific: "The problem is vague" is useless. Say: "The problem statement 'helping businesses grow' is meaningless. What specific pain point? Which businesses? What evidence do you have that this is a real problem?"
+// Step 1: Extract text from images in batches
+async function extractTextFromImages(imageUrls: string[], apiKey: string): Promise<string[]> {
+  const BATCH_SIZE = 5;
+  const results: string[] = [];
+  
+  for (let i = 0; i < imageUrls.length; i += BATCH_SIZE) {
+    const batch = imageUrls.slice(i, Math.min(i + BATCH_SIZE, imageUrls.length));
+    const startPage = i + 1;
+    console.log(`Extracting text from pages ${startPage}-${startPage + batch.length - 1}...`);
+    
+    const imageContent = batch.map((url) => ({
+      type: 'image_url' as const,
+      image_url: { url, detail: 'low' as const }
+    }));
 
-2. MARKET OPPORTUNITY:
-   - Is this a real opportunity or made-up TAM math? Challenge their assumptions.
-   - Do they understand their market or just reciting generalities from Google?
-   - Is the market timing right? Why now?
-   - Be specific: "The TAM calculation is flawed because [specific reason]. You're assuming [X] but reality is [Y]."
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: `Extract ALL text from these ${batch.length} slides. Return JSON array: ["page 1 text", "page 2 text", ...]` },
+            ...imageContent
+          ]
+        }],
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      }),
+    });
 
-3. BUSINESS MODEL & UNIT ECONOMICS:
-   - Can this actually make money? Are unit economics believable or fantasy?
-   - Is CAC/LTV realistic? What's the payback period?
-   - How do they acquire customers? Is the channel scalable?
-   - Be specific: "Your CAC of $50 is unrealistic because [specific reason]. Similar companies in [industry] see CACs of [X] because [Y]."
+    if (!response.ok) {
+      console.error(`Batch ${i / BATCH_SIZE + 1} failed:`, response.status);
+      for (let j = 0; j < batch.length; j++) results.push('');
+      continue;
+    }
 
-4. TEAM & EXECUTION:
-   - Can they execute? Do they have relevant expertise or are they learning on investor dollars?
-   - Any red flags in backgrounds? Gaps in skillset?
-   - Is the team complete? Missing critical roles?
-   - Be specific: "The team lacks [specific skill] which is critical for [reason]. Consider adding [specific recommendation]."
+    const data = await response.json();
+    try {
+      const content = data.choices[0].message.content;
+      const parsed = JSON.parse(content);
+      const texts = Array.isArray(parsed) ? parsed : (parsed.pages || parsed.slides || Object.values(parsed));
+      texts.forEach((t: string) => results.push(t || ''));
+    } catch {
+      for (let j = 0; j < batch.length; j++) results.push('');
+    }
+    
+    // Small delay between batches
+    if (i + BATCH_SIZE < imageUrls.length) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+  
+  return results;
+}
 
-5. TRACTION & VALIDATION:
-   - Real proof points or vanity metrics? Revenue or just users?
-   - Growth trajectory believable? What's driving growth?
-   - Is the traction meaningful for the stage?
-   - Be specific: "Your '10,000 users' metric is misleading because [reason]. Investors care about [specific metric] which you haven't shown."
+// Step 2: Analyze extracted text
+async function analyzeText(pageTexts: string[], apiKey: string): Promise<OpenAIAnalysis> {
+  const pageCount = pageTexts.length;
+  const fullText = pageTexts.map((t, i) => `--- Slide ${i + 1} ---\n${t}`).join('\n\n');
+  
+  console.log(`Analyzing ${pageCount} pages of extracted text...`);
 
-6. FINANCIALS & PROJECTIONS:
-   - Are projections grounded in reality or hockey sticks with no basis?
-   - Do they know their numbers? Can they explain assumptions?
-   - Are the assumptions defensible?
-   - Be specific: "Your 10x growth projection is unrealistic because [specific reason]. Based on [data point], realistic growth would be [X]."
-
-7. COMPETITIVE LANDSCAPE:
-   - Do they understand the landscape or claim "no competitors"?
-   - Why won't they get crushed? What's the defensibility?
-   - How do they differentiate? Is it meaningful?
-   - Be specific: "You claim 'no competitors' but [Company X] does [Y]. Your differentiation of [Z] isn't meaningful because [reason]."
-
-8. STORY & NARRATIVE:
-   - Is the narrative compelling or confusing? Does it flow logically?
-   - Do they know what they're asking for and why?
-   - Is the ask appropriate for the stage and traction?
-   - Be specific: "The narrative jumps from [X] to [Y] without connecting [Z]. Investors will be confused about [specific point]."
-
-9. DESIGN & PRESENTATION:
-   - Is the deck professionally designed or looks amateur?
-   - Does the visual hierarchy guide the reader effectively?
-   - Are charts/graphs clear and data-driven or decorative?
-   - Be specific: "The design looks unprofessional because [specific reason]. The [element] distracts from [message]."
-
-10. MISSING CRITICAL INFORMATION:
-    - What will investors ask that's not answered?
-    - What red flags are hidden?
-    - What assumptions need validation?
-    - Be specific: "Investors will ask about [specific question] which isn't addressed. You need to add [specific information]."
-
-FEEDBACK REQUIREMENTS:
-- Be BRUTALLY HONEST but constructive. Don't just criticize - provide actionable fixes.
-- Be SPECIFIC and CONTEXT-AWARE. Reference exact slides, numbers, claims.
-- Provide ACTIONABLE RECOMMENDATIONS, not just problems.
-- Use REAL VC LANGUAGE and frameworks (TAM/SAM/SOM, unit economics, defensibility, etc.)
-- Consider the FUNDING STAGE - what's appropriate for Pre-Seed vs Seed vs Series A?
-- Call out WEAK ARGUMENTS with specific reasons why they're weak.
-- Highlight MISSING INFORMATION that investors will ask about.
-- If something is MEDIOCRE, say it and explain why.
-- If something is IMPRESSIVE, acknowledge it but explain why it matters.
-
-Provide a thorough analysis including:
-1. Overall assessment of investment readiness with SPECIFIC reasons
-2. Critical issues that need immediate attention with ACTIONABLE fixes
-3. Deal-breaking red flags (if any) with SPECIFIC examples
-4. Specific, actionable improvements for each slide with BEFORE/AFTER guidance
-5. Missing information that investors will ask about with SPECIFIC additions needed
-
-Return your analysis as a JSON object with this structure:
+  const systemPrompt = `You are an elite VC analyst. Analyze this pitch deck and provide brutally honest feedback.
+Return ONLY valid JSON:
 {
   "overallScore": <0-100>,
-  "summary": "<MINIMUM 100 words: comprehensive summary of the deck's viability with specific reasons, key strengths, critical weaknesses>",
+  "summary": "<100+ words>",
   "clarityScore": <0-100>,
   "designScore": <0-100>,
   "contentScore": <0-100>,
   "structureScore": <0-100>,
-  "overallScoreFeedback": "<MINIMUM 500 words: detailed explanation of the overall score with specific reasons, examples from the deck, and context>",
-  "investmentGradeFeedback": "<MINIMUM 300 words: honest assessment of investment grade with specific reasons why this grade, what's missing, what's working>",
-  "fundingOddsFeedback": "<MINIMUM 300 words: realistic odds of getting funded with this deck, specific reasons why, what would improve odds, what hurts odds>",
-  "pageCountFeedback": "<MINIMUM 200 words: feedback on deck length and structure, is it appropriate, what's missing, what's too much>",
-  "wordDensityAssessment": "<'Too Dense', 'Balanced', or 'Too Sparse'>",
-  "wordDensityFeedback": "<MINIMUM 200 words: specific feedback on text density with examples from specific slides>",
-  "strengths": ["<MINIMUM 50 words per strength - be specific and reference exact slides/numbers>", "<specific strength 2>", ...],
-  "weaknesses": ["<MINIMUM 50 words per weakness - be specific and reference exact slides/numbers>", "<specific weakness 2>", ...],
-  "issues": [
-    {
-      "pageNumber": <number or null>,
-      "priority": "High" | "Medium" | "Low",
-      "title": "<specific issue title referencing exact slide content>",
-      "description": "<MINIMUM 150 words: detailed description with specific examples, why it's a problem, what impact it has, what to fix>",
-      "type": "issue" | "improvement"
-    }
-  ],
-  "dealBreakers": [
-    {
-      "title": "<specific deal breaker title>",
-      "description": "<MINIMUM 200 words: why this is a deal breaker with specific examples, impact on funding, severity>",
-      "recommendation": "<MINIMUM 150 words: what to do about it with specific, actionable steps>"
-    }
-  ],
-  "redFlags": [
-    {
-      "category": "financial" | "team" | "market" | "product" | "competition" | "traction" | "other",
-      "severity": "critical" | "major" | "moderate",
-      "title": "<specific red flag title>",
-      "description": "<MINIMUM 200 words: detailed explanation with specific examples from the deck>",
-      "impact": "<MINIMUM 150 words: impact on funding chances with specific reasons and severity>"
-    }
-  ],
-  "stageAssessment": {
-    "detectedStage": "<Pre-Seed/Seed/Series A/etc.>",
-    "stageConfidence": "high" | "medium" | "low",
-    "stageAppropriatenessScore": <0-100>,
-    "stageFeedback": "<MINIMUM 300 words: is deck appropriate for this stage? What's missing? What's appropriate? Specific recommendations>"
-  },
-  "investmentReadiness": {
-    "isInvestmentReady": <boolean>,
-    "readinessScore": <0-100>,
-    "readinessSummary": "<MINIMUM 400 words: comprehensive summary of investment readiness with specific reasons, blockers, what's needed>",
-    "criticalBlockers": ["<blocker 1>", "<blocker 2>", ...],
-    "teamScore": <0-100>,
-    "marketOpportunityScore": <0-100>,
-    "productScore": <0-100>,
-    "tractionScore": <0-100>,
-    "financialsScore": <0-100>,
-    "teamFeedback": "<MINIMUM 300 words: detailed team assessment with specific strengths, gaps, red flags, recommendations>",
-    "marketOpportunityFeedback": "<MINIMUM 300 words: detailed market assessment with specific TAM/SAM/SOM analysis, market timing, competitive landscape>",
-    "productFeedback": "<MINIMUM 300 words: detailed product assessment with specific differentiation, moat, problem-solution fit>",
-    "tractionFeedback": "<MINIMUM 300 words: detailed traction assessment with specific metrics, growth drivers, validation proof points>",
-    "financialsFeedback": "<MINIMUM 300 words: detailed financials assessment with specific unit economics, projections, assumptions, defensibility>"
-  },
-  "keyBusinessMetrics": {
-    "companyName": "<name or 'Not specified'>",
-    "industry": "<industry or 'Not specified'>",
-    "currentRevenue": "<revenue or 'Not specified'>",
-    "fundingSought": "<amount or 'Not specified'>",
-    "growthRate": "<rate or 'Not specified'>",
-    "teamSize": <number>,
-    "marketSize": "<size or 'Not specified'>",
-    "valuation": "<valuation or 'Not specified'>",
-    "businessModel": "<model or 'Not specified'>",
-    "customerCount": "<count or 'Not specified'>"
-  }
+  "overallScoreFeedback": "<200+ words>",
+  "investmentGradeFeedback": "<150+ words>",
+  "fundingOddsFeedback": "<150+ words>",
+  "pageCountFeedback": "<80+ words>",
+  "wordDensityAssessment": "Too Dense"|"Balanced"|"Too Sparse",
+  "wordDensityFeedback": "<80+ words>",
+  "strengths": ["<40+ words each>"],
+  "weaknesses": ["<40+ words each>"],
+  "issues": [{"pageNumber": <1-N or null>, "priority": "High"|"Medium"|"Low", "title": "<specific>", "description": "<80+ words>", "type": "issue"|"improvement"}],
+  "dealBreakers": [{"title": "<>", "description": "<100+ words>", "recommendation": "<80+ words>"}],
+  "redFlags": [{"category": "<>", "severity": "critical"|"major"|"moderate", "title": "<>", "description": "<100+ words>", "impact": "<80+ words>"}],
+  "stageAssessment": {"detectedStage": "<>", "stageConfidence": "high"|"medium"|"low", "stageAppropriatenessScore": <0-100>, "stageFeedback": "<150+ words>"},
+  "investmentReadiness": {"isInvestmentReady": <bool>, "readinessScore": <0-100>, "readinessSummary": "<200+ words>", "criticalBlockers": [], "teamScore": <0-100>, "marketOpportunityScore": <0-100>, "productScore": <0-100>, "tractionScore": <0-100>, "financialsScore": <0-100>, "teamFeedback": "<150+ words>", "marketOpportunityFeedback": "<150+ words>", "productFeedback": "<150+ words>", "tractionFeedback": "<150+ words>", "financialsFeedback": "<150+ words>"},
+  "keyBusinessMetrics": {"companyName": "<>", "industry": "<>", "currentRevenue": "<>", "fundingSought": "<>", "growthRate": "<>", "teamSize": <num>, "marketSize": "<>", "valuation": "<>", "businessModel": "<>", "customerCount": "<>"},
+  "pageAnalyses": [{"pageNumber": <1-N>, "title": "<>", "content": "<extracted>", "score": <0-100>, "feedback": "<80+ words>"}]
 }`;
-
-async function analyzeWithOpenAI(
-  text: string, 
-  pageCount: number,
-  imageAnalyses?: Array<{ pageNumber: number; textContent: string; visualDescription: string; combinedContent: string }>
-): Promise<OpenAIAnalysis> {
-  const apiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!apiKey) {
-    console.error('ERROR: OPENAI_API_KEY environment variable is not set or is empty');
-    console.error('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('OPENAI') || k.includes('API')));
-    throw new Error('OPENAI_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.');
-  }
-  
-  // Validate API key format
-  if (!apiKey.startsWith('sk-')) {
-    console.error('ERROR: OPENAI_API_KEY does not have expected format (should start with sk-)');
-    console.error('API key length:', apiKey.length);
-    throw new Error('Invalid OPENAI_API_KEY format. Please check your Supabase Edge Function secrets.');
-  }
-  
-  console.log('OpenAI API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 7) + '...');
-
-  // Build comprehensive content from both text extraction and vision analysis
-  let fullContent = '';
-  
-  if (imageAnalyses && imageAnalyses.length > 0) {
-    // Use Vision API extracted content (more reliable)
-    console.log('Using Vision API extracted content for analysis');
-    const visionContent = imageAnalyses
-      .map(analysis => `Page ${analysis.pageNumber}:\n${analysis.combinedContent}`)
-      .join('\n\n---\n\n');
-    fullContent = visionContent;
-    
-    // Append traditional text extraction as supplement if available
-    if (text && text.trim().length > 0) {
-      fullContent += `\n\n---\n\nAdditional Text Extraction:\n${text}`;
-    }
-  } else {
-    // Fallback to traditional text extraction
-    console.log('Using traditional text extraction (Vision API not available)');
-    fullContent = text || 'No content could be extracted from the PDF.';
-  }
-
-  const prompt = `${ANALYSIS_PROMPT}
-
-Pitch Deck Content (${pageCount} pages):
-${fullContent}
-
-ANALYSIS INSTRUCTIONS:
-1. Read through ALL pages carefully. Understand the full narrative and context.
-2. For EACH slide, provide specific, detailed feedback:
-   - What's on the slide (be specific about content)
-   - What's working and why
-   - What's NOT working and why (be brutally honest)
-   - Specific, actionable recommendations to fix it
-   - Missing information that should be added
-3. Consider the VISUAL DESIGN of each slide:
-   - Layout quality and professionalism (be specific: "The text is too small" not "design is bad")
-   - Visual hierarchy and readability (what guides the eye? Is it effective?)
-   - Use of charts, graphs, and data visualization (are they clear? Do they tell a story?)
-   - Color scheme and branding consistency (does it look professional?)
-   - Overall design polish (does it look like a $10M company or a $10K company?)
-4. Provide CONTEXT-AWARE feedback:
-   - Consider the funding stage - is this appropriate for Pre-Seed, Seed, or Series A?
-   - Compare to industry standards - how does this stack up?
-   - Reference specific numbers, claims, or statements from the deck
-5. Be BRUTALLY HONEST but CONSTRUCTIVE:
-   - Don't sugarcoat - if something is weak, say it and explain why
-   - Provide SPECIFIC fixes, not generic advice
-   - Use real VC frameworks and language
-   - Give actionable recommendations that can be implemented
-
-Remember: Generic feedback is worthless. Be specific, detailed, and actionable. Reference exact slides, numbers, and claims.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -331,1142 +229,268 @@ Remember: Generic feedback is worthless. Be specific, detailed, and actionable. 
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o', // Use GPT-4o for better analysis quality
+      model: 'gpt-4o',
       messages: [
-        {
-          role: 'system',
-          content: 'You are a senior VC partner at a top-tier firm providing brutally honest, detailed, context-aware pitch deck analysis. You analyze both content AND visual design. Your feedback must be specific, actionable, and reference exact slides, numbers, and claims from the deck. No generic statements. Return only valid JSON with no markdown formatting or code blocks.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Analyze this ${pageCount}-slide pitch deck:\n\n${fullText}` }
       ],
-      temperature: 0.8, // Slightly higher for more creative but still accurate analysis
+      temperature: 0.2,
       response_format: { type: 'json_object' }
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('OpenAI API error:', error);
-    console.error('Response status:', response.status);
-    console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    // Check if it's an auth error
-    if (response.status === 401) {
-      console.error('OpenAI API returned 401 - checking API key...');
-      console.error('API key present:', !!apiKey);
-      console.error('API key length:', apiKey?.length || 0);
-      console.error('API key starts with sk-:', apiKey?.startsWith('sk-') || false);
-      throw new Error('OpenAI API authentication failed. Please verify OPENAI_API_KEY is correctly set in Supabase Edge Function secrets.');
-    }
-    
-    throw new Error(`OpenAI API error: ${response.status} ${error}`);
+    console.error('Analysis error:', response.status, error.substring(0, 300));
+    throw new Error(`OpenAI API error: ${response.status}`);
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
+  return JSON.parse(data.choices[0].message.content);
+}
 
-  let analysis: OpenAIAnalysis;
-  try {
-    analysis = JSON.parse(content);
-  } catch (parseError) {
-    console.error('Failed to parse OpenAI response:', content);
-    throw new Error('Failed to parse AI analysis response');
+// Combined analysis function
+async function analyzeWithVision(imageUrls: string[], apiKey: string): Promise<OpenAIAnalysis> {
+  console.log(`Starting 2-step analysis for ${imageUrls.length} slides...`);
+  
+  // Step 1: Extract text from images in batches
+  const startExtract = Date.now();
+  const pageTexts = await extractTextFromImages(imageUrls, apiKey);
+  console.log(`Text extraction completed in ${Math.round((Date.now() - startExtract) / 1000)}s`);
+  
+  // Step 2: Analyze the extracted text
+  const startAnalysis = Date.now();
+  const analysis = await analyzeText(pageTexts, apiKey);
+  console.log(`Text analysis completed in ${Math.round((Date.now() - startAnalysis) / 1000)}s`);
+  
+  // Enrich pageAnalyses with extracted text
+  if (!analysis.pageAnalyses || analysis.pageAnalyses.length === 0) {
+    analysis.pageAnalyses = pageTexts.map((text, i) => ({
+      pageNumber: i + 1,
+      title: `Slide ${i + 1}`,
+      content: text,
+      score: analysis.overallScore || 0,
+      feedback: ''
+    }));
+  } else {
+    analysis.pageAnalyses.forEach((p, i) => {
+      if (!p.content && pageTexts[i]) p.content = pageTexts[i];
+    });
   }
-
+  
   return analysis;
 }
 
-// Credit management helper functions
-async function getUserCreditBalance(supabaseClient: any, userId: string) {
-  const { data, error } = await supabaseClient
-    .from('user_credits')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
+Deno.serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
-  if (error) {
-    console.error('Error fetching user credits:', error);
-    return null;
-  }
-
-  return data;
-}
-
-async function checkSufficientCredits(
-  supabaseClient: any,
-  userId: string,
-  requiredCredits: number
-): Promise<{ sufficient: boolean; currentBalance: number }> {
-  const credits = await getUserCreditBalance(supabaseClient, userId);
-  
-  if (!credits) {
-    return { sufficient: false, currentBalance: 0 };
-  }
-
-  return {
-    sufficient: credits.credits_balance >= requiredCredits,
-    currentBalance: credits.credits_balance,
-  };
-}
-
-async function deductCredits(
-  supabaseClient: any,
-  userId: string,
-  creditCost: number,
-  description: string,
-  metadata: Record<string, unknown> = {}
-) {
-  const currentCredits = await getUserCreditBalance(supabaseClient, userId);
-
-  if (!currentCredits) {
-    throw new Error('Unable to fetch credit balance');
-  }
-
-  if (currentCredits.credits_balance < creditCost) {
-    throw new Error('Insufficient credits');
-  }
-
-  const newBalance = currentCredits.credits_balance - creditCost;
-  let newSubscriptionCredits = currentCredits.subscription_credits;
-  let newPurchasedCredits = currentCredits.purchased_credits;
-
-  if (currentCredits.subscription_credits >= creditCost) {
-    newSubscriptionCredits -= creditCost;
-  } else {
-    const remainingToDeduct = creditCost - currentCredits.subscription_credits;
-    newSubscriptionCredits = 0;
-    newPurchasedCredits -= remainingToDeduct;
-  }
-
-  const { error: updateError } = await supabaseClient
-    .from('user_credits')
-    .update({
-      credits_balance: newBalance,
-      subscription_credits: newSubscriptionCredits,
-      purchased_credits: newPurchasedCredits,
-    })
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('Error updating credits:', updateError);
-    throw new Error('Failed to update credits');
-  }
-
-  const { error: transactionError } = await supabaseClient
-    .from('credit_transactions')
-    .insert({
-      user_id: userId,
-      amount: -creditCost,
-      transaction_type: 'deduction',
-      description,
-      complexity_score: null,
-      credits_cost: creditCost,
-      balance_after: newBalance,
-      metadata,
-    });
-
-  if (transactionError) {
-    console.error('Error logging credit transaction:', transactionError);
-    // Don't throw - transaction is logged but credit deduction succeeded
-  }
-
-  return newBalance;
-}
-
-async function refundCredits(
-  supabaseClient: any,
-  userId: string,
-  creditAmount: number,
-  analysisId: string
-) {
-  try {
-    const currentCredits = await getUserCreditBalance(supabaseClient, userId);
-
-    if (!currentCredits) {
-      console.error('Unable to fetch credit balance for refund');
-      return;
-    }
-
-    const newBalance = currentCredits.credits_balance + creditAmount;
-    // Refund goes back to purchased credits (since that's where deductions come from first)
-    const newPurchasedCredits = currentCredits.purchased_credits + creditAmount;
-
-    const { error: updateError } = await supabaseClient
-      .from('user_credits')
-      .update({
-        credits_balance: newBalance,
-        purchased_credits: newPurchasedCredits,
-      })
-      .eq('user_id', userId);
-
-    if (updateError) {
-      console.error('Error refunding credits:', updateError);
-      throw new Error('Failed to refund credits');
-    }
-
-    // Log the refund transaction
-    const { error: transactionError } = await supabaseClient
-      .from('credit_transactions')
-      .insert({
-        user_id: userId,
-        amount: creditAmount,
-        transaction_type: 'refund',
-        description: `Refund for failed analysis: ${analysisId}`,
-        balance_after: newBalance,
-        metadata: {
-          analysisId,
-          reason: 'analysis_failed',
-        },
-      });
-
-    if (transactionError) {
-      console.error('Error logging refund transaction:', transactionError);
-      // Don't throw - refund succeeded even if transaction logging failed
-    }
-
-    console.log(`Successfully refunded ${creditAmount} credits to user ${userId} for failed analysis ${analysisId}`);
-    return newBalance;
-  } catch (error: any) {
-    console.error('Error in refundCredits:', error);
-    throw error;
-  }
-}
-
-Deno.serve(async (req: Request) => {
-  // Handle OPTIONS preflight requests immediately
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const openAIKey = Deno.env.get('OPENAI_API_KEY');
+
+  if (!openAIKey || !openAIKey.startsWith('sk-')) {
+    return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // Wrap everything in try-catch to ensure CORS headers are always sent
+  let userId: string | null = null;
+  let creditCost = 0;
   let analysisId: string | null = null;
-  let creditCost: number = 0; // Track credit cost for refunds
-  let userId: string | null = null; // Track user ID for refunds
-  
+
   try {
-    // Validate environment variables early
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing required environment variables');
-      return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const authHeader = req.headers.get('Authorization');
-    console.log('Auth header present:', !!authHeader);
-    if (authHeader) {
-      console.log('Auth header length:', authHeader.length);
-      console.log('Auth header starts with Bearer:', authHeader.startsWith('Bearer '));
-    }
-
-    let user = null;
-    let authError = null;
-
-    if (authHeader) {
-      const supabaseClient = createClient(
-        supabaseUrl,
-        Deno.env.get('SUPABASE_ANON_KEY')!,
-        { global: { headers: { Authorization: authHeader } } }
-      );
-
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (userError) {
-        authError = userError;
-        console.error('Auth error:', userError.message);
-      }
-      if (!userError && userData?.user) {
-        user = userData.user;
-        console.log('Authenticated user:', user.id, 'Is anonymous:', user.is_anonymous);
-      } else if (!userError && !userData?.user) {
-        console.log('No user data returned from auth.getUser()');
-      }
-    } else {
-      console.log('No Authorization header provided');
-    }
-
-    if (!user) {
-      console.log('No authenticated user found');
-    }
-
+    // Parse request body
     const contentType = req.headers.get('content-type') || '';
     console.log('Content-Type:', contentType);
-    console.log('All headers:', Object.fromEntries(req.headers.entries()));
-
-    let file: File | null = null;
-    let fileName: string;
-    let fileSize: number;
-    let pdfUrl: string | null = null;
-    let imageUrls: string[] = [];
-
-    // Support both JSON payload (new method) and FormData (backward compatibility)
-    // Determine request type: JSON if Content-Type is application/json or missing/empty
-    // FormData if Content-Type explicitly says multipart/form-data
-    const isFormDataRequest = contentType.includes('multipart/form-data') || contentType.includes('form-data');
-    const isJsonRequest = contentType.includes('application/json') || (!contentType || contentType.trim() === '');
-
-    if (isFormDataRequest) {
-      // Legacy method: FormData with file
-      console.log('Parsing FormData payload (legacy method)...');
-      let formData: FormData;
-      try {
-        formData = await req.formData();
-      } catch (formError: any) {
-        console.error('Failed to parse form data:', formError);
-        throw new Error(`Failed to parse form data: ${formError.message}`);
-      }
-
-      file = formData.get('file') as File;
-      const clientAnalysisId = formData.get('analysisId') as string;
-      const imageUrlsJson = formData.get('imageUrls') as string;
-
-      analysisId = clientAnalysisId || crypto.randomUUID();
-
-      try {
-        imageUrls = imageUrlsJson ? JSON.parse(imageUrlsJson) : [];
-      } catch (e) {
-        console.warn('Failed to parse imageUrls:', e);
-      }
-
-      if (!file) {
-        throw new Error('No file provided');
-      }
-
-      fileName = file.name;
-      fileSize = file.size;
-    } else {
-      // New method: JSON payload with PDF URL and image URLs
-      // Default to JSON if Content-Type is missing or says JSON
-      console.log('Parsing JSON payload...');
-      try {
-        const payload = await req.json();
-        analysisId = payload.analysisId || crypto.randomUUID();
-        pdfUrl = payload.pdfUrl;
-        imageUrls = payload.imageUrls || [];
-        fileName = payload.fileName || 'document.pdf';
-        fileSize = payload.fileSize || 0;
-
-        console.log('JSON payload received:', {
-          analysisId,
-          pdfUrl: pdfUrl ? 'present' : 'missing',
-          imageUrlsCount: imageUrls.length,
-          fileName,
-          fileSize
-        });
-
-        // Only download PDF if we don't have image URLs (fallback scenario)
-        // If we have image URLs, we can skip PDF download to save resources
-        if (imageUrls && imageUrls.length > 0) {
-          console.log(`OPTIMIZATION: Skipping PDF download - using ${imageUrls.length} image URLs for Vision API analysis (saves ~${Math.round(fileSize / 1024)}KB download)`);
-          // Set file to null - we won't need it
-          file = null;
-        } else {
-          // No image URLs, we need the PDF for text extraction
-          if (!pdfUrl) {
-            throw new Error('PDF URL not provided in payload and no image URLs available');
-          }
-          
-          // Download PDF from storage
-          console.log('Downloading PDF from storage URL (no image URLs provided)...');
-          const pdfResponse = await fetch(pdfUrl);
-          if (!pdfResponse.ok) {
-            throw new Error(`Failed to download PDF from storage: ${pdfResponse.status} ${pdfResponse.statusText}`);
-          }
-          const pdfBlob = await pdfResponse.blob();
-          file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-          console.log('PDF downloaded from storage, size:', pdfBlob.size, 'bytes');
-        }
-      } catch (jsonError: any) {
-        console.error('Failed to parse JSON payload:', jsonError);
-        throw new Error(`Failed to parse JSON payload: ${jsonError.message}`);
-      }
-    }
-
-    console.log('File received:', fileName, file ? file.type : 'N/A (using images only)', fileSize, 'bytes');
-    console.log('Image URLs received:', imageUrls.length);
-    console.log('Analysis ID:', analysisId);
-
-    let text: string;
-    let pageCount: number;
-    let pages: Array<{ pageNumber: number; text: string }>;
-    let imageAnalyses: Array<{ pageNumber: number; textContent: string; visualDescription: string; combinedContent: string }> | undefined;
-
-    // Step 1: Extract text from PDF (only if we don't have image URLs)
-    // If we have image URLs, skip PDF processing entirely to save resources
-    if (file && (!imageUrls || imageUrls.length === 0)) {
-      if (file.type !== 'application/pdf') {
-        throw new Error('Only PDF files are supported');
-      }
-
-      const arrayBuffer = await file.arrayBuffer();
-      console.log('File loaded into memory, size:', arrayBuffer.byteLength, 'bytes');
-
-      try {
-        const result = await extractTextFromPDF(arrayBuffer);
-        text = result.text;
-        pageCount = result.pageCount;
-        pages = result.pages;
-        
-        console.log(`PDF text extraction: ${text.length} characters from ${pageCount} pages`);
-      } catch (pdfError: any) {
-        console.error('PDF text extraction failed:', pdfError);
-        // Don't throw - we'll use Vision API instead
-        text = '';
-        pageCount = imageUrls.length || 0;
-        pages = [];
-      }
-    } else {
-      // We have image URLs, skip PDF processing
-      console.log(`OPTIMIZATION: Skipping PDF text extraction - using Vision API with ${imageUrls.length} image URLs (saves memory and CPU)`);
-      text = '';
-      pageCount = imageUrls.length || 0;
-      pages = [];
-    }
-
-    // analysisId already set above
-    console.log('Analysis ID:', analysisId);
-
-    // Step 2: Use OpenAI Vision API to analyze page images (primary method)
-    if (imageUrls && imageUrls.length > 0) {
-      console.log(`OPTIMIZATION: Starting sequential Vision API analysis for ${imageUrls.length} page images (one at a time to avoid WORKER_LIMIT)...`);
-      const visionStartTime = Date.now();
-      try {
-        const apiKey = Deno.env.get('OPENAI_API_KEY');
-        if (!apiKey) {
-          console.error('ERROR: OPENAI_API_KEY environment variable is not set or is empty');
-          console.error('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('OPENAI') || k.includes('API')));
-          throw new Error('OPENAI_API_KEY environment variable is not set. Please configure it in Supabase Edge Function secrets.');
-        }
-        
-        // Validate API key format
-        if (!apiKey.startsWith('sk-')) {
-          console.error('ERROR: OPENAI_API_KEY does not have expected format (should start with sk-)');
-          console.error('API key length:', apiKey.length);
-          throw new Error('Invalid OPENAI_API_KEY format. Please check your Supabase Edge Function secrets.');
-        }
-        
-        console.log('OpenAI API key found for Vision API, length:', apiKey.length);
-        
-        imageAnalyses = await analyzePDFImages(imageUrls, apiKey);
-        const visionProcessingTime = Date.now() - visionStartTime;
-        console.log(`OPTIMIZATION: Vision API analysis completed in ${Math.round(visionProcessingTime / 1000)}s`);
-        
-        // Update pageCount if we got more pages from images
-        if (imageAnalyses.length > pageCount) {
-          pageCount = imageAnalyses.length;
-        }
-        
-        // Merge Vision API results with traditional extraction
-        pages = imageAnalyses.map(analysis => ({
-          pageNumber: analysis.pageNumber,
-          text: analysis.textContent
-        }));
-        
-        // Combine all extracted text
-        text = imageAnalyses.map(a => a.combinedContent).join('\n\n---\n\n');
-        
-        console.log(`Vision API analysis complete: ${imageAnalyses.filter(a => a.textContent.length > 0).length} pages with content`);
-      } catch (visionError: any) {
-        console.error('Vision API analysis failed:', visionError);
-        console.warn('Falling back to traditional text extraction');
-        // Continue with text extraction as fallback
-      }
-    } else {
-      console.warn('No image URLs provided. Using traditional text extraction only.');
-    }
-
-    // Validate that we have some content to analyze
-    if ((!text || text.trim().length === 0) && (!imageAnalyses || imageAnalyses.length === 0)) {
-      console.error('ERROR: No content extracted from PDF using any method.');
-      return new Response(
-        JSON.stringify({ 
-          error: 'No content could be extracted from this PDF. Please ensure your PDF contains readable text or images.',
-          analysisId 
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    if (!user?.id) {
-      console.error('No authenticated user found. Auth header present:', !!authHeader);
-      if (authError) {
-        console.error('Authentication error details:', authError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Authentication failed. Your session may have expired. Please log in again and try again.',
-            details: authError.message 
-          }),
-          {
-            status: 401,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-      return new Response(
-        JSON.stringify({ 
-          error: 'Authentication required. Please log in and try again.' 
-        }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    console.log('Creating analysis for user:', user.id, 'Is anonymous:', user.is_anonymous);
-    userId = user.id; // Store user ID for potential refunds
-
-    // Check if user has sufficient credits (1 credit per page)
-    creditCost = pageCount;
-    const creditCheck = await checkSufficientCredits(supabase, user.id, creditCost);
     
-    if (!creditCheck.sufficient) {
-      console.log(`Insufficient credits: user has ${creditCheck.currentBalance}, needs ${creditCost}`);
-      return new Response(
-        JSON.stringify({
-          error: 'Insufficient credits',
-          requiresUpgrade: true,
-          currentBalance: creditCheck.currentBalance,
-          requiredCredits: creditCost,
-          pageCount: pageCount,
-        }),
-        {
-          status: 402,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    console.log(`Credit check passed: user has ${creditCheck.currentBalance} credits, needs ${creditCost}`);
-
-    // Deduct credits BEFORE starting analysis (user pays upfront for the analysis attempt)
+    let body: any;
     try {
-      await deductCredits(
-        supabase,
-        user.id,
-        creditCost,
-        `Pitch deck analysis: ${fileName} (${pageCount} pages)`,
-        {
-          analysisId,
-          pageCount,
-          fileName: fileName,
-        }
-      );
-      console.log(`Successfully deducted ${creditCost} credits for analysis ${analysisId} (before analysis starts)`);
-    } catch (deductError: any) {
-      console.error('Failed to deduct credits before analysis:', deductError);
-      // If credit deduction fails, we should not proceed with analysis
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to process payment. Please try again.',
-          details: deductError.message
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const rawBody = await req.text();
+      console.log('Raw body length:', rawBody.length);
+      if (!rawBody || rawBody.trim() === '') {
+        throw new Error('Empty request body');
+      }
+      body = JSON.parse(rawBody);
+    } catch (parseError: any) {
+      console.error('JSON parse error:', parseError.message);
+      return new Response(JSON.stringify({ error: `Invalid JSON: ${parseError.message}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const { imageUrls, fileName, fileSize, analysisId: reqAnalysisId } = body;
+    analysisId = reqAnalysisId;
+
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+      return new Response(JSON.stringify({ error: 'No image URLs provided' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Check if analysis record already exists (created by frontend)
-    const { data: existingAnalysis, error: checkError } = await supabase
-      .from('analyses')
-      .select('id, status')
-      .eq('id', analysisId)
-      .single();
+    const pageCount = imageUrls.length;
+    console.log(`Starting analysis: ${pageCount} pages, ${fileName}`);
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error checking for existing analysis:', checkError);
-      throw new Error(`Database error: ${checkError.message}`);
-    }
-
-    if (existingAnalysis) {
-      // Analysis record already exists (created by frontend), just update status to processing
-      console.log('Analysis record already exists, updating status to processing...');
-      const { error: updateError } = await supabase
-        .from('analyses')
-        .update({
-          status: 'processing',
-          file_name: fileName,
-          file_size: fileSize,
-          total_pages: pageCount,
-        })
-        .eq('id', analysisId);
-
-      if (updateError) {
-        console.error('Failed to update analysis record:', updateError);
-        throw new Error(`Database error: ${updateError.message}`);
-      }
-      console.log('Analysis record updated to processing status');
-    } else {
-      // Analysis record doesn't exist, create it (backward compatibility)
-      console.log('Analysis record does not exist, creating new record...');
-      const analysisRecord = {
-        id: analysisId,
-        user_id: user.id,
-        session_id: null,
-        file_name: fileName,
-        file_size: fileSize,
-        overall_score: 0,
-        summary: 'Analyzing your pitch deck...',
-        total_pages: pageCount,
-        status: 'processing',
-        created_at: new Date().toISOString(),
-      };
-
-      const { error: analysisError } = await supabase
-        .from('analyses')
-        .insert(analysisRecord);
-
-      if (analysisError) {
-        console.error('Failed to create analysis record:', analysisError);
-        throw new Error(`Database error: ${analysisError.message}`);
-      }
-      console.log('Analysis record created with status: processing');
-    }
-
-    console.log('Starting AI analysis...');
-
-    const pageRecords = pages.map((page, index) => {
-      // Use Vision API extracted content if available, otherwise use traditional extraction
-      let pageText = page.text || '';
-      
-      if (imageAnalyses && imageAnalyses[index]) {
-        pageText = imageAnalyses[index].combinedContent || imageAnalyses[index].textContent || pageText;
-      }
-      
-      console.log(`Preparing page ${page.pageNumber} record: ${pageText.length} characters`);
-      
-      return {
-      analysis_id: analysisId,
-      page_number: page.pageNumber,
-      title: `Slide ${page.pageNumber}`,
-        content: pageText,
-      score: 0,
-      image_url: imageUrls[index] || null,
-      thumbnail_url: imageUrls[index] || null,
-      };
+    // Auth check
+    const authHeader = req.headers.get('Authorization');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: authHeader || '' } }
     });
 
-    console.log(`Inserting ${pageRecords.length} page records into database`);
-    const { error: pagesError } = await supabase
-      .from('analysis_pages')
-      .insert(pageRecords);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user?.id || authError) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    userId = user.id;
 
-    if (pagesError) {
-      console.error('Failed to insert page records:', pagesError);
-      console.error('Page records data:', JSON.stringify(pageRecords.map(p => ({ 
-        page_number: p.page_number, 
-        content_length: p.content?.length || 0 
-      }))));
-    } else {
-      console.log('Successfully inserted page records');
+    // Credit check
+    creditCost = pageCount;
+    const creditCheck = await checkSufficientCredits(supabase, userId, creditCost);
+    if (!creditCheck.sufficient) {
+      return new Response(JSON.stringify({
+        error: 'Insufficient credits',
+        requiresUpgrade: true,
+        currentBalance: creditCheck.currentBalance,
+        requiredCredits: creditCost,
+      }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    let openAIAnalysis: OpenAIAnalysis;
+    // Deduct credits upfront
+    await deductCredits(supabase, userId, creditCost, `Analysis: ${fileName} (${pageCount} pages)`, { analysisId, pageCount, fileName });
+
+    // Update analysis status
+    await supabase.from('analyses').update({ status: 'processing', file_name: fileName, file_size: fileSize, total_pages: pageCount }).eq('id', analysisId);
+
+    // SINGLE API CALL - analyze all images
+    console.log('Calling Vision API with all images...');
+    const startTime = Date.now();
+    
+    let analysis: OpenAIAnalysis;
     try {
-      openAIAnalysis = await analyzeWithOpenAI(text, pageCount, imageAnalyses);
-      console.log('AI analysis completed successfully');
+      analysis = await analyzeWithVision(imageUrls, openAIKey);
+      console.log(`Analysis completed in ${Math.round((Date.now() - startTime) / 1000)}s`);
     } catch (aiError: any) {
-      console.error('AI analysis failed:', aiError);
-      // Refund credits before throwing error
-      try {
-        await refundCredits(supabase, user.id, creditCost, analysisId);
-        console.log(`Refunded ${creditCost} credits due to AI analysis failure`);
-      } catch (refundError: any) {
-        console.error('Failed to refund credits after AI analysis failure:', refundError);
-        // Continue to throw the original error even if refund fails
-      }
+      await refundCredits(supabase, userId, creditCost, analysisId!);
       throw new Error(`AI analysis failed: ${aiError.message}`);
     }
 
-    // Check if this is the user's first completed analysis (for referral processing)
-    const { data: previousAnalyses, error: previousAnalysesError } = await supabase
-      .from('analyses')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .neq('id', analysisId);
+    // Insert page records
+    const pageRecords = (analysis.pageAnalyses || []).map((p, i) => ({
+      analysis_id: analysisId,
+      page_number: p.pageNumber || i + 1,
+      title: p.title || `Slide ${i + 1}`,
+      content: p.content || '',
+      score: p.score || 0,
+      feedback: p.feedback || '',
+      image_url: imageUrls[i] || null,
+      thumbnail_url: imageUrls[i] || null,
+    }));
 
-    const isFirstAnalysis = !previousAnalysesError && (!previousAnalyses || previousAnalyses.length === 0);
-
-    // Process referral credits if this is the first analysis
-    if (isFirstAnalysis) {
-      console.log('First analysis detected for user:', user.id, '- Processing referral credits...');
-      try {
-        // Get IP address from request headers if available
-        const clientIP = req.headers.get('x-forwarded-for') || 
-                        req.headers.get('x-real-ip') || 
-                        null;
-        
-        // Get user agent
-        const userAgent = req.headers.get('user-agent') || null;
-
-        // Call the database function to process referral credits
-        const { data: referralResult, error: referralError } = await supabase.rpc('process_referral_credits', {
-          p_referred_user_id: user.id,
-          p_ip_address: clientIP,
-          p_device_fingerprint: null, // Device fingerprint should be set during signup
-          p_user_agent: userAgent,
+    // If no pageAnalyses, create basic records
+    if (pageRecords.length === 0) {
+      for (let i = 0; i < pageCount; i++) {
+        pageRecords.push({
+          analysis_id: analysisId,
+          page_number: i + 1,
+          title: `Slide ${i + 1}`,
+          content: '',
+          score: analysis.overallScore || 0,
+          feedback: '',
+          image_url: imageUrls[i] || null,
+          thumbnail_url: imageUrls[i] || null,
         });
-
-        if (referralError) {
-          console.error('Error processing referral credits:', referralError);
-          // Don't fail the analysis if referral processing fails
-        } else if (referralResult && referralResult.length > 0) {
-          const result = referralResult[0];
-          if (result.success) {
-            console.log(`Referral credits processed successfully: ${result.referrer_credits_awarded} to referrer, ${result.referred_credits_awarded} to referred user`);
-          } else {
-            console.log(`Referral processing result: ${result.message}`);
-          }
-        }
-      } catch (referralProcessingError) {
-        console.error('Exception processing referral credits:', referralProcessingError);
-        // Don't fail the analysis if referral processing fails
       }
     }
 
-    const { error: updateError } = await supabase
-      .from('analyses')
-      .update({
-        overall_score: openAIAnalysis.overallScore,
-        summary: openAIAnalysis.summary,
-        overall_score_feedback: openAIAnalysis.overallScoreFeedback,
-        investment_grade_feedback: openAIAnalysis.investmentGradeFeedback,
-        funding_odds_feedback: openAIAnalysis.fundingOddsFeedback,
-        page_count_feedback: openAIAnalysis.pageCountFeedback,
-        word_density: openAIAnalysis.wordDensityAssessment,
-        word_density_feedback: openAIAnalysis.wordDensityFeedback,
-        investment_ready: openAIAnalysis.investmentReadiness.isInvestmentReady,
-        funding_stage: openAIAnalysis.stageAssessment.detectedStage,
-        status: 'completed',
-      })
-      .eq('id', analysisId);
+    await supabase.from('analysis_pages').insert(pageRecords);
 
-    if (updateError) {
-      console.error('Failed to update analysis:', updateError);
-    } else {
-      // Get analysis details for notification
-      const { data: analysisData } = await supabase
-        .from('analyses')
-        .select('file_name, user_id')
-        .eq('id', analysisId)
-        .single();
-
-      // Get user email
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('email, full_name')
-        .eq('id', user.id)
-        .single();
-
-      if (analysisData && userProfile?.email) {
-        // Create notification
-        try {
-          await supabase.rpc('create_notification', {
-            p_user_id: user.id,
-            p_type: 'analysis_complete',
-            p_title: 'Analysis Complete!',
-            p_message: `Your pitch deck "${analysisData.file_name}" has been analyzed and is ready for review.`,
-            p_link: `?view=analysis&analysisId=${analysisId}`,
-            p_metadata: { analysisId, fileName: analysisData.file_name } as any
-          });
-        } catch (notifError) {
-          console.error('Failed to create notification:', notifError);
-        }
-
-        // Send email notification (fire and forget)
-        try {
-          const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-          const notificationUrl = `${supabaseUrl}/functions/v1/send-analysis-notification`;
-          fetch(notificationUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: userProfile.email,
-              userName: userProfile.full_name,
-              deckName: analysisData.file_name,
-              analysisId,
-              status: 'completed',
-              overallScore: openAIAnalysis.overallScore,
-            }),
-          }).catch((emailError) => {
-            console.error('Failed to send analysis notification email:', emailError);
-          });
-        } catch (emailError) {
-          console.error('Error sending analysis notification email:', emailError);
-        }
-      }
-    }
-
-    const { error: metricsError } = await supabase
-      .from('analysis_metrics')
-      .insert({
-        analysis_id: analysisId,
-        clarity_score: openAIAnalysis.clarityScore,
-        design_score: openAIAnalysis.designScore,
-        content_score: openAIAnalysis.contentScore,
-        structure_score: openAIAnalysis.structureScore,
-        strengths: openAIAnalysis.strengths,
-        weaknesses: openAIAnalysis.weaknesses,
-      });
-
-    if (metricsError) {
-      console.error('Failed to insert metrics:', metricsError);
-    }
-
-    if (openAIAnalysis.issues && openAIAnalysis.issues.length > 0) {
-      const issueRecords = openAIAnalysis.issues.map(issue => ({
+    // Insert issues
+    if (analysis.issues?.length > 0) {
+      const issueRecords = analysis.issues.map((issue, i) => ({
         analysis_id: analysisId,
         page_number: issue.pageNumber,
         priority: issue.priority,
         title: issue.title,
         description: issue.description,
-        type: issue.type,
+        type: issue.type || 'issue',
+        order_index: i,
       }));
+      await supabase.from('analysis_issues').insert(issueRecords);
+    }
 
-      const { error: issuesError } = await supabase
-        .from('analysis_issues')
-        .insert(issueRecords);
+    // Update final analysis
+    await supabase.from('analyses').update({
+      overall_score: analysis.overallScore || 0,
+      summary: analysis.summary || '',
+      overall_score_feedback: analysis.overallScoreFeedback || '',
+      investment_grade_feedback: analysis.investmentGradeFeedback || '',
+      funding_odds_feedback: analysis.fundingOddsFeedback || '',
+      page_count_feedback: analysis.pageCountFeedback || '',
+      word_density_assessment: analysis.wordDensityAssessment || 'Balanced',
+      word_density_feedback: analysis.wordDensityFeedback || '',
+      strengths: analysis.strengths || [],
+      weaknesses: analysis.weaknesses || [],
+      clarity_score: analysis.clarityScore || 0,
+      design_score: analysis.designScore || 0,
+      content_score: analysis.contentScore || 0,
+      structure_score: analysis.structureScore || 0,
+      deal_breakers: analysis.dealBreakers || [],
+      red_flags: analysis.redFlags || [],
+      stage_assessment: analysis.stageAssessment || null,
+      investment_readiness: analysis.investmentReadiness || null,
+      key_business_metrics: analysis.keyBusinessMetrics || null,
+      status: 'completed',
+    }).eq('id', analysisId);
 
-      if (issuesError) {
-        console.error('Failed to insert issues:', issuesError);
-      }
-
-      // Group issues by page number and create per-slide feedback
-      const issuesByPage: Record<number, Array<{ title: string; description: string; priority: string }>> = {};
-      issueRecords.forEach(issue => {
-        if (issue.page_number) {
-          if (!issuesByPage[issue.page_number]) {
-            issuesByPage[issue.page_number] = [];
-          }
-          issuesByPage[issue.page_number].push({
-            title: issue.title,
-            description: issue.description,
-            priority: issue.priority
-          });
-        }
+    // Create notification
+    try {
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'analysis_complete',
+        title: 'Analysis Complete',
+        message: `Your pitch deck "${fileName}" has been analyzed.`,
+        data: { analysisId, fileName, score: analysis.overallScore },
       });
-
-      // Update pages with feedback and recommendations from issues
-      for (const [pageNumStr, pageIssues] of Object.entries(issuesByPage)) {
-        const pageNum = parseInt(pageNumStr);
-        const highPriorityIssues = pageIssues.filter(i => i.priority === 'High');
-        const mediumPriorityIssues = pageIssues.filter(i => i.priority === 'Medium');
-        const lowPriorityIssues = pageIssues.filter(i => i.priority === 'Low');
-
-        // Create detailed feedback from issues
-        let feedback = '';
-        if (highPriorityIssues.length > 0) {
-          feedback += `CRITICAL ISSUES (High Priority):\n\n`;
-          highPriorityIssues.forEach((issue, idx) => {
-            feedback += `${idx + 1}. ${issue.title}\n${issue.description}\n\n`;
-          });
-        }
-        if (mediumPriorityIssues.length > 0) {
-          feedback += `IMPORTANT ISSUES (Medium Priority):\n\n`;
-          mediumPriorityIssues.forEach((issue, idx) => {
-            feedback += `${idx + 1}. ${issue.title}\n${issue.description}\n\n`;
-          });
-        }
-        if (lowPriorityIssues.length > 0) {
-          feedback += `IMPROVEMENTS (Low Priority):\n\n`;
-          lowPriorityIssues.forEach((issue, idx) => {
-            feedback += `${idx + 1}. ${issue.title}\n${issue.description}\n\n`;
-          });
-        }
-
-        // Create recommendations array
-        const recommendations = pageIssues
-          .filter(i => i.priority === 'High' || i.priority === 'Medium')
-          .map(i => i.description)
-          .slice(0, 5); // Limit to top 5 recommendations
-
-        if (feedback || recommendations.length > 0) {
-          const { error: updatePageError } = await supabase
-            .from('analysis_pages')
-            .update({
-              feedback: feedback.trim() || null,
-              recommendations: recommendations.length > 0 ? recommendations : null,
-            })
-            .eq('analysis_id', analysisId)
-            .eq('page_number', pageNum);
-
-          if (updatePageError) {
-            console.error(`Failed to update feedback for page ${pageNum}:`, updatePageError);
-          } else {
-            console.log(`Updated feedback for page ${pageNum}`);
-          }
-        }
-      }
+    } catch (e) {
+      console.error('Notification error:', e);
     }
 
-    if (openAIAnalysis.keyBusinessMetrics) {
-      const { error: keyMetricsError } = await supabase
-        .from('key_business_metrics')
-        .insert({
-          analysis_id: analysisId,
-          company_name: openAIAnalysis.keyBusinessMetrics.companyName,
-          industry: openAIAnalysis.keyBusinessMetrics.industry,
-          current_revenue: openAIAnalysis.keyBusinessMetrics.currentRevenue,
-          funding_sought: openAIAnalysis.keyBusinessMetrics.fundingSought,
-          growth_rate: openAIAnalysis.keyBusinessMetrics.growthRate,
-          team_size: openAIAnalysis.keyBusinessMetrics.teamSize,
-          market_size: openAIAnalysis.keyBusinessMetrics.marketSize,
-          valuation: openAIAnalysis.keyBusinessMetrics.valuation,
-          business_model: openAIAnalysis.keyBusinessMetrics.businessModel,
-          customer_count: openAIAnalysis.keyBusinessMetrics.customerCount,
-        });
-
-      if (keyMetricsError) {
-        console.error('Failed to insert key metrics:', keyMetricsError);
-      }
-    }
-
-    if (openAIAnalysis.stageAssessment) {
-      const { error: stageError } = await supabase
-        .from('analysis_stage_assessment')
-        .insert({
-          analysis_id: analysisId,
-          detected_stage: openAIAnalysis.stageAssessment.detectedStage,
-          stage_confidence: openAIAnalysis.stageAssessment.stageConfidence,
-          stage_appropriateness_score: openAIAnalysis.stageAssessment.stageAppropriatenessScore,
-          stage_specific_feedback: openAIAnalysis.stageAssessment.stageFeedback,
-        });
-
-      if (stageError) {
-        console.error('Failed to insert stage assessment:', stageError);
-      }
-    }
-
-    if (openAIAnalysis.investmentReadiness) {
-      const { error: readinessError } = await supabase
-        .from('analysis_investment_readiness')
-        .insert({
-          analysis_id: analysisId,
-          is_investment_ready: openAIAnalysis.investmentReadiness.isInvestmentReady,
-          readiness_score: openAIAnalysis.investmentReadiness.readinessScore,
-          readiness_summary: openAIAnalysis.investmentReadiness.readinessSummary,
-          critical_blockers: openAIAnalysis.investmentReadiness.criticalBlockers,
-          team_score: openAIAnalysis.investmentReadiness.teamScore,
-          market_opportunity_score: openAIAnalysis.investmentReadiness.marketOpportunityScore,
-          product_score: openAIAnalysis.investmentReadiness.productScore,
-          traction_score: openAIAnalysis.investmentReadiness.tractionScore,
-          financials_score: openAIAnalysis.investmentReadiness.financialsScore,
-          team_feedback: openAIAnalysis.investmentReadiness.teamFeedback,
-          market_opportunity_feedback: openAIAnalysis.investmentReadiness.marketOpportunityFeedback,
-          product_feedback: openAIAnalysis.investmentReadiness.productFeedback,
-          traction_feedback: openAIAnalysis.investmentReadiness.tractionFeedback,
-          financials_feedback: openAIAnalysis.investmentReadiness.financialsFeedback,
-        });
-
-      if (readinessError) {
-        console.error('Failed to insert investment readiness:', readinessError);
-      }
-    }
-
-    if (openAIAnalysis.redFlags && openAIAnalysis.redFlags.length > 0) {
-      const redFlagRecords = openAIAnalysis.redFlags.map(flag => ({
-        analysis_id: analysisId,
-        category: flag.category,
-        severity: flag.severity,
-        title: flag.title,
-        description: flag.description,
-        impact: flag.impact,
-      }));
-
-      const { error: redFlagsError } = await supabase
-        .from('analysis_red_flags')
-        .insert(redFlagRecords);
-
-      if (redFlagsError) {
-        console.error('Failed to insert red flags:', redFlagsError);
-      }
-    }
-
-    if (openAIAnalysis.dealBreakers && openAIAnalysis.dealBreakers.length > 0) {
-      const dealBreakerRecords = openAIAnalysis.dealBreakers.map(breaker => ({
-        analysis_id: analysisId,
-        title: breaker.title,
-        description: breaker.description,
-        recommendation: breaker.recommendation,
-      }));
-
-      const { error: dealBreakersError } = await supabase
-        .from('analysis_deal_breakers')
-        .insert(dealBreakerRecords);
-
-      if (dealBreakersError) {
-        console.error('Failed to insert deal breakers:', dealBreakersError);
-      }
-    }
-
-    // Credits were already deducted before analysis started
-    console.log(`Analysis completed successfully. Credits (${creditCost}) were deducted at the start of analysis.`);
-
-    const result: AnalysisResult = {
+    console.log('Analysis complete!');
+    return new Response(JSON.stringify({
+      success: true,
       analysisId,
-      overallScore: openAIAnalysis.overallScore,
-      summary: openAIAnalysis.summary,
-      totalPages: pageCount,
-    };
+      overallScore: analysis.overallScore,
+      pageCount,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
-    console.log('Analysis complete:', result);
-
-    return new Response(
-      JSON.stringify(result),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
   } catch (error: any) {
-    console.error('Error in analyze-deck function:', error);
-    
-    // Update analysis status to 'failed' if we have an analysisId
-    if (analysisId) {
-      try {
-        const supabaseClient = createClient(
-          supabaseUrl,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!,
-        );
-        
-        // Get analysis data first to get user_id and total_pages for refund
-        const { data: analysisData } = await supabaseClient
-          .from('analyses')
-          .select('file_name, user_id, total_pages')
-          .eq('id', analysisId)
-          .single();
-        
-        // Refund credits if analysis failed after credits were deducted
-        // Use creditCost from scope if available, otherwise use total_pages from database
-        const refundAmount = creditCost > 0 ? creditCost : (analysisData?.total_pages || 0);
-        const refundUserId = userId || analysisData?.user_id;
-        
-        if (refundAmount > 0 && refundUserId) {
-          try {
-            await refundCredits(supabaseClient, refundUserId, refundAmount, analysisId);
-            console.log(`Refunded ${refundAmount} credits for failed analysis ${analysisId}`);
-          } catch (refundError: any) {
-            console.error('Failed to refund credits for failed analysis:', refundError);
-            // Continue even if refund fails - we still want to update status and send notifications
-          }
-        } else {
-          console.warn(`Cannot refund credits: refundAmount=${refundAmount}, refundUserId=${refundUserId}`);
-        }
-        
-        await supabaseClient
-          .from('analyses')
-          .update({
-            status: 'failed',
-            error_message: error.message || 'Internal server error',
-          })
-          .eq('id', analysisId);
-        
-        console.log(`Updated analysis ${analysisId} status to 'failed'`);
+    console.error('Error:', error);
 
-        if (analysisData) {
-          // Get user email
-          const { data: userProfile } = await supabaseClient
-            .from('user_profiles')
-            .select('email, full_name')
-            .eq('id', analysisData.user_id)
-            .single();
-
-          if (userProfile?.email) {
-            // Create notification
-            try {
-              await supabaseClient.rpc('create_notification', {
-                p_user_id: analysisData.user_id,
-                p_type: 'analysis_failed',
-                p_title: 'Analysis Failed',
-                p_message: `We encountered an issue while analyzing "${analysisData.file_name}". Please try uploading again.`,
-                p_link: '/dashboard',
-                p_metadata: { analysisId, fileName: analysisData.file_name } as any
-              });
-            } catch (notifError) {
-              console.error('Failed to create failure notification:', notifError);
-            }
-
-            // Send email notification (fire and forget)
-            try {
-              const notificationUrl = `${supabaseUrl}/functions/v1/send-analysis-notification`;
-              fetch(notificationUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  email: userProfile.email,
-                  userName: userProfile.full_name,
-                  deckName: analysisData.file_name,
-                  analysisId,
-                  status: 'failed',
-                }),
-              }).catch((emailError) => {
-                console.error('Failed to send failure notification email:', emailError);
-              });
-            } catch (emailError) {
-              console.error('Error sending failure notification email:', emailError);
-            }
-          }
-        }
-      } catch (statusUpdateError) {
-        console.error('Failed to update analysis status to failed:', statusUpdateError);
-      }
+    // Refund on failure
+    if (userId && creditCost > 0 && analysisId) {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      await refundCredits(supabase, userId, creditCost, analysisId);
+      await supabase.from('analyses').update({ status: 'failed', error_message: error.message }).eq('id', analysisId);
     }
-    
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

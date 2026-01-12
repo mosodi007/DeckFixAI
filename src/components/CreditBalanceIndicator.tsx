@@ -5,9 +5,10 @@ import { AnimatedCounter } from './AnimatedCounter';
 
 interface CreditBalanceIndicatorProps {
   onViewHistory?: () => void;
+  compact?: boolean;
 }
 
-export function CreditBalanceIndicator({ onViewHistory }: CreditBalanceIndicatorProps) {
+export function CreditBalanceIndicator({ onViewHistory, compact = false }: CreditBalanceIndicatorProps) {
   const { user } = useAuth();
   const { credits, loading } = useCredits();
 
@@ -31,6 +32,23 @@ export function CreditBalanceIndicator({ onViewHistory }: CreditBalanceIndicator
     if (balance >= 20) return 'text-yellow-700';
     return 'text-red-700';
   };
+
+  // Compact version for mobile
+  if (compact) {
+    return (
+      <button
+        onClick={onViewHistory}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all duration-300 cursor-pointer ${getColorClass()}`}
+        title="View credit history"
+      >
+        <Coins className={`w-3.5 h-3.5 transition-colors duration-300 ${getTextColorClass()}`} />
+        <AnimatedCounter 
+          value={balance} 
+          className={`font-bold text-sm ${getTextColorClass()}`}
+        />
+      </button>
+    );
+  }
 
   return (
     <button

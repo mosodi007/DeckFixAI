@@ -88,6 +88,15 @@ export async function getUserCreditBalance(): Promise<UserCredits | null> {
     return null;
   }
 
+  // Check and refill credits if needed (for free plan users)
+  // This ensures credits are refilled when credits_reset_date has passed
+  try {
+    await supabase.rpc('check_and_refill_credits');
+  } catch (error) {
+    // Silently fail - refill check is optional, don't block credit fetch
+    console.debug('Credit refill check failed (non-critical):', error);
+  }
+
   const { data, error } = await supabase
     .from('user_credits')
     .select('*')

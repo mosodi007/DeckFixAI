@@ -21,6 +21,7 @@ import { AffiliateProgramPage } from './components/partnerships/AffiliateProgram
 import { CreatorsPage } from './components/partnerships/CreatorsPage';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { NotificationBell } from './components/NotificationBell';
+import { MobileMenu } from './components/MobileMenu';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Footer } from './components/Footer';
 import { LoginModal } from './components/auth/LoginModal';
@@ -29,11 +30,13 @@ import { getAnalysis, getMostRecentAnalysis } from './services/analysisService';
 import { analyzeSlides } from './services/slideAnalysisService';
 import { adaptAnalysisData } from './utils/dataAdapter';
 import { useAuth } from './contexts/AuthContext';
+import { useCredits } from './contexts/CreditContext';
 import { logout } from './services/authService';
 import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
   const { user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
+  const { balance: creditBalance } = useCredits();
   const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history' | 'referrals' | 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support' | 'affiliate' | 'creators'>('upload');
 
   // Scroll to top when view changes
@@ -463,7 +466,8 @@ function App() {
               />
             </button>
 
-            <div className="flex items-center gap-3">
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center gap-3">
               {isAuthenticated ? (
                 <>
                   <div className="flex items-center gap-3 ml-auto">
@@ -656,6 +660,57 @@ function App() {
                 </div>
                 </>
               )}
+            </div>
+
+            {/* Mobile Navigation */}
+            <div className="flex lg:hidden items-center gap-2">
+              {isAuthenticated && (
+                <>
+                  <CreditBalanceIndicator onViewHistory={() => setView('credits')} compact />
+                  <NotificationBell onNotificationClick={async (link: string) => {
+                    if (link && link.includes('analysisId=')) {
+                      const params = new URLSearchParams(link.split('?')[1] || '');
+                      const analysisId = params.get('analysisId');
+                      if (analysisId) {
+                        await handleViewAnalysis(analysisId);
+                      } else {
+                        setView('dashboard');
+                      }
+                    } else if (link && link.startsWith('/dashboard')) {
+                      setView('dashboard');
+                    } else if (link && link.startsWith('/')) {
+                      const viewName = link.substring(1);
+                      if (['dashboard', 'credits', 'referrals'].includes(viewName)) {
+                        setView(viewName as any);
+                      }
+                    }
+                  }} />
+                </>
+              )}
+              <MobileMenu
+                isAuthenticated={isAuthenticated}
+                user={user}
+                userProfile={userProfile}
+                creditBalance={creditBalance}
+                onNavigate={(v) => setView(v as any)}
+                onLogin={() => setShowLoginModal(true)}
+                onSignUp={() => setShowSignUpModal(true)}
+                onLogout={handleLogout}
+                onScrollToSection={(sectionId) => {
+                  const element = document.getElementById(sectionId);
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  } else {
+                    setView('upload');
+                    setTimeout(() => {
+                      const el = document.getElementById(sectionId);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }, 100);
+                  }
+                }}
+              />
             </div>
           </div>
         </div>

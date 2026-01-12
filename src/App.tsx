@@ -10,6 +10,13 @@ import { CreditHistoryView } from './components/CreditHistoryView';
 import { UsageHistoryView } from './components/UsageHistoryView';
 import { ReferralView } from './components/ReferralView';
 import { ReferralWelcomeModal } from './components/ReferralWelcomeModal';
+import { CookieConsent } from './components/CookieConsent';
+import { PrivacyPolicy } from './components/policies/PrivacyPolicy';
+import { TermsAndConditions } from './components/policies/TermsAndConditions';
+import { RefundPolicy } from './components/policies/RefundPolicy';
+import { CookiePolicy } from './components/policies/CookiePolicy';
+import { FAQPage } from './components/support/FAQPage';
+import { HelpSupportPage } from './components/support/HelpSupportPage';
 import { CreditBalanceIndicator } from './components/CreditBalanceIndicator';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Footer } from './components/Footer';
@@ -24,7 +31,12 @@ import { useGoogleOneTap } from './hooks/useGoogleOneTap';
 
 function App() {
   const { user, userProfile, isAuthenticated, loading: authLoading } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history' | 'referrals'>('upload');
+  const [view, setView] = useState<'dashboard' | 'upload' | 'analysis' | 'improvement' | 'pricing' | 'credits' | 'usage-history' | 'referrals' | 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support'>('upload');
+
+  // Scroll to top when view changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [view]);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzingSlides, setIsAnalyzingSlides] = useState(false);
@@ -406,7 +418,6 @@ function App() {
                       rel="noopener noreferrer"
                       className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5"
                     >
-                      <Calendar className="w-4 h-4" />
                       Book a demo
                     </a>
                     <button
@@ -464,6 +475,18 @@ function App() {
           <UsageHistoryView onBack={() => setView('credits')} />
         ) : view === 'referrals' ? (
           <ReferralView onBack={() => setView('credits')} />
+        ) : view === 'privacy' ? (
+          <PrivacyPolicy onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'terms' ? (
+          <TermsAndConditions onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'refund' ? (
+          <RefundPolicy onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'cookies' ? (
+          <CookiePolicy onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'faq' ? (
+          <FAQPage onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
+        ) : view === 'help-support' ? (
+          <HelpSupportPage onBack={() => setView(isAuthenticated ? 'dashboard' : 'upload')} />
         ) : view === 'dashboard' ? (
           <DashboardView
             onViewAnalysis={handleViewAnalysis}
@@ -493,7 +516,7 @@ function App() {
         )}
       </main>
 
-      {!isAuthenticated && <Footer />}
+      {!isAuthenticated && <Footer onNavigate={(view) => setView(view)} />}
 
       {showLoginModal && (
         <LoginModal
@@ -526,6 +549,8 @@ function App() {
           referralCodeFromUrl={referralCodeFromUrl}
         />
       )}
+
+      <CookieConsent />
     </div>
   );
 }

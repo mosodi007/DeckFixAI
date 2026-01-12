@@ -6,7 +6,7 @@ export function HowItWorksSection() {
       number: 1,
       icon: Upload,
       title: 'Upload Your Pitch Deck',
-      description: 'Simply drag and drop your PDF pitch deck or choose a file. Our system accepts PDF files up to 50MB. No account needed to get started.',
+      description: 'Simply drag and drop your PDF pitch deck or choose a file. Our system accepts PDF files up to 50MB. Get started in seconds.',
     },
     {
       number: 2,
@@ -33,11 +33,11 @@ export function HowItWorksSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">
             How It Works
           </h2>
           <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-            Transform your pitch deck into an investor-ready presentation in just four simple steps
+            Transform your pitch deck in just four simple steps
           </p>
         </div>
 
@@ -76,15 +76,12 @@ export function HowItWorksSection() {
                     </div>
 
                     {/* Icon */}
-                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mb-8">
-                      <Icon className="w-8 h-8 text-slate-900" />
-                    </div>
 
                     {/* Content */}
-                    <h3 className="text-2xl font-bold text-slate-900 mb-4">
+                    <h3 className="text-xl font-semibold text-slate-900 mb-4">
                       {step.title}
                     </h3>
-                    <p className="text-slate-600 leading-relaxed text-lg">
+                    <p className="text-slate-600 leading-relaxed text-md">
                       {step.description}
                     </p>
                   </div>
@@ -131,22 +128,18 @@ export function HowItWorksSection() {
         <div className="mt-16 text-center">
           <div className="bg-slate-900 rounded-2xl p-12 text-white">
             <h3 className="text-3xl font-bold mb-4">
-              Ready to Make Your Pitch Deck Investor-Ready?
+              Ready to get started?
             </h3>
             <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
               Join hundreds of startups using DeckFix to improve their pitch decks and increase their chances of securing funding.
             </p>
             <button
               onClick={() => {
-                const element = document.getElementById('upload');
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
+                window.location.href = '/signup';
               }}
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all hover:scale-105 shadow-lg"
             >
-              <Upload className="w-5 h-5" />
-              Upload Your Pitch Deck Now
+              Get Started
             </button>
           </div>
         </div>

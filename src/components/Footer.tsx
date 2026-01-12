@@ -1,6 +1,16 @@
 import { Mail, MapPin, Phone, Heart, Facebook, Twitter, Linkedin, Instagram, Youtube } from 'lucide-react';
 
-export function Footer() {
+interface FooterProps {
+  onNavigate?: (view: 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support') => void;
+}
+
+export function Footer({ onNavigate }: FooterProps = {}) {
+  const handleNavigate = (view: 'privacy' | 'terms' | 'refund' | 'cookies' | 'faq' | 'help-support') => {
+    // Scroll to top of the page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Call the navigation callback
+    onNavigate?.(view);
+  };
   return (
     <footer className="bg-slate-900 text-white border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
@@ -78,35 +88,47 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Resources</h3>
             <ul className="space-y-3">
-              <li>
+              {/* <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
                   Startup Stories
                 </a>
-              </li>
+              </li> */}
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
                   Blog
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('privacy')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Privacy
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('terms')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Terms & Conditions
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('refund')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Refund Policy
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('cookies')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Cookie Policy
-                </a>
+                </button>
               </li>
             </ul>
           </div>
@@ -116,20 +138,22 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Support</h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('faq')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   FAQ
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <button
+                  onClick={() => handleNavigate('help-support')}
+                  className="text-slate-400 hover:text-white transition-colors text-sm text-left"
+                >
                   Help & Support
-                </a>
+                </button>
               </li>
-              <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Contacts
-                </a>
-              </li>
+              
             </ul>
           </div>
 

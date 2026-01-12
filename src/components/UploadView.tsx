@@ -232,7 +232,7 @@ export function UploadView({ onAnalysisComplete, isAuthenticated }: UploadViewPr
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-12">
             <h1 className="text-3xl md:text-6xl font-semibold text-slate-900 mb-4 tracking-tighter">
-              Make your Startup pitch deck 'Investor-Ready' in minutes
+              Make your startup pitch deck 'Investor-Ready' in minutes
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
             DeckFix is an advanced AI, trained on thousands of successful pitch decks from funded startups. Get instant feedback on what investors look for, apply the instant fixes from DeckFix and save yourself hours and thousands of dollars.

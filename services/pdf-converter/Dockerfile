@@ -1,6 +1,6 @@
 FROM node:18
 
-# Install poppler-utils (required for pdf-poppler)
+# Install poppler-utils (provides pdftoppm and pdfinfo commands)
 RUN apt-get update && apt-get install -y poppler-utils && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

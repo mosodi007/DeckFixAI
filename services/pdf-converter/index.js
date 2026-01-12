@@ -1,10 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const pdf = require('pdf-poppler');
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
+const { exec } = require('child_process');
+const execAsync = promisify(exec);
 const unlink = promisify(fs.unlink);
 const readFile = promisify(fs.readFile);
 require('dotenv').config();
@@ -63,9 +64,18 @@ app.post('/convert', upload.single('pdf'), async (req, res) => {
     // Write PDF buffer to temporary file
     fs.writeFileSync(tempPdfPath, req.file.buffer);
 
-    // Get PDF info to check page count
-    const pdfInfo = await pdf.getInfo(tempPdfPath);
-    const pageCount = pdfInfo.pages || 0;
+    // Get PDF info to check page count using pdfinfo
+    let pageCount = 0;
+    try {
+      const { stdout } = await execAsync(`pdfinfo "${tempPdfPath}"`);
+      const pagesMatch = stdout.match(/Pages:\s*(\d+)/i);
+      if (pagesMatch) {
+        pageCount = parseInt(pagesMatch[1], 10);
+      }
+    } catch (error) {
+      // If pdfinfo fails, try to convert and count pages
+      console.warn('pdfinfo failed, will determine page count from conversion:', error.message);
+    }
 
     if (pageCount > MAX_PAGES) {
       return res.status(400).json({ 
@@ -73,28 +83,43 @@ app.post('/convert', upload.single('pdf'), async (req, res) => {
       });
     }
 
-    if (pageCount === 0) {
-      return res.status(400).json({ error: 'PDF has no pages' });
+    // Convert PDF pages to images using pdftoppm (direct poppler command)
+    // This is more reliable than pdf-poppler package which has platform detection issues
+    const outputPrefix = path.join(tempDir, 'page');
+    try {
+      // Use pdftoppm to convert PDF to JPEG images
+      // -jpeg: output format
+      // -r 150: resolution (we'll resize with sharp anyway)
+      // -scale-to-x 1400 -scale-to-y 1400: scale to max dimension (sharp will handle final resize)
+      // pdftoppm outputs files as: prefix-01.jpg, prefix-02.jpg, etc.
+      await execAsync(`pdftoppm -jpeg -r 150 -scale-to-x ${MAX_DIMENSION} -scale-to-y ${MAX_DIMENSION} ${tempPdfPath} ${outputPrefix}`, {
+        cwd: tempDir,
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large PDFs
+      });
+      
+      // If pageCount wasn't determined, count the generated files
+      if (pageCount === 0) {
+        const files = fs.readdirSync(tempDir).filter(f => f.startsWith('page-') && f.endsWith('.jpg'));
+        pageCount = files.length;
+      }
+    } catch (error) {
+      console.error('pdftoppm error:', error);
+      throw new Error(`PDF conversion failed: ${error.message}`);
     }
 
-    // Convert PDF pages to images
-    const options = {
-      format: 'jpeg',
-      out_dir: tempDir,
-      out_prefix: 'page',
-      page: null, // Convert all pages
-      scale: 1.0, // We'll resize with sharp
-    };
-
-    await pdf.convert(tempPdfPath, options);
+    if (pageCount === 0) {
+      return res.status(400).json({ error: 'PDF has no pages or conversion failed' });
+    }
 
     // Process images: resize and optimize
+    // pdftoppm outputs files as: page-01.jpg, page-02.jpg, etc.
     const imageBuffers = [];
     const imageFiles = fs.readdirSync(tempDir)
-      .filter(file => file.startsWith('page') && file.endsWith('.jpg'))
+      .filter(file => file.startsWith('page-') && file.endsWith('.jpg'))
       .sort((a, b) => {
-        const numA = parseInt(a.match(/\d+/)?.[0] || '0');
-        const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+        // Extract page number from filename (e.g., "page-01.jpg" -> 1)
+        const numA = parseInt(a.match(/-(\d+)\./)?.[1] || '0', 10);
+        const numB = parseInt(b.match(/-(\d+)\./)?.[1] || '0', 10);
         return numA - numB;
       });
 
@@ -127,8 +152,10 @@ app.post('/convert', upload.single('pdf'), async (req, res) => {
         })
         .toBuffer();
 
+      // Extract page number from filename (e.g., "page-01.jpg" -> 1)
+      const pageNum = parseInt(imageFile.match(/-(\d+)\./)?.[1] || '0', 10);
       imageBuffers.push({
-        pageNumber: parseInt(imageFile.match(/\d+/)?.[0] || '0'),
+        pageNumber: pageNum,
         buffer: optimizedBuffer,
         width: targetWidth,
         height: targetHeight,

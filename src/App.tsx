@@ -69,6 +69,27 @@ function App() {
     }
   }, []);
 
+  // Handle email verification from link
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const verified = urlParams.get('verified');
+    const token = urlParams.get('token');
+    const type = urlParams.get('type');
+    
+    // Check if this is a verification callback
+    if (verified === 'true' || (token && type === 'signup')) {
+      // Check if user is authenticated
+      if (isAuthenticated && user) {
+        // Refresh user data to get updated verification status
+        window.location.reload();
+      } else {
+        // User needs to sign in first, then verification will complete
+        // Show a message or redirect to login
+        setShowLoginModal(true);
+      }
+    }
+  }, [isAuthenticated, user]);
+
   useEffect(() => {
     if (isAuthenticated) {
       setView('dashboard');

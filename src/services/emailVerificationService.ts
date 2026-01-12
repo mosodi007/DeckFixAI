@@ -13,7 +13,28 @@ export async function sendVerificationEmail(): Promise<{ success: boolean; error
       return { success: false, error: 'User not authenticated' };
     }
 
-    if (user.email_confirmed_at) {
+    // Check if user is Google OAuth (always verified)
+    const userMetadata = (user as any).app_metadata || (user as any).raw_app_meta_data || {};
+    const isGoogleOAuth = userMetadata?.provider === 'google';
+    
+    if (isGoogleOAuth) {
+      return { success: false, error: 'Email is already verified' };
+    }
+
+    // For email/password users, check is_verified from user_profiles (source of truth)
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('is_verified')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      // Fallback to email_confirmed_at if profile check fails
+      if (user.email_confirmed_at) {
+        return { success: false, error: 'Email is already verified' };
+      }
+    } else if (profile?.is_verified === true) {
       return { success: false, error: 'Email is already verified' };
     }
 

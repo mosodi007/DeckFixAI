@@ -492,7 +492,7 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
                   disabled={sendingVerification}
                   className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  {sendingVerification ? 'Sending...' : 'Verify your email'}
+                  {sendingVerification ? 'Sending...' : 'Resend Verification Email'}
                 </button>
               </div>
             </div>

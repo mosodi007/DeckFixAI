@@ -38,11 +38,30 @@ export async function signUp(data: SignUpData): Promise<{ user: User | null; err
     password: data.password,
     options: {
       data: userMetadata,
+      emailRedirectTo: `${window.location.origin}/auth/verify-email?verified=true`,
     },
   });
 
   if (error) {
     return { user: null, error: new Error(error.message) };
+  }
+
+  // Automatically send verification email via our custom Resend template
+  // Supabase's signUp already sends a default email, but we want to send our custom branded one
+  if (authData.user && !authData.user.email_confirmed_at) {
+    // Send our custom verification email via Edge Function
+    // The Edge Function will use Supabase's admin API to generate a proper verification link
+    supabase.functions.invoke('send-verification-email', {
+      body: {
+        email: data.email,
+        userId: authData.user.id,
+        token: 'auto-send', // Signal that this is automatic on signup
+      },
+    }).catch((err) => {
+      console.error('Failed to send verification email:', err);
+      // Don't throw - email failure shouldn't block signup
+      // Supabase's default email will still be sent
+    });
   }
 
   // Send welcome email (fire and forget - don't block signup if it fails)

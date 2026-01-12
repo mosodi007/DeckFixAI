@@ -55,20 +55,58 @@ export async function signUp(data: SignUpData): Promise<{ user: User | null; err
     
     // Only send verification email for email/password signups
     if (!isGoogleOAuth) {
+      console.log('Sending verification email for new email/password signup:', data.email);
+      
       // Send our custom verification email via Edge Function
       // The Edge Function will use Supabase's admin API to generate a proper verification link
-      supabase.functions.invoke('send-verification-email', {
-        body: {
-          email: data.email,
-          userId: authData.user.id,
-          token: 'auto-send', // Signal that this is automatic on signup
-        },
-      }).catch((err) => {
-        console.error('Failed to send verification email:', err);
-        // Don't throw - email failure shouldn't block signup
-        // Supabase's default email will still be sent
-      });
+      try {
+        const { data: functionData, error: functionError } = await supabase.functions.invoke('send-verification-email', {
+          body: {
+            email: data.email,
+            userId: authData.user.id,
+            token: 'auto-send', // Signal that this is automatic on signup
+          },
+        });
+
+        if (functionError) {
+          console.error('Failed to send verification email via Edge Function:', functionError);
+          // Fallback: Use Supabase's default email sending
+          const { error: resendError } = await supabase.auth.resend({
+            type: 'signup',
+            email: data.email,
+          });
+          
+          if (resendError) {
+            console.error('Failed to send verification email via Supabase default:', resendError);
+          } else {
+            console.log('Verification email sent via Supabase default email');
+          }
+        } else {
+          console.log('Verification email sent successfully via Edge Function');
+        }
+      } catch (err) {
+        console.error('Error sending verification email:', err);
+        // Fallback: Use Supabase's default email sending
+        try {
+          const { error: resendError } = await supabase.auth.resend({
+            type: 'signup',
+            email: data.email,
+          });
+          
+          if (resendError) {
+            console.error('Failed to send verification email via Supabase default:', resendError);
+          } else {
+            console.log('Verification email sent via Supabase default email (fallback)');
+          }
+        } catch (fallbackErr) {
+          console.error('Failed to send verification email via fallback:', fallbackErr);
+        }
+      }
+    } else {
+      console.log('Skipping verification email for Google OAuth user');
     }
+  } else {
+    console.log('Skipping verification email - user already confirmed or no user returned');
   }
 
   // Note: Welcome email is now sent when email is verified (not on signup)

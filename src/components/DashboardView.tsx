@@ -240,6 +240,11 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
     }
   }, [user]);
 
+  // Track previous analysis statuses to detect newly completed analyses
+  const previousAnalysisStatuses = useRef<Map<string, 'pending' | 'processing' | 'completed' | 'failed'>>(new Map());
+  // Track which analyses we've already auto-opened to prevent duplicate navigation
+  const autoOpenedAnalysisIds = useRef<Set<string>>(new Set());
+
   // Memoize pending/processing analyses to prevent unnecessary re-renders
   const pendingOrProcessingAnalyses = useMemo(() => {
     return analyses.filter(a => a.status === 'pending' || a.status === 'processing');
@@ -258,6 +263,33 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
       }
     }
   }, [analyses.length, loading, showUploader]);
+
+  // Detect newly completed analyses and auto-open them
+  useEffect(() => {
+    // Check for analyses that just transitioned from pending/processing to completed
+    analyses.forEach((analysis) => {
+      const previousStatus = previousAnalysisStatuses.current.get(analysis.id);
+      const currentStatus = analysis.status;
+
+      // If analysis just completed (was pending/processing, now completed)
+      // and we haven't already auto-opened it
+      if (
+        previousStatus &&
+        (previousStatus === 'pending' || previousStatus === 'processing') &&
+        currentStatus === 'completed' &&
+        !autoOpenedAnalysisIds.current.has(analysis.id)
+      ) {
+        console.log('Analysis completed, auto-opening:', analysis.id);
+        // Mark as auto-opened to prevent duplicate navigation
+        autoOpenedAnalysisIds.current.add(analysis.id);
+        // Auto-open the analysis view
+        onViewAnalysis(analysis.id);
+      }
+
+      // Update the previous status
+      previousAnalysisStatuses.current.set(analysis.id, currentStatus);
+    });
+  }, [analyses, onViewAnalysis]);
 
   // Poll for status updates on pending/processing analyses
   useEffect(() => {
@@ -307,6 +339,13 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
         status: (item.status || 'completed') as 'pending' | 'processing' | 'completed' | 'failed',
         critical_issues_count: 0,
       }));
+
+      // Initialize previousAnalysisStatuses if this is the first load
+      if (previousAnalysisStatuses.current.size === 0) {
+        formattedAnalyses.forEach(analysis => {
+          previousAnalysisStatuses.current.set(analysis.id, analysis.status);
+        });
+      }
 
       setAnalyses(formattedAnalyses);
       

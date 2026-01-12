@@ -26,6 +26,7 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   const resumeCheckedRef = useRef(false);
+  const estimatedTotalTimeRef = useRef<number | null>(null); // Store estimated total time in seconds
 
   // Check for incomplete uploads on mount and resume them
   useEffect(() => {
@@ -76,28 +77,14 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
             (progress) => {
               setAnalysisProgress(progress);
               
-              // Calculate estimated time remaining for resumed uploads
+              // Calculate estimated total time for resumed uploads
               const currentStartTime = startTimeRef.current;
               if (currentStartTime && progress.currentPage > 0 && progress.totalPages > 0) {
                 const elapsed = (Date.now() - currentStartTime) / 1000; // seconds
                 const progressPercent = progress.currentPage / progress.totalPages;
                 
                 if (progressPercent > 0) {
-                  const estimatedTotal = elapsed / progressPercent;
-                  const remaining = estimatedTotal - elapsed;
-                  
-                  if (remaining > 0) {
-                    const minutes = Math.floor(remaining / 60);
-                    const seconds = Math.floor(remaining % 60);
-                    
-                    if (minutes > 0) {
-                      setEstimatedTimeRemaining(`${minutes}m ${seconds}s remaining`);
-                    } else {
-                      setEstimatedTimeRemaining(`${seconds}s remaining`);
-                    }
-                  } else {
-                    setEstimatedTimeRemaining('Almost done...');
-                  }
+                  estimatedTotalTimeRef.current = elapsed / progressPercent;
                 }
               }
             }
@@ -109,6 +96,7 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
           setStartTime(null);
           startTimeRef.current = null;
           setEstimatedTimeRemaining(null);
+          estimatedTotalTimeRef.current = null;
           
           // Just reload the list - don't navigate to analysis view
           if (onUploadComplete) {
@@ -124,12 +112,48 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
           setStartTime(null);
           startTimeRef.current = null;
           setEstimatedTimeRemaining(null);
+          estimatedTotalTimeRef.current = null;
         }
       }
     };
 
     checkAndResumeUploads();
   }, [user, onUploadComplete, onAnalysisComplete]);
+
+  // Continuous countdown timer for estimated time remaining
+  useEffect(() => {
+    if (!isUploading || !startTimeRef.current || !estimatedTotalTimeRef.current) {
+      return;
+    }
+
+    const updateCountdown = () => {
+      const currentStartTime = startTimeRef.current;
+      if (!currentStartTime || !estimatedTotalTimeRef.current) return;
+
+      const elapsed = (Date.now() - currentStartTime) / 1000; // seconds
+      const remaining = estimatedTotalTimeRef.current - elapsed;
+
+      if (remaining > 0) {
+        const minutes = Math.ceil(remaining / 60); // Round up to nearest minute
+        
+        if (minutes > 1) {
+          setEstimatedTimeRemaining(`${minutes} minutes remaining`);
+        } else {
+          setEstimatedTimeRemaining('Less than 1 minute remaining');
+        }
+      } else {
+        setEstimatedTimeRemaining('Almost done...');
+      }
+    };
+
+    // Update immediately
+    updateCountdown();
+
+    // Then update every second
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [isUploading, analysisProgress?.currentPage, analysisProgress?.totalPages]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -253,28 +277,14 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
       await startBackgroundAnalysis(file, analysisId, imageUrls, (progress) => {
         setAnalysisProgress(progress);
         
-        // Calculate estimated time remaining
+        // Calculate estimated total time
         const currentStartTime = startTimeRef.current;
         if (currentStartTime && progress.currentPage > 0 && progress.totalPages > 0) {
           const elapsed = (Date.now() - currentStartTime) / 1000; // seconds
           const progressPercent = progress.currentPage / progress.totalPages;
           
           if (progressPercent > 0) {
-            const estimatedTotal = elapsed / progressPercent;
-            const remaining = estimatedTotal - elapsed;
-            
-            if (remaining > 0) {
-              const minutes = Math.floor(remaining / 60);
-              const seconds = Math.floor(remaining % 60);
-              
-              if (minutes > 0) {
-                setEstimatedTimeRemaining(`${minutes}m ${seconds}s remaining`);
-              } else {
-                setEstimatedTimeRemaining(`${seconds}s remaining`);
-              }
-            } else {
-              setEstimatedTimeRemaining('Almost done...');
-            }
+            estimatedTotalTimeRef.current = elapsed / progressPercent;
           }
         }
       });
@@ -287,6 +297,7 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
       setStartTime(null);
       startTimeRef.current = null;
       setEstimatedTimeRemaining(null);
+      estimatedTotalTimeRef.current = null;
       
       // Just reload the list - don't navigate to analysis view
       // Toast and notification will be shown via NotificationBell component
@@ -303,6 +314,7 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
       setStartTime(null);
       startTimeRef.current = null;
       setEstimatedTimeRemaining(null);
+      estimatedTotalTimeRef.current = null;
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload deck. Please try again.';
       alert(errorMessage);
     }

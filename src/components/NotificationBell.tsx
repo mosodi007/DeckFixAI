@@ -28,6 +28,7 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const previousNotificationIds = useRef<Set<string>>(new Set());
+  const autoNavigatedNotificationIds = useRef<Set<string>>(new Set());
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -77,11 +78,26 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
         }
       });
 
-      // Show toasts for new notifications
+      // Show toasts for new notifications and auto-navigate for analysis_complete
       notificationsToShow.forEach((notification) => {
         console.log('Showing toast for notification:', notification.type, notification.message);
         if (notification.type === 'analysis_complete') {
           showSuccess(notification.message, 8000); // Longer duration for analysis complete
+          
+          // Auto-navigate to analysis view when analysis completes (only once per notification)
+          if (
+            notification.link && 
+            onNotificationClick && 
+            !autoNavigatedNotificationIds.current.has(notification.id)
+          ) {
+            // Mark as auto-navigated to prevent duplicate navigation
+            autoNavigatedNotificationIds.current.add(notification.id);
+            
+            // Small delay to ensure toast is visible before navigation
+            setTimeout(() => {
+              onNotificationClick(notification.link!);
+            }, 500);
+          }
         } else if (notification.type === 'analysis_failed') {
           showError(notification.message, 6000);
         } else if (notification.type === 'subscription_renewal') {

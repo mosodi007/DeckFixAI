@@ -5,6 +5,20 @@ publish = "dist"
 [build.environment]
 NODE_VERSION = "18"
 
+# Exclude static files from SPA redirect
+[[redirects]]
+from = "/sitemap.xml"
+to = "/sitemap.xml"
+status = 200
+force = true
+
+[[redirects]]
+from = "/robots.txt"
+to = "/robots.txt"
+status = 200
+force = true
+
+# SPA fallback - must be last
 [[redirects]]
 from = "/*"
 to = "/index.html"

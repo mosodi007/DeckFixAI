@@ -55,7 +55,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         priority: 'high',
         title: breaker.title,
         description: breaker.description,
-        recommendation: breaker.recommendation,
+        // recommendation: breaker.recommendation,
         pageNumber: null,
         impact: 'This is a critical issue that makes the deck uninvestable. Must be fixed before approaching investors.',
       })),
@@ -623,7 +623,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                         </div>
                       )}
 
-                      {hasRecommendations && (
+                      {/* {hasRecommendations && (
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
                           <h3 className="font-bold text-[#000] mb-3 text-sm tracking-wide">
                             Recommendations
@@ -639,7 +639,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                             ))}
                           </ul>
                         </div>
-                      )}
+                      )} */}
                     </div>
                   );
                 }

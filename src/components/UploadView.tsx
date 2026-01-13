@@ -216,38 +216,7 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
             <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-6">
             DeckFix is an advanced AI, trained on thousands of successful pitch decks from funded startups. Get instant feedback on what investors look for, apply the instant fixes from DeckFix and save yourself hours and thousands of dollars.
             </p>
-            <div className="flex justify-center items-center gap-4 flex-wrap">
-              <a 
-                href="https://www.producthunt.com/products/deckfix/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-deckfix" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-block transition-transform hover:scale-105"
-              >
-                <img 
-                  src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1148441&theme=light" 
-                  alt="DeckFix AI - AI Pitch Deck Analyzer & Fixer | Product Hunt" 
-                  style={{ width: '250px', height: '54px' }} 
-                  width="250" 
-                  height="54" 
-                />
-              </a>
-              <a 
-                href="https://www.trustpilot.com/review/deckfix.ai" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-3 bg-[#000] text-white rounded-lg font-semibold hover:bg-[#00a870] transition-all hover:scale-105 shadow-sm"
-                style={{ minWidth: '200px', height: '54px' }}
-              >
-                <svg 
-                  className="w-5 h-5 mr-2" 
-                  viewBox="0 0 24 24" 
-                  fill="currentColor"
-                >
-                  <path d="M12 0L8.5 8.5L0 9.5L6.5 15.5L4.5 24L12 19.5L19.5 24L17.5 15.5L24 9.5L15.5 8.5L12 0Z"/>
-                </svg>
-                <span className="text-sm">Rate us on TrustPilot</span>
-              </a>
-            </div>
+            
             
           </header>
 
@@ -313,6 +282,38 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
                   </>
                 )}
               </div>
+            </div>
+            <div className="flex justify-center items-center mb-10 gap-4 flex-wrap">
+              <a 
+                href="https://www.producthunt.com/products/deckfix/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-deckfix" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-block transition-transform hover:scale-105"
+              >
+                <img 
+                  src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1148441&theme=light" 
+                  alt="DeckFix AI - AI Pitch Deck Analyzer & Fixer | Product Hunt" 
+                  style={{ width: '250px', height: '54px' }} 
+                  width="250" 
+                  height="54" 
+                />
+              </a>
+              <a 
+                href="https://www.trustpilot.com/review/deckfix.ai" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center px-6 py-3 bg-[#000] text-white rounded-lg font-semibold hover:bg-[#00a870] transition-all hover:scale-105 shadow-sm"
+                style={{ minWidth: '200px', height: '54px' }}
+              >
+                <svg 
+                  className="w-5 h-5 mr-2" 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
+                >
+                  <path d="M12 0L8.5 8.5L0 9.5L6.5 15.5L4.5 24L12 19.5L19.5 24L17.5 15.5L24 9.5L15.5 8.5L12 0Z"/>
+                </svg>
+                <span className="text-sm">Rate us on TrustPilot</span>
+              </a>
             </div>
 
             {/* <div className="bg-slate-50 border-t border-slate-200 px-12 py-8">

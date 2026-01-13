@@ -759,11 +759,14 @@ function App() {
           <DashboardView
             onViewAnalysis={handleViewAnalysis}
             onNewUpload={() => setView('upload')}
+            onUpgrade={() => setView('pricing')}
+            onEarnCredits={() => setView('referrals')}
           />
         ) : view === 'upload' ? (
           <UploadView
             onAnalysisComplete={handleAnalysisComplete}
             isAuthenticated={isAuthenticated}
+            onNavigate={(view) => setView(view as any)}
           />
         ) : view === 'analysis' ? (
           <AnalysisView
@@ -780,6 +783,8 @@ function App() {
             isAnalyzing={isAnalyzingSlides}
             isAuthenticated={isAuthenticated}
             onSignUpClick={() => setShowSignUpModal(true)}
+            onUpgrade={() => setView('pricing')}
+            onEarnCredits={() => setView('referrals')}
           />
         )}
       </main>

@@ -5,6 +5,7 @@ import { IssueCard } from './improvement/IssueCard';
 import { SlideViewer } from './improvement/SlideViewer';
 import { SlideFeedbackModal } from './improvement/SlideFeedbackModal';
 import { FixSlideModal } from './improvement/FixSlideModal';
+import { InsufficientCreditsModal } from './InsufficientCreditsModal';
 import { generateSlideFix, generateIssueFix, GeneratedFix, getSlideFixes, SlideFix } from '../services/aiFixService';
 import { getUserCreditBalance } from '../services/creditService';
 import { useCredits } from '../contexts/CreditContext';
@@ -17,9 +18,11 @@ interface ImprovementFlowViewProps {
   isAnalyzing?: boolean;
   isAuthenticated: boolean;
   onSignUpClick: () => void;
+  onUpgrade?: () => void;
+  onEarnCredits?: () => void;
 }
 
-export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick }: ImprovementFlowViewProps) {
+export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthenticated, onSignUpClick, onUpgrade, onEarnCredits }: ImprovementFlowViewProps) {
   const { refreshCredits } = useCredits();
   const [selectedPage, setSelectedPage] = useState(0);
   const [filterType, setFilterType] = useState<string>('all');
@@ -28,6 +31,8 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [generatedFix, setGeneratedFix] = useState<{ fix: GeneratedFix; fixId: string; issueTitle?: string } | null>(null);
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
+  const [showInsufficientCreditsModal, setShowInsufficientCreditsModal] = useState(false);
+  const [insufficientCreditsData, setInsufficientCreditsData] = useState<{ currentBalance: number; requiredCredits: number } | null>(null);
   const [generatingIssueIndex, setGeneratingIssueIndex] = useState<number | null>(null);
   const [currentBalance, setCurrentBalance] = useState(0);
   const [slideCostEstimates, setSlideCostEstimates] = useState<Record<number, number>>({});
@@ -252,7 +257,11 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         if (result.requiresAuth) {
           onSignUpClick();
         } else if (result.requiresUpgrade) {
-          setFixError(`Insufficient credits. You need ${result.requiredCredits} credits but only have ${result.currentBalance}.`);
+          setInsufficientCreditsData({
+            currentBalance: result.currentBalance || 0,
+            requiredCredits: result.requiredCredits || 0,
+          });
+          setShowInsufficientCreditsModal(true);
         } else {
           setFixError(result.error || 'Failed to generate fix');
         }
@@ -339,7 +348,11 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         
         // Handle insufficient credits
         if (result.requiresUpgrade) {
-          alert(`Insufficient credits. You need ${result.requiredCredits} credits but only have ${result.currentBalance}. Please upgrade your plan.`);
+          setInsufficientCreditsData({
+            currentBalance: result.currentBalance || 0,
+            requiredCredits: result.requiredCredits || 0,
+          });
+          setShowInsufficientCreditsModal(true);
           return;
         }
         
@@ -746,6 +759,27 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
         />
       )}
 
+      {showInsufficientCreditsModal && insufficientCreditsData && (
+        <InsufficientCreditsModal
+          isOpen={showInsufficientCreditsModal}
+          onClose={() => {
+            setShowInsufficientCreditsModal(false);
+            setInsufficientCreditsData(null);
+          }}
+          currentBalance={insufficientCreditsData.currentBalance}
+          requiredCredits={insufficientCreditsData.requiredCredits}
+          onUpgrade={() => {
+            if (onUpgrade) {
+              onUpgrade();
+            }
+          }}
+          onEarnCredits={() => {
+            if (onEarnCredits) {
+              onEarnCredits();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

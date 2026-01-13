@@ -470,9 +470,32 @@ export async function startBackgroundAnalysis(
     throw new Error('No access token available');
   }
 
-  // Deduct credits upfront
+  // Check credits BEFORE deducting
   const creditCost = totalPages;
   try {
+    // First, check if user has sufficient credits
+    const { data: creditData, error: creditCheckError } = await supabase
+      .from('user_credits')
+      .select('credits_balance')
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (creditCheckError || !creditData) {
+      throw new Error('Unable to fetch credit balance');
+    }
+
+    if (creditData.credits_balance < creditCost) {
+      await supabase
+        .from('analyses')
+        .update({ 
+          status: 'failed', 
+          error_message: `Insufficient credits. Need ${creditCost} credits but only have ${creditData.credits_balance}.` 
+        })
+        .eq('id', analysisId);
+      throw new Error(`Insufficient credits. You need ${creditCost} credits but only have ${creditData.credits_balance}.`);
+    }
+
+    // Now deduct credits
     const { error: deductError } = await supabase.rpc('deduct_credits', {
       p_user_id: session.user.id,
       p_amount: creditCost,

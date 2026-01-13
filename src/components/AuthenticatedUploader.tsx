@@ -7,13 +7,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../contexts/CreditContext';
 import { getAllActiveUploadStates, removeUploadState } from '../services/uploadPersistenceService';
 import { supabase } from '../services/analysisService';
+import { InsufficientCreditsModal } from './InsufficientCreditsModal';
 
 interface AuthenticatedUploaderProps {
   onUploadComplete?: () => void;
   onAnalysisComplete?: (analysisId: string) => void;
+  onUpgrade?: () => void;
+  onEarnCredits?: () => void;
 }
 
-export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: AuthenticatedUploaderProps) {
+export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete, onUpgrade, onEarnCredits }: AuthenticatedUploaderProps) {
   const { user } = useAuth();
   const { refreshCredits } = useCredits();
   const [isDragging, setIsDragging] = useState(false);
@@ -22,6 +25,8 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
+  const [showInsufficientCreditsModal, setShowInsufficientCreditsModal] = useState(false);
+  const [insufficientCreditsData, setInsufficientCreditsData] = useState<{ currentBalance: number; requiredCredits: number } | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
@@ -245,6 +250,29 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
         throw new Error('PDF must have 20 pages or less');
       }
 
+      // Step 1.5: Check credits BEFORE creating analysis record
+      const { getUserCreditBalance, hasSufficientCredits } = await import('../services/creditService');
+      const creditBalance = await getUserCreditBalance();
+      const creditCost = pageImages.length; // 1 credit per page
+      
+      if (!creditBalance) {
+        throw new Error('Unable to fetch credit balance. Please try again.');
+      }
+
+      if (creditBalance.creditsBalance < creditCost) {
+        setIsUploading(false);
+        setSelectedFileName(null);
+        setStartTime(null);
+        startTimeRef.current = null;
+        setEstimatedTimeRemaining(null);
+        setInsufficientCreditsData({
+          currentBalance: creditBalance.creditsBalance,
+          requiredCredits: creditCost,
+        });
+        setShowInsufficientCreditsModal(true);
+        return;
+      }
+
       // Step 2: Create analysis record
       console.log('Creating analysis record...');
       const analysisId = await createAnalysisRecord(
@@ -445,6 +473,28 @@ export function AuthenticatedUploader({ onUploadComplete, onAnalysisComplete }: 
           </div>
         )}
       </div>
+
+      {showInsufficientCreditsModal && insufficientCreditsData && (
+        <InsufficientCreditsModal
+          isOpen={showInsufficientCreditsModal}
+          onClose={() => {
+            setShowInsufficientCreditsModal(false);
+            setInsufficientCreditsData(null);
+          }}
+          currentBalance={insufficientCreditsData.currentBalance}
+          requiredCredits={insufficientCreditsData.requiredCredits}
+          onUpgrade={() => {
+            if (onUpgrade) {
+              onUpgrade();
+            }
+          }}
+          onEarnCredits={() => {
+            if (onEarnCredits) {
+              onEarnCredits();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

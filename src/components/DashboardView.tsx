@@ -25,9 +25,11 @@ interface DeckAnalysis {
 interface DashboardViewProps {
   onViewAnalysis: (analysisId: string) => void;
   onNewUpload: () => void;
+  onUpgrade?: () => void;
+  onEarnCredits?: () => void;
 }
 
-export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProps) {
+export function DashboardView({ onViewAnalysis, onNewUpload, onUpgrade, onEarnCredits }: DashboardViewProps) {
   const { user } = useAuth();
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [analyses, setAnalyses] = useState<DeckAnalysis[]>([]);
@@ -603,6 +605,8 @@ export function DashboardView({ onViewAnalysis, onNewUpload }: DashboardViewProp
               <AuthenticatedUploader 
                 onUploadComplete={handleUploadComplete}
                 onAnalysisComplete={handleUploadComplete}
+                onUpgrade={onUpgrade}
+                onEarnCredits={onEarnCredits}
               />
             </div>
           )}

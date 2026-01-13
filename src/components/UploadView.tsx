@@ -8,18 +8,22 @@ import { HowItWorksSection } from './HowItWorksSection';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginModal } from './auth/LoginModal';
 import { SignUpModal } from './auth/SignUpModal';
+import { InsufficientCreditsModal } from './InsufficientCreditsModal';
 
 interface UploadViewProps {
   onAnalysisComplete: (data: any) => void;
   isAuthenticated: boolean;
+  onNavigate?: (view: string) => void;
 }
 
-export function UploadView({ onAnalysisComplete }: UploadViewProps) {
+export function UploadView({ onAnalysisComplete, onNavigate }: UploadViewProps) {
   const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [showInsufficientCreditsModal, setShowInsufficientCreditsModal] = useState(false);
+  const [insufficientCreditsData, setInsufficientCreditsData] = useState<{ currentBalance: number; requiredCredits: number } | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [shouldOpenFilePicker, setShouldOpenFilePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,6 +163,25 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
 
       if (pageImages.length > 30) {
         throw new Error('We can only analyze decks with 30 pages or less');
+      }
+
+      // Step 1.5: Check credits BEFORE creating analysis record
+      const { getUserCreditBalance } = await import('../services/creditService');
+      const creditBalance = await getUserCreditBalance();
+      const creditCost = pageImages.length; // 1 credit per page
+      
+      if (!creditBalance) {
+        throw new Error('Unable to fetch credit balance. Please try again.');
+      }
+
+      if (creditBalance.creditsBalance < creditCost) {
+        setIsUploading(false);
+        setInsufficientCreditsData({
+          currentBalance: creditBalance.creditsBalance,
+          requiredCredits: creditCost,
+        });
+        setShowInsufficientCreditsModal(true);
+        return;
       }
 
       // Step 2: Create analysis record
@@ -370,6 +393,28 @@ export function UploadView({ onAnalysisComplete }: UploadViewProps) {
           onClose={handleAuthCancel}
           onSwitchToLogin={handleSwitchToLogin}
           onSignUpSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {showInsufficientCreditsModal && insufficientCreditsData && (
+        <InsufficientCreditsModal
+          isOpen={showInsufficientCreditsModal}
+          onClose={() => {
+            setShowInsufficientCreditsModal(false);
+            setInsufficientCreditsData(null);
+          }}
+          currentBalance={insufficientCreditsData.currentBalance}
+          requiredCredits={insufficientCreditsData.requiredCredits}
+          onUpgrade={() => {
+            if (onNavigate) {
+              onNavigate('pricing');
+            }
+          }}
+          onEarnCredits={() => {
+            if (onNavigate) {
+              onNavigate('referrals');
+            }
+          }}
         />
       )}
     </div>

@@ -19,8 +19,16 @@ function getPublicImageUrl(storagePath: string | null): string | null {
   if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
     return storagePath;
   }
-  // Otherwise, construct the public URL from storage path
-  return `${supabaseUrl}/storage/v1/object/public/${storagePath}`;
+  // Use Supabase storage API to get public URL
+  // Storage path format in DB: analysisId/page_N.jpg (stored in slide-images bucket)
+  // Remove 'slide-images/' prefix if present
+  let path = storagePath.replace(/^slide-images\//, '');
+  
+  const { data: { publicUrl } } = supabase.storage
+    .from('slide-images')
+    .getPublicUrl(path);
+  
+  return publicUrl;
 }
 
 export interface AnalysisData {

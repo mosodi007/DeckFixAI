@@ -254,3 +254,14 @@ export function getCoverImageUrl(analysisId: string): string {
 
   return publicUrl;
 }
+
+export function getPageImageUrl(analysisId: string, pageNumber: number): string {
+  // Always generate fresh public URL from storage path
+  // This avoids issues with expired signed URLs stored in the database
+  // The bucket is public, so public URLs work without authentication
+  const { data: { publicUrl } } = supabase.storage
+    .from('slide-images')
+    .getPublicUrl(`${analysisId}/page_${pageNumber}.jpg`);
+  
+  return publicUrl;
+}

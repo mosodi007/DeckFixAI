@@ -9,8 +9,8 @@ import { InsufficientCreditsModal } from './InsufficientCreditsModal';
 import { generateSlideFix, generateIssueFix, GeneratedFix, getSlideFixes, SlideFix } from '../services/aiFixService';
 import { getUserCreditBalance } from '../services/creditService';
 import { useCredits } from '../contexts/CreditContext';
-import { supabase } from '../services/authService';
 import { normalizeScoreTo0To10 } from '../utils/scoreUtils';
+import { getPageImageUrl } from '../services/storageService';
 
 interface ImprovementFlowViewProps {
   data: any;
@@ -40,7 +40,9 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
   const [existingFixes, setExistingFixes] = useState<Record<number, SlideFix[]>>({});
   const [isLoadingFixes, setIsLoadingFixes] = useState(false);
 
-  const deckPages = data?.pages || Array.from({ length: 10 }, (_, i) => ({
+  // Generate image URLs for all pages when data is available
+  // This ensures we always use fresh public URLs instead of expired signed URLs from DB
+  const deckPages = (data?.pages || Array.from({ length: 10 }, (_, i) => ({
     page_number: i + 1,
     title: `Slide ${i + 1}`,
     score: Math.floor(Math.random() * 40) + 60,
@@ -50,7 +52,20 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
     ideal_version: null,
     thumbnail: null,
     image_url: null
-  }));
+  }))).map((page: any) => {
+    // Always generate fresh image URLs from analysis ID and page number
+    // This avoids using expired signed URLs that may be stored in the database
+    if (data?.id) {
+      return {
+        ...page,
+        imageUrl: getPageImageUrl(data.id, page.page_number),
+        image_url: getPageImageUrl(data.id, page.page_number),
+        thumbnailUrl: getPageImageUrl(data.id, page.page_number),
+        thumbnail: getPageImageUrl(data.id, page.page_number),
+      };
+    }
+    return page;
+  });
 
   const allIssues = [
     ...(data?.dealBreakers || [])
@@ -464,7 +479,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
                           pageNumber: page.page_number,
                           title: page.title,
                           score: page.score,
-                          thumbnail: page.thumbnailUrl || page.thumbnail || page.imageUrl || page.image_url || null
+                          thumbnail: data?.id ? getPageImageUrl(data.id, page.page_number) : null
                         }}
                         isSelected={selectedPage === page.page_number}
                         issueCount={sortedIssues.filter(i => i.pageNumber === page.page_number).length}
@@ -487,7 +502,7 @@ export function ImprovementFlowView({ data, onBack, isAnalyzing = false, isAuthe
           <div className="lg:col-span-8 space-y-6">
             {selectedPage > 0 && (() => {
               const currentPage = deckPages.find((p: any) => p.page_number === selectedPage);
-              // Handle both camelCase (from getAnalysis) and snake_case (fallback) formats
+              // Use imageUrl from deckPages which is already generated with fresh public URLs
               const imageUrl = currentPage?.imageUrl || currentPage?.image_url || null;
               return (
               <SlideViewer
